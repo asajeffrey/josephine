@@ -1,0 +1,7 @@
+[package]
+name = "linjs"
+version = "0.0.1"
+authors = ["ajeffrey@mozilla.com"]
+license = "MPL-2.0"
+
+[lib]
