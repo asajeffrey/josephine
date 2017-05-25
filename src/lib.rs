@@ -18,6 +18,9 @@ use std::marker::PhantomData;
 /// The trait for native JS-manageable data.
 pub unsafe trait JSManageable<'a> {
     /// This type should have the same mnemory represention as `Self`.
+    /// The only difference between `Self` and `Self::ChangeLifetime`
+    /// is that any `JSManaged<'b, Cx, T>` should be replaced by
+    /// `JSManaged<'a, Cx, T::ChangeLifetime>`.
     type ChangeLifetime: 'a;
 }
 
@@ -298,4 +301,12 @@ fn test() {
         }
     }
     with_js_context(Test);
+}
+
+#[test]
+fn test_covariant() {
+    #[allow(dead_code)]
+    fn cast<'a, 'b:'a, Cx, T>(managed: JSManaged<'b, Cx, T>) -> JSManaged<'a, Cx, T> {
+        managed
+    }
 }
