@@ -79,13 +79,10 @@ pub fn with_js_context<C, T>(consumer: C) -> T where
     consumer.consume(&mut cx)
 }
 
-/// The type of JS-managed data in a JS context `Cx`.
+/// The type of JS-managed data in a JS context `Cx`, with lifetime `'a`.
 ///
-/// If the user has access to a `&JSManaged`, then the JS-managed
-/// data is live for the lifetime of the reference. In particular,
-/// this means that there should never be any stack-allocated
-/// `JSManaged` values, since they would allow the user to construct
-/// `&JSManaged` references with arbitrary lifetimes.
+/// If the user has access to a `JSManaged`, then the JS-managed
+/// data is live for the given lifetime.
 pub struct JSManaged<'a, Cx, T> {
     // JS reflector goes here
     raw: *mut T,
@@ -122,7 +119,7 @@ impl<'a, Cx, T> JSManaged<'a, Cx, T> {
         T: JSManageable<'b>,
         'a: 'b,
     {
-        access.get::<'b, 'b, T>(self)
+        access.get(self)
     }
 
     /// Convenience method for `access.get_mut(self)`.
