@@ -155,6 +155,15 @@ impl<'a, Cx, T> JSManaged<'a, Cx, T> {
     {
         unsafe { self.change_lifetime() }
     }
+
+    /// It's safe to extend the lifetime of JS-managed data by rooting it.
+    pub fn root<'b>(self, _: &'b JSRoots<Cx>) -> JSManaged<'b, Cx, T::ChangeLifetime> where
+        T: JSManageable<'b>,
+        'b: 'a,
+    {
+        // The real thing would add the reflector to the root set.
+        unsafe { self.change_lifetime() }
+    }
 }
 
 /// A root set.
@@ -168,13 +177,6 @@ impl<Cx> JSRoots<Cx> {
         JSRoots {
             marker: PhantomData,
         }
-    }
-    pub fn root<'a, 'b, T>(&'a self, managed: JSManaged<'b, Cx, T>) -> JSManaged<'a, Cx, T::ChangeLifetime> where
-        'a: 'b,
-        T: JSManageable<'a>,
-    {
-        // The real thing would add the JS reflector to the root set
-        unsafe { managed.change_lifetime() }
     }
 }
 
@@ -280,7 +282,7 @@ fn test() {
     impl JSContextConsumer<()> for Test {
         fn consume<Cx>(self, cx: &mut Cx) where Cx: JSContext {
             let roots = JSRoots::new();
-            let graph = roots.root(cx.manage(NativeGraph { nodes: vec![] }));
+            let graph = cx.manage(NativeGraph { nodes: vec![] }).root(&roots);
             self.add_nodes(cx, graph);
             assert_eq!(graph.get(cx).nodes[0].get(cx).data, 1);
             assert_eq!(graph.get(cx).nodes[1].get(cx).data, 2);
@@ -294,8 +296,8 @@ fn test() {
             // Creating nodes does memory allocation, which may trigger GC,
             // so the nodes need to be rooted while they are being added.
             let roots = JSRoots::new();
-            let node1 = roots.root(cx.manage(NativeNode { data: 1, edges: vec![] }));
-            let node2 = roots.root(cx.manage(NativeNode { data: 2, edges: vec![] }));
+            let node1 = cx.manage(NativeNode { data: 1, edges: vec![] }).root(&roots);
+            let node2 = cx.manage(NativeNode { data: 2, edges: vec![] }).root(&roots);
             graph.get_mut(cx).nodes.push(node1.contract_lifetime());
             graph.get_mut(cx).nodes.push(node2.contract_lifetime());
         }
