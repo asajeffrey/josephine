@@ -14,15 +14,22 @@
 //! argument, which gives us control of when GC might occur.
 
 use std::marker::PhantomData;
-use std::ops::Deref;
+
+/// The trait for native JS-manageable data.
+pub unsafe trait JSManageable<'a> {
+    /// This type should have the same mnemory represention as `Self`.
+    type ChangeLifetime: 'a;
+}
 
 /// The trait for accessing JS-managed data.
 pub trait JSAccess<Cx>: Sized {
     /// Read-only access to native JS-managed data.
-    fn get<T>(&self, managed: &JSManaged<Cx, T>) -> &T;
+    fn get<'a, 'b:'a, T>(&'a self, managed: JSManaged<'b, Cx, T>) -> &'a T::ChangeLifetime where
+        T: JSManageable<'a>;
     
     /// Read-write access to native JS-managed data.
-    fn get_mut<T>(&mut self, managed: &JSManaged<Cx, T>) -> &mut T;
+    fn get_mut<'a, 'b:'a, T>(&'a mut self, managed: JSManaged<'b, Cx, T>) -> &'a mut T::ChangeLifetime where
+        T: JSManageable<'a>;
 }
 
 /// The trait for JS contexts.
@@ -31,32 +38,17 @@ pub trait JSContext: JSAccess<Self> {
     /// The snapshot only allows access to the methods that are guaranteed not to call GC,
     /// so we don't need to root JS-managed pointers during the lifetime of a snapshot.
     fn snapshot(&mut self) -> JSSnapshot<Self>;
-
-    /// Call a setter of JS-managed data.
-    /// The reason for this function to exist is that it takes ownership of a JS-managed reference,
-    /// since the object is passed in as a `&JSManaged`, but when the setter is called it is a `JSMansaged`.
-    /// A typical use of it is something like:
-    /// ```rust
-    /// struct Foo<Cx> { bar: JSManaged<Cx, Bar> };
-    /// impl<Cx> Foo<Cx> { fn set_bar(&mut self, bar: JSManaged<Cx, Bar>) { self.bar = bar; }
-    /// fn example<Cx: JSContext>(cx: &mut Cx, foo: &JSManaged<Cx, Foo>, bar: &JSManaged<Cx, Bar>) {
-    ///     cx.call_setter(foo, Foo::set_bar, bar);
-    /// }
-    /// ```
-    /// (If Rust allowed write-only references, we could probably avoid this, but
-    /// it doesn't, so we do a hack to stop the `JSManaged` value from escaping.
-    fn call_setter<S, T>(&mut self, subject: &JSManaged<Self, S>, verb: fn(&mut S, JSManaged<Self, T>), object: &JSManaged<Self, T>) where
-        S: JSTraceable<Self>;
     
     /// Give ownership of data to JS.
     /// This allocates JS heap, which may trigger GC.
-    fn manage<T>(&self, value: T) -> &JSManaged<Self, T>;
+    fn manage<'a, T>(&'a self, value: T) -> JSManaged<'a, Self, T>
+        where T: 'a + JSManageable<'a, ChangeLifetime=T>;
     
     // A real implementation would also have JS methods such as those in jsapi.
 }
 
 /// A placholder for the real `JSTraceable`.
-pub trait JSTraceable<Cx> {}
+pub unsafe trait JSTraceable<Cx> {}
 
 /// A user of a JS context implements `JSContextConsumer`, which is called back
 /// with a fresh JS context.
@@ -91,72 +83,84 @@ pub fn with_js_context<C, T>(consumer: C) -> T where
 /// this means that there should never be any stack-allocated
 /// `JSManaged` values, since they would allow the user to construct
 /// `&JSManaged` references with arbitrary lifetimes.
-pub struct JSManaged<Cx, T> {
+pub struct JSManaged<'a, Cx, T> {
     // JS reflector goes here
     raw: *mut T,
-    marker: PhantomData<Cx>,
+    marker: PhantomData<(&'a(),Cx)>,
 }
 
-impl<Cx, T> JSManaged<Cx, T> {
-    // Under the hood, `JSManaged` data is cloneable,
-    // but it is important for safety that this function
-    // is only called when we have some reason to be confident
-    // in its safety.
-    unsafe fn clone(&self) -> Self {
+impl<'a, Cx, T> Clone for JSManaged<'a, Cx, T> {
+    fn clone(&self) -> Self {
         JSManaged {
             raw: self.raw,
             marker: self.marker,
         }
     }
+}
 
+impl<'a, Cx, T> Copy for JSManaged<'a, Cx, T> {
+}
+
+unsafe impl<'a, 'b, Cx, T> JSManageable<'b> for JSManaged<'a, Cx, T> where
+    Cx: 'b,
+    T: JSManageable<'b>,
+{
+    type ChangeLifetime = JSManaged<'b, Cx, T::ChangeLifetime>;
+}
+
+impl<'a, Cx, T> JSManaged<'a, Cx, T> {
     /// Convenience method for `access.get(self)`.
-    pub fn get<'a, Access: JSAccess<Cx>>(&'a self, access: &'a Access) -> &'a T {
-        access.get(self)
+    pub fn get<'b, Access: JSAccess<Cx>>(self, access: &'b Access) -> &'b T::ChangeLifetime where
+        T: JSManageable<'b>,
+        'a: 'b,
+    {
+        access.get::<'b, 'b, T>(self)
     }
 
     /// Convenience method for `access.get_mut(self)`.
-    pub fn get_mut<'a, Access: JSAccess<Cx>>(&'a self, access: &'a mut Access) -> &'a mut T {
+    pub fn get_mut<'b, Access: JSAccess<Cx>>(self, access: &'b mut Access) -> &'b mut T::ChangeLifetime where
+        T: JSManageable<'b>,
+        'a: 'b,
+    {
         access.get_mut(self)
     }
 
     /// Convenience method for `snapshot.extend_lifetime(self)`.
-    pub fn extend_lifetime<'a>(&self, snapshot: &JSSnapshot<'a, Cx>) -> &'a JSManaged<Cx, T> where
-        Cx: JSContext
+    pub fn extend_lifetime<'b>(self, snapshot: &JSSnapshot<'b, Cx>) -> JSManaged<'b, Cx, T::ChangeLifetime> where
+        Cx: JSContext,
+        T: JSManageable<'b>,
     {
         snapshot.extend_lifetime(self)
     }
 }
 
-/// The type of rooted JS-managed data in a JS context `Cx`.
-///
-/// If a user needs to keep JS-managed data on the stack,
-/// they can do it by rooting the data.
-pub struct JSRooted<Cx, T>(JSManaged<Cx, T>);
+/// A root set.
+pub struct JSRoots<Cx> {
+    // The real thing would contain a set of rooted JS objects.
+    marker: PhantomData<Cx>,
+}
 
-impl<Cx, T> JSRooted<Cx, T> {
-    // The real thing would add the JS reflector to the root multiset
-    pub fn new(managed: &JSManaged<Cx, T>) -> JSRooted<Cx, T> {
-        JSRooted(unsafe { managed.clone() })
+impl<Cx> JSRoots<Cx> {
+    pub fn new() -> JSRoots<Cx> {
+        JSRoots {
+            marker: PhantomData,
+        }
+    }
+    pub fn root<'a, 'b, T>(&'a self, managed: JSManaged<'b, Cx, T>) -> JSManaged<'a, Cx, T::ChangeLifetime> where
+        'a: 'b,
+        T: JSManageable<'a>,
+    {
+        // The real thing would add the JS reflector to the root set
+        JSManaged {
+            raw: managed.raw as *mut T::ChangeLifetime,
+            marker: PhantomData,
+        }
     }
 }
 
-impl<Cx, T> Clone for JSRooted<Cx, T> {
-    // The real thing would add the JS reflector to the root multiset
-    fn clone(&self) -> JSRooted<Cx, T> {
-        JSRooted(unsafe { self.0.clone() })
-    }
-}
-
-impl<Cx, T> Drop for JSRooted<Cx, T> {
-    // The real thing would remove the JS reflector from the root multiset
+impl<Cx> Drop for JSRoots<Cx> {
     fn drop(&mut self) {
-    }
-}
-
-impl<Cx, T> Deref for JSRooted<Cx, T> {
-    type Target = JSManaged<Cx, T>;
-    fn deref(&self) -> &JSManaged<Cx, T> {
-        &self.0
+        // The real thing would unroot the root set.
     }
 }
 
@@ -165,9 +169,9 @@ impl<Cx, T> Deref for JSRooted<Cx, T> {
 /// The idea here is that during the lifetime of a JSSnapshot<Cx>, the JS state
 /// doesn't change, and in particular GC doesn't happen. This allows us to avoid
 /// some rooting.
-pub struct JSSnapshot<'a, Cx: 'a>(&'a mut Cx);
+pub struct JSSnapshot<'c, Cx: 'c>(&'c mut Cx);
 
-impl<'a, Cx: 'a> JSSnapshot<'a, Cx> where
+impl<'c, Cx: 'c> JSSnapshot<'c, Cx> where
     Cx: JSContext
 {
     /// Build a new snapshot
@@ -177,31 +181,30 @@ impl<'a, Cx: 'a> JSSnapshot<'a, Cx> where
             
     /// Extend the lifetime of JS-managed data.
     /// This is safe because no GC will happen during the lifetime of this snapshot.
-    pub fn extend_lifetime<T>(&self, managed: &JSManaged<Cx, T>) -> &'a JSManaged<Cx, T> {
-        let raw = managed as *const JSManaged<Cx, T>;
-        unsafe { &*raw }
-    }
-
-    /// Call a setter of JS-managed data.
-    pub fn call_setter<S, T>(&mut self, subject: &JSManaged<Cx, S>, verb: fn(&mut S, JSManaged<Cx, T>), object: &JSManaged<Cx, T>) where
-        S: JSTraceable<Cx>
+    pub fn extend_lifetime<'a, T>(&'a self, managed: JSManaged<'a, Cx, T>) -> JSManaged<'c, Cx, T::ChangeLifetime>
+        where T: JSManageable<'c>
     {
-        self.0.call_setter(subject, verb, object);
+        JSManaged {
+            raw: managed.raw as *mut T::ChangeLifetime,
+            marker: PhantomData,
+        }
     }
 }
 
-impl<'a, Cx: 'a> JSAccess<Cx> for JSSnapshot<'a, Cx> where
+impl<'c, Cx: 'c> JSAccess<Cx> for JSSnapshot<'c, Cx> where
     Cx: JSContext
 {
-    /// Read-only access to JS-managed data.
-    fn get<T>(&self, managed: &JSManaged<Cx, T>) -> &T {
+    /// Read-only access to native JS-managed data.
+    fn get<'a, 'b:'a, T>(&'a self, managed: JSManaged<'b, Cx, T>) -> &'a T::ChangeLifetime where
+        T: JSManageable<'a>
+    {
         self.0.get(managed)
     }
     
-    /// Read-write access to JS-managed data.
-    /// Note that this doesn't give access to the JS heap, just to the native heap,
-    /// since the user only has access to a `JSSnaphot`, not a `JSContext`.
-    fn get_mut<T>(&mut self, managed: &JSManaged<Cx, T>) -> &mut T {
+    /// Read-write access to native JS-managed data.
+    fn get_mut<'a, 'b:'a, T>(&'a mut self, managed: JSManaged<'b, Cx, T>) -> &'a mut T::ChangeLifetime where
+        T: JSManageable<'a>
+    {
         self.0.get_mut(managed)
     }
 }
@@ -213,34 +216,34 @@ struct JSContextImpl {
 
 impl JSAccess<JSContextImpl> for JSContextImpl {
     // The claim is that this is safe, since it takes a `&self`.
-    fn get<T>(&self, managed: &JSManaged<Self, T>) -> &T {
-        unsafe { &*managed.raw }
+    fn get<'a, 'b:'a, T>(&'a self, managed: JSManaged<'b, Self, T>) -> &'a T::ChangeLifetime where
+        T: JSManageable<'a>
+    {
+        unsafe { &*(managed.raw as *mut T::ChangeLifetime) }
     }
 
     // The claim is that this is safe, since it takes a `&mut self`.
-    fn get_mut<T>(&mut self, managed: &JSManaged<Self, T>) -> &mut T {
-        unsafe { &mut *managed.raw }
+    fn get_mut<'a, 'b:'a, T>(&'a mut self, managed: JSManaged<'b, Self, T>) -> &'a mut T::ChangeLifetime where
+        T: JSManageable<'a>
+    {
+        unsafe { &mut *(managed.raw as *mut T::ChangeLifetime) }
     }
 }
 
 impl JSContext for JSContextImpl {
-    fn call_setter<S, T>(&mut self, subject: &JSManaged<Self, S>, verb: fn(&mut S, JSManaged<Self, T>), object: &JSManaged<Self, T>) {
-        verb(self.get_mut(subject), unsafe { object.clone() });
-    }
-    
     fn snapshot(&mut self) -> JSSnapshot<Self> {
         JSSnapshot(self)
     }
 
     // This outline implementation just space-leaks all data,
     // the real thing would create a reflector, and add a finalizer hook.
-    fn manage<T>(&self, value: T) -> &JSManaged<Self, T> {
-        let managed = JSManaged{
+    fn manage<'a, T>(&'a self, value: T) -> JSManaged<'a, Self, T>
+        where T: 'a + JSManageable<'a, ChangeLifetime=T>
+    {
+        JSManaged {
             raw: Box::into_raw(Box::new(value)),
             marker: PhantomData,
-        };
-        let raw = Box::into_raw(Box::new(managed));
-        unsafe { &*raw }
+        }
     }
 }
 
@@ -249,56 +252,49 @@ impl JSContext for JSContextImpl {
 // example of something that uses `RefCell`s in servo's JS bindings.
 fn test() {
     // A graph type
-    type Graph<Cx> = JSManaged<Cx, NativeGraph<Cx>>;
-    struct NativeGraph<Cx> {
-        nodes: Vec<Node<Cx>>,
+    type Graph<'a, Cx> = JSManaged<'a, Cx, NativeGraph<'a, Cx>>;
+    struct NativeGraph<'a, Cx> {
+        nodes: Vec<Node<'a, Cx>>,
     }
-    impl<Cx> NativeGraph<Cx> {
-        fn push_node(&mut self, node: Node<Cx>) {
-            self.nodes.push(node);
-        }
-    }
-    impl<Cx> JSTraceable<Cx> for NativeGraph<Cx> {}
+    unsafe impl<'a, 'b, Cx: 'b> JSManageable<'b> for NativeGraph<'a, Cx> { type ChangeLifetime = NativeGraph<'b, Cx>; }
+    unsafe impl<'a, Cx> JSTraceable<Cx> for NativeGraph<'a, Cx> {}
     // A node type
-    type Node<Cx> = JSManaged<Cx, NativeNode<Cx>>;
-    struct NativeNode<Cx> {
+    type Node<'a, Cx> = JSManaged<'a, Cx, NativeNode<'a, Cx>>;
+    struct NativeNode<'a, Cx> {
         data: usize,
-        edges: Vec<Node<Cx>>,
+        edges: Vec<Node<'a, Cx>>,
     }
-    impl<Cx> NativeNode<Cx> {
-        fn push_edge(&mut self, node: Node<Cx>) {
-            self.edges.push(node);
-        }
-    }
-    impl<Cx> JSTraceable<Cx> for NativeNode<Cx> {}
+    unsafe impl<'a, 'b, Cx: 'b> JSManageable<'b> for NativeNode<'a, Cx> { type ChangeLifetime = NativeNode<'b, Cx>; }
+    unsafe impl<'a, Cx> JSTraceable<Cx> for NativeNode<'a, Cx> {}
     // Build a cyclic graph
     struct Test;
     impl JSContextConsumer<()> for Test {
         fn consume<Cx>(self, cx: &mut Cx) where Cx: JSContext {
-            let graph = JSRooted::new(cx.manage(NativeGraph { nodes: vec![] }));
-            self.add_nodes(cx, &graph);
+            let roots = JSRoots::new();
+            let graph = roots.root(cx.manage(NativeGraph { nodes: vec![] }));
+            self.add_node(cx, graph, 1);
+            self.add_node(cx, graph, 2);
             assert_eq!(graph.get(cx).nodes[0].get(cx).data, 1);
             assert_eq!(graph.get(cx).nodes[1].get(cx).data, 2);
-            self.add_edges(&mut cx.snapshot(), &graph);
+            self.add_edge(&mut cx.snapshot(), graph, 0, 1);
+            self.add_edge(&mut cx.snapshot(), graph, 1, 0);
             assert_eq!(graph.get(cx).nodes[0].get(cx).edges[0].get(cx).data, 2);
             assert_eq!(graph.get(cx).nodes[1].get(cx).edges[0].get(cx).data, 1);
         }
     }
     impl Test {
-        fn add_nodes<Cx: JSContext>(&self, cx: &mut Cx, graph: &Graph<Cx>) {
+        fn add_node<Cx: JSContext>(&self, cx: &mut Cx, graph: Graph<Cx>, data: usize) {
             // Creating nodes does memory allocation, which may trigger GC,
-            // so the nodes need to be rooted while they are being added.
-            let node1 = JSRooted::new(cx.manage(NativeNode { data: 1, edges: vec![] }));
-            let node2 = JSRooted::new(cx.manage(NativeNode { data: 2, edges: vec![] }));
-            cx.call_setter(&graph, NativeGraph::push_node, &node1);
-            cx.call_setter(&graph, NativeGraph::push_node, &node2);
+            // so the node needs to be rooted while it is being added.
+            let roots = JSRoots::new();
+            let node1 = roots.root(cx.manage(NativeNode { data: data, edges: vec![] }));
+            graph.get_mut(cx).nodes.push(node1);
         }
-        fn add_edges<Cx: JSContext>(&self, cx: &mut JSSnapshot<Cx>, graph: &Graph<Cx>) {
+        fn add_edge<Cx: JSContext>(&self, cx: &mut JSSnapshot<Cx>, graph: Graph<Cx>, from: usize, to: usize) {
             // Note that there's no rooting here.
-            let node1 = graph.get(cx).nodes[0].extend_lifetime(cx);
-            let node2 = graph.get(cx).nodes[1].extend_lifetime(cx);
-            cx.call_setter(node1, NativeNode::push_edge, node2);
-            cx.call_setter(node2, NativeNode::push_edge, node1);
+            let node1 = graph.get(cx).nodes[from].extend_lifetime(cx);
+            let node2 = graph.get(cx).nodes[to].extend_lifetime(cx);
+            node1.get_mut(cx).edges.push(node2);
         }
     }
     with_js_context(Test);
