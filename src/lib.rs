@@ -15,15 +15,6 @@
 
 use std::marker::PhantomData;
 
-/// The trait for native JS-manageable data.
-pub unsafe trait JSManageable<'a> {
-    /// This type should have the same mnemory represention as `Self`.
-    /// The only difference between `Self` and `Self::ChangeLifetime`
-    /// is that any `JSManaged<'b, Cx, T>` should be replaced by
-    /// `JSManaged<'a, Cx, T::ChangeLifetime>`.
-    type ChangeLifetime: 'a;
-}
-
 /// The trait for accessing JS-managed data.
 pub trait JSAccess<Cx>: Sized {
     /// Read-only access to native JS-managed data.
@@ -51,7 +42,16 @@ pub trait JSContext: JSAccess<Self> {
 }
 
 /// A placholder for the real `JSTraceable`.
-pub unsafe trait JSTraceable<Cx> {}
+pub unsafe trait JSTraceable {}
+
+/// The trait for native JS-manageable data.
+pub unsafe trait JSManageable<'a>: JSTraceable {
+    /// This type should have the same mnemory represention as `Self`.
+    /// The only difference between `Self` and `Self::ChangeLifetime`
+    /// is that any `JSManaged<'b, Cx, T>` should be replaced by
+    /// `JSManaged<'a, Cx, T::ChangeLifetime>`.
+    type ChangeLifetime: 'a;
+}
 
 /// A user of a JS context implements `JSContextConsumer`, which is called back
 /// with a fresh JS context.
@@ -102,6 +102,11 @@ impl<'a, Cx, T> Clone for JSManaged<'a, Cx, T> {
 }
 
 impl<'a, Cx, T> Copy for JSManaged<'a, Cx, T> {
+}
+
+unsafe impl<'a, Cx, T> JSTraceable for JSManaged<'a, Cx, T> where
+    T: JSTraceable
+{
 }
 
 unsafe impl<'a, 'b, Cx, T> JSManageable<'b> for JSManaged<'a, Cx, T> where
@@ -263,16 +268,16 @@ fn test() {
     struct NativeGraph<'a, Cx> {
         nodes: Vec<Node<'a, Cx>>,
     }
+    unsafe impl<'a, Cx> JSTraceable for NativeGraph<'a, Cx> {}
     unsafe impl<'a, 'b, Cx: 'b> JSManageable<'b> for NativeGraph<'a, Cx> { type ChangeLifetime = NativeGraph<'b, Cx>; }
-    unsafe impl<'a, Cx> JSTraceable<Cx> for NativeGraph<'a, Cx> {}
     // A node type
     type Node<'a, Cx> = JSManaged<'a, Cx, NativeNode<'a, Cx>>;
     struct NativeNode<'a, Cx> {
         data: usize,
         edges: Vec<Node<'a, Cx>>,
     }
+    unsafe impl<'a, Cx> JSTraceable for NativeNode<'a, Cx> {}
     unsafe impl<'a, 'b, Cx: 'b> JSManageable<'b> for NativeNode<'a, Cx> { type ChangeLifetime = NativeNode<'b, Cx>; }
-    unsafe impl<'a, Cx> JSTraceable<Cx> for NativeNode<'a, Cx> {}
     // Build a cyclic graph
     struct Test;
     impl JSContextConsumer<()> for Test {
