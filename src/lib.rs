@@ -32,7 +32,10 @@ pub trait JSContext: JSAccess<Self> {
     /// The snapshot only allows access to the methods that are guaranteed not to call GC,
     /// so we don't need to root JS-managed pointers during the lifetime of a snapshot.
     fn snapshot(&mut self) -> JSSnapshot<Self>;
-    
+
+    /// Add a new root set to the context.
+    fn roots(&mut self) -> JSRoots<Self>;
+
     /// Give ownership of data to JS.
     /// This allocates JS heap, which may trigger GC.
     fn manage<'a, T>(&'a self, value: T) -> JSManaged<'a, Self, T>
@@ -172,14 +175,6 @@ pub struct JSRoots<Cx> {
     marker: PhantomData<Cx>,
 }
 
-impl<Cx> JSRoots<Cx> {
-    pub fn new() -> JSRoots<Cx> {
-        JSRoots {
-            marker: PhantomData,
-        }
-    }
-}
-
 impl<Cx> Drop for JSRoots<Cx> {
     fn drop(&mut self) {
         // The real thing would unroot the root set.
@@ -246,6 +241,10 @@ impl JSContext for JSContextImpl {
         JSSnapshot(self)
     }
 
+    fn roots(&mut self) -> JSRoots<Self> {
+        JSRoots { marker: PhantomData }
+    }
+
     // This outline implementation just space-leaks all data,
     // the real thing would create a reflector, and add a finalizer hook.
     fn manage<'a, T>(&'a self, value: T) -> JSManaged<'a, Self, T>
@@ -281,7 +280,7 @@ fn test() {
     struct Test;
     impl JSContextConsumer<()> for Test {
         fn consume<Cx>(self, cx: &mut Cx) where Cx: JSContext {
-            let roots = JSRoots::new();
+            let roots = cx.roots();
             let graph = cx.manage(NativeGraph { nodes: vec![] }).root(&roots);
             self.add_nodes(cx, graph);
             assert_eq!(graph.get(cx).nodes[0].get(cx).data, 1);
@@ -295,7 +294,7 @@ fn test() {
         fn add_nodes<'a, 'b, Cx: JSContext>(&'a self, cx: &'a mut Cx, graph: Graph<'b, Cx>) {
             // Creating nodes does memory allocation, which may trigger GC,
             // so the nodes need to be rooted while they are being added.
-            let roots = JSRoots::new();
+            let roots = cx.roots();
             let node1 = cx.manage(NativeNode { data: 1, edges: vec![] }).root(&roots);
             let node2 = cx.manage(NativeNode { data: 2, edges: vec![] }).root(&roots);
             graph.get_mut(cx).nodes.push(node1.contract_lifetime());
