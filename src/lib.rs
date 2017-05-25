@@ -128,12 +128,30 @@ impl<'a, Cx, T> JSManaged<'a, Cx, T> {
         access.get_mut(self)
     }
 
-    /// Convenience method for `snapshot.extend_lifetime(self)`.
-    pub fn extend_lifetime<'b>(self, snapshot: &JSSnapshot<'b, Cx>) -> JSManaged<'b, Cx, T::ChangeLifetime> where
-        Cx: JSContext,
+    /// Change the lifetime of JS-managed data.
+    pub unsafe fn change_lifetime<'b>(self) -> JSManaged<'b, Cx, T::ChangeLifetime> where
         T: JSManageable<'b>,
     {
-        snapshot.extend_lifetime(self)
+        JSManaged {
+            raw: self.raw as *mut T::ChangeLifetime,
+            marker: PhantomData,
+        }
+    }
+
+    /// It's safe to contract the lifetime of JS-managed data.
+    pub fn contract_lifetime<'b>(self) -> JSManaged<'b, Cx, T::ChangeLifetime> where
+        T: JSManageable<'b>,
+        'a: 'b,
+    {
+        unsafe { self.change_lifetime() }
+    }
+
+    /// It's safe to extend the lifetime of JS-managed data if it has been snapshotted.
+    pub fn extend_lifetime<'b>(self, _: &JSSnapshot<'b, Cx>) -> JSManaged<'b, Cx, T::ChangeLifetime> where
+        T: JSManageable<'b>,
+        'b: 'a,
+    {
+        unsafe { self.change_lifetime() }
     }
 }
 
@@ -154,10 +172,7 @@ impl<Cx> JSRoots<Cx> {
         T: JSManageable<'a>,
     {
         // The real thing would add the JS reflector to the root set
-        JSManaged {
-            raw: managed.raw as *mut T::ChangeLifetime,
-            marker: PhantomData,
-        }
+        unsafe { managed.change_lifetime() }
     }
 }
 
@@ -180,17 +195,6 @@ impl<'c, Cx: 'c> JSSnapshot<'c, Cx> where
     /// Build a new snapshot
     pub fn new(cx: &mut Cx) -> JSSnapshot<Cx> {
         JSSnapshot(cx)
-    }
-            
-    /// Extend the lifetime of JS-managed data.
-    /// This is safe because no GC will happen during the lifetime of this snapshot.
-    pub fn extend_lifetime<'a, T>(&'a self, managed: JSManaged<'a, Cx, T>) -> JSManaged<'c, Cx, T::ChangeLifetime>
-        where T: JSManageable<'c>
-    {
-        JSManaged {
-            raw: managed.raw as *mut T::ChangeLifetime,
-            marker: PhantomData,
-        }
     }
 }
 
@@ -275,30 +279,36 @@ fn test() {
         fn consume<Cx>(self, cx: &mut Cx) where Cx: JSContext {
             let roots = JSRoots::new();
             let graph = roots.root(cx.manage(NativeGraph { nodes: vec![] }));
-            self.add_node(cx, graph, 1);
-            self.add_node(cx, graph, 2);
+            self.add_nodes(cx, graph);
             assert_eq!(graph.get(cx).nodes[0].get(cx).data, 1);
             assert_eq!(graph.get(cx).nodes[1].get(cx).data, 2);
-            self.add_edge(&mut cx.snapshot(), graph, 0, 1);
-            self.add_edge(&mut cx.snapshot(), graph, 1, 0);
+            self.add_edges(&mut cx.snapshot(), graph);
             assert_eq!(graph.get(cx).nodes[0].get(cx).edges[0].get(cx).data, 2);
             assert_eq!(graph.get(cx).nodes[1].get(cx).edges[0].get(cx).data, 1);
         }
     }
     impl Test {
-        fn add_node<Cx: JSContext>(&self, cx: &mut Cx, graph: Graph<Cx>, data: usize) {
+        fn add_nodes<'a, 'b, Cx: JSContext>(&'a self, cx: &'a mut Cx, graph: Graph<'b, Cx>) {
             // Creating nodes does memory allocation, which may trigger GC,
-            // so the node needs to be rooted while it is being added.
+            // so the nodes need to be rooted while they are being added.
             let roots = JSRoots::new();
-            let node1 = roots.root(cx.manage(NativeNode { data: data, edges: vec![] }));
-            graph.get_mut(cx).nodes.push(node1);
+            let node1 = roots.root(cx.manage(NativeNode { data: 1, edges: vec![] }));
+            let node2 = roots.root(cx.manage(NativeNode { data: 2, edges: vec![] }));
+            graph.get_mut(cx).nodes.push(node1.contract_lifetime());
+            graph.get_mut(cx).nodes.push(node2.contract_lifetime());
         }
-        fn add_edge<Cx: JSContext>(&self, cx: &mut JSSnapshot<Cx>, graph: Graph<Cx>, from: usize, to: usize) {
+        fn add_edges<Cx: JSContext>(&self, cx: &mut JSSnapshot<Cx>, graph: Graph<Cx>) {
             // Note that there's no rooting here.
-            let node1 = graph.get(cx).nodes[from].extend_lifetime(cx);
-            let node2 = graph.get(cx).nodes[to].extend_lifetime(cx);
-            node1.get_mut(cx).edges.push(node2);
+            let node1 = graph.get(cx).nodes[0].extend_lifetime(cx);
+            let node2 = graph.get(cx).nodes[1].extend_lifetime(cx);
+            node1.get_mut(cx).edges.push(node2.contract_lifetime());
+            node2.get_mut(cx).edges.push(node1.contract_lifetime());
         }
+    }
+    #[allow(dead_code)]
+    // Test that we can contract the lifetimes of nodes and graphs.
+    fn contract_graph<'a, 'b:'a, Cx: 'b>(graph: Graph<'b, Cx>) -> Graph<'a, Cx> {
+        graph.contract_lifetime()
     }
     with_js_context(Test);
 }
@@ -306,7 +316,9 @@ fn test() {
 #[test]
 fn test_covariant() {
     #[allow(dead_code)]
-    fn cast<'a, 'b:'a, Cx, T>(managed: JSManaged<'b, Cx, T>) -> JSManaged<'a, Cx, T> {
+    fn cast<'a, 'b:'a, Cx, T>(managed: JSManaged<'b, Cx, T>)
+                              -> JSManaged<'a, Cx, T>
+    {
         managed
     }
 }
