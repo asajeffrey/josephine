@@ -15,16 +15,8 @@
 
 use std::marker::PhantomData;
 
-/// The trait for accessing JS-managed data.
-pub trait JSAccess<Cx>: Sized {
-    /// Read-only access to native JS-managed data.
-    fn get<'a, 'b:'a, T>(&'a self, managed: JSManaged<'b, Cx, T>) -> &'a T::ChangeLifetime where
-        T: JSManageable<'a>;
-    
-    /// Read-write access to native JS-managed data.
-    fn get_mut<'a, 'b:'a, T>(&'a mut self, managed: JSManaged<'b, Cx, T>) -> &'a mut T::ChangeLifetime where
-        T: JSManageable<'a>;
-}
+/// A marker trait for accessing JS-managed data.
+pub unsafe trait JSAccess<Cx>: Sized {}
 
 /// The trait for JS contexts.
 pub trait JSContext: JSAccess<Self> {
@@ -117,20 +109,20 @@ unsafe impl<'a, 'b, Cx, T> JSManageable<'b> for JSManaged<'a, Cx, T> where
 }
 
 impl<'a, Cx, T> JSManaged<'a, Cx, T> {
-    /// Convenience method for `access.get(self)`.
-    pub fn get<'b, Access: JSAccess<Cx>>(self, access: &'b Access) -> &'b T::ChangeLifetime where
+    /// Read-only access to JS-managed data.
+    pub fn get<'b, Access: JSAccess<Cx>>(self, _: &'b Access) -> &'b T::ChangeLifetime where
         T: JSManageable<'b>,
         'a: 'b,
     {
-        access.get(self)
+        unsafe { &*self.contract_lifetime().raw }
     }
 
-    /// Convenience method for `access.get_mut(self)`.
-    pub fn get_mut<'b, Access: JSAccess<Cx>>(self, access: &'b mut Access) -> &'b mut T::ChangeLifetime where
+    /// Read-write access to JS-managed data.
+    pub fn get_mut<'b, Access: JSAccess<Cx>>(self, _: &'b mut Access) -> &'b mut T::ChangeLifetime where
         T: JSManageable<'b>,
         'a: 'b,
     {
-        access.get_mut(self)
+        unsafe { &mut *self.contract_lifetime().raw }
     }
 
     /// Change the lifetime of JS-managed data.
@@ -188,8 +180,8 @@ impl<Cx> Drop for JSRoots<Cx> {
 /// some rooting.
 pub struct JSSnapshot<'c, Cx: 'c>(&'c mut Cx);
 
-impl<'c, Cx: 'c> JSSnapshot<'c, Cx> where
-    Cx: JSContext
+impl<'c, Cx> JSSnapshot<'c, Cx> where
+    Cx: 'c + JSContext
 {
     /// Build a new snapshot
     pub fn new(cx: &mut Cx) -> JSSnapshot<Cx> {
@@ -197,22 +189,9 @@ impl<'c, Cx: 'c> JSSnapshot<'c, Cx> where
     }
 }
 
-impl<'c, Cx: 'c> JSAccess<Cx> for JSSnapshot<'c, Cx> where
-    Cx: JSContext
+unsafe impl<'c, Cx> JSAccess<Cx> for JSSnapshot<'c, Cx> where
+    Cx: 'c + JSContext
 {
-    /// Read-only access to native JS-managed data.
-    fn get<'a, 'b:'a, T>(&'a self, managed: JSManaged<'b, Cx, T>) -> &'a T::ChangeLifetime where
-        T: JSManageable<'a>
-    {
-        self.0.get(managed)
-    }
-    
-    /// Read-write access to native JS-managed data.
-    fn get_mut<'a, 'b:'a, T>(&'a mut self, managed: JSManaged<'b, Cx, T>) -> &'a mut T::ChangeLifetime where
-        T: JSManageable<'a>
-    {
-        self.0.get_mut(managed)
-    }
 }
 
 // It is important for safety that this implemention is not made public!
@@ -220,20 +199,7 @@ struct JSContextImpl {
     // JS context implementation goes here
 }
 
-impl JSAccess<JSContextImpl> for JSContextImpl {
-    // The claim is that this is safe, since it takes a `&self`.
-    fn get<'a, 'b:'a, T>(&'a self, managed: JSManaged<'b, Self, T>) -> &'a T::ChangeLifetime where
-        T: JSManageable<'a>
-    {
-        unsafe { &*(managed.raw as *mut T::ChangeLifetime) }
-    }
-
-    // The claim is that this is safe, since it takes a `&mut self`.
-    fn get_mut<'a, 'b:'a, T>(&'a mut self, managed: JSManaged<'b, Self, T>) -> &'a mut T::ChangeLifetime where
-        T: JSManageable<'a>
-    {
-        unsafe { &mut *(managed.raw as *mut T::ChangeLifetime) }
-    }
+unsafe impl JSAccess<JSContextImpl> for JSContextImpl {
 }
 
 impl JSContext for JSContextImpl {
