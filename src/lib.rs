@@ -1,17 +1,87 @@
 //! An outline of how linear types could be combined with JS-managed data
 //!
-//! The idea is to use the JS context as a linear token.
-//! Each JS context gets its own type `Cx` which implements the `JSContext` trait.
-//! Access to read-only JS-managed data requires a context of type `&Cx`.
-//! Access to read-write JS-managed data requires a context of type `&mut Cx`.
-//! Linear use of the context ensures that Rust's memory safety is preserved (er, I hope).
+//! The goals are:
+//! 1. Ensure that JS objects are only accessed in the right JS context.
+//! 2. Remove the need for the rooting lint.
+//! 3. Don't require rooting in code that can't perform GC.
+//! 4. Allow `&mut T` access to JS-managed data, so we don't need as much interior mutability.
 //!
-//! This API doesn't address tracing, which would have to be handled similarly
-//! to servo's current JS bindings.
+//! The idea is that Rust data can be given to JS to manage, and then accessed.
+//! ```rust
+//!     let x: JSManaged<Cx, String> = cx.manage(String::from("hello"));
+//!     let x_ref: &String = x.get(cx);
+//! ```
+//! We use polymorphism to track the type of the JS context 'cx: &Cx`
+//! where there is an opaque type `Cx: JSContext`. Each JS context has
+//! a different type. so objects from one JS context cannot
+//! accidentally be used in another.
 //!
-//! One thing that makes this easier is that we can arrange for any
-//! calls into the JS engine which might trigger GC to take a `&mut Cx`
-//! argument, which gives us control of when GC might occur.
+//! To remove the rooting lint, we track the lifetime of JS-managed
+//! data, with a type `JSManaged<'a, Cx, T>`. The lifetime parameter is
+//! the lifetime of any reachable JS-managed data reachable.
+//! For example, being more explicit about lifetimes, if `cx: &'a Cx`:
+//! ```rust
+//!     let x: JSManaged<'a, Cx, String> = cx.manage(String::from("hello"));
+//!     let x_ref: &'a String = x.get(cx);
+//! ```
+//! JS-managed data can be explicity converted to a more constrained
+//! lifetime, for example if `'b` is a sublifetime of `'a`:
+//! ```rust
+//!     let x: JSManaged<'a, Cx, String> = cx.manage(String::from("hello"));
+//!     let y: JSManaged<'b, Cx, String> = x.contract_lifetime();
+//! ```
+//! Things get interesting when managed references are nested,
+//! since the nested lifetimes also change:
+//! ```rust
+//!     type JSHandle<'a, Cx, T> = JSManaged<'a, Cx, JSManaged<'a, Cx, T>>;
+//!     let x: JSHandle<'a, Cx, String> = cx.manage(cx.manage(String::from("hello")));
+//!     let y: JSHandle<'b, Cx, String> = x.contact_lifetime();
+//! ```
+//! There is a `JSManageable` trait which drives these changes of lifetime.
+//! If `T: JSManageable<'a>` then `T::ChangeLifetime` is the same type as `T`,
+//! but with any reachable JS-managed data now with lifetime `'a`.
+//! For example `JSHandle<'a, Cx, String>` implements `JSManageable<'b>`,
+//! with `ChangeLifetime=JSHandle<'b, Cx, String>`.
+//!
+//! A full implementation would provide a `[#derive(JSManageable)]` annotation,
+//! for user-defined types, but for the moment users have to implement this by hand.
+//! For example:
+//! ```rust
+//!     type Node<'a, Cx> = JSManaged<'a, Cx, NativeNode<'a, Cx>>;
+//!     struct NativeNode<'a, Cx> {
+//!         data: usize,
+//!         edges: Vec<Node<'a, Cx>>,
+//!     }
+//!     unsafe impl<'a, Cx> JSTraceable for NativeNode<'a, Cx> {}
+//!     unsafe impl<'a, 'b, Cx: 'b> JSManageable<'b> for NativeNode<'a, Cx> { type ChangeLifetime = NativeNode<'b, Cx>; }
+//! ```
+//! To avoid rooting in code that can't perform GC, we allow a snapshot to
+//! be taken of the JS context. Snapshots are limited as to what JS
+//! functionality is supported, to ensure that no GC is performed
+//! while a snapshot is live. The benefit of this is that the lifetimes
+//! of JS-managed data can be extended to the lifetime of the snapshot.
+//! For example, if `cx: &'c JSSnapshot<Cx>` and `'c` is a superlifetime of `'b`:
+//! ```rust
+//!     let y: JSManaged<'b, Cx, String> = x.contract_lifetime();
+//!     let z: JSManaged<'c, Cx, String> = y.extend_lifetime(cx);
+//! ```
+//! The other way to safely extend the lifetime of JS-managed data
+//! is to root it, in a root set.
+//! For example, if `roots: &'c JSRoots<Cx>` and `'c` is a superlifetime of `'b`:
+//! ```rust
+//!     let y: JSManaged<'b, Cx, String> = x.contract_lifetime();
+//!     let z: JSManaged<'c, Cx, String> = y.root(roots);
+//! ```
+//! We allow mutable JS contexts to gain mutable access to JS-managed data.
+//! Since we require the JS context to be mutable, we can only safely
+//! access one JS-managed value at a time. To do this safely, we either need to root
+//! the data or use a snapshot. For example with rooting:
+//! ```rust
+//!     let roots: JSRoots<Cx> = cx.roots();
+//!     let x: JSHandle<Cx, String> = cx.manage(cx.manage(String::from("hello"))).root(roots);
+//!     let y: JSManaged<Cx, String> = cx.manage(String::from("world")).root(roots);
+//!     cx.get_mut(x) = y;
+//! ```
 
 use std::marker::PhantomData;
 
