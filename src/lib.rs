@@ -89,7 +89,7 @@ use std::marker::PhantomData;
 pub unsafe trait JSAccess<Cx>: Sized {}
 
 /// The trait for JS contexts.
-pub trait JSContext: JSAccess<Self> {
+pub trait JSContext: 'static + JSAccess<Self> {
     /// Get a snapshot of the JS state.
     /// The snapshot only allows access to the methods that are guaranteed not to call GC,
     /// so we don't need to root JS-managed pointers during the lifetime of a snapshot.
@@ -100,8 +100,8 @@ pub trait JSContext: JSAccess<Self> {
 
     /// Give ownership of data to JS.
     /// This allocates JS heap, which may trigger GC.
-    fn manage<'a, T>(&'a self, value: T) -> JSManaged<'a, Self, T>
-        where T: 'a + JSManageable<'a, ChangeLifetime=T>;
+    fn manage<'a, T>(&'a self, value: T) -> JSManaged<'a, Self, T::ChangeLifetime>
+        where T: 'static + JSManageable<'a>;
     
     // A real implementation would also have JS methods such as those in jsapi.
 }
@@ -115,7 +115,7 @@ pub unsafe trait JSManageable<'a>: JSTraceable {
     /// The only difference between `Self` and `Self::ChangeLifetime`
     /// is that any `JSManaged<'b, Cx, T>` should be replaced by
     /// `JSManaged<'a, Cx, T::ChangeLifetime>`.
-    type ChangeLifetime: 'a;
+    type ChangeLifetime: 'a + JSManageable<'a, ChangeLifetime=Self::ChangeLifetime>;
 }
 
 /// A user of a JS context implements `JSContextConsumer`, which is called back
@@ -148,13 +148,13 @@ pub fn with_js_context<C, T>(consumer: C) -> T where
 ///
 /// If the user has access to a `JSManaged`, then the JS-managed
 /// data is live for the given lifetime.
-pub struct JSManaged<'a, Cx, T> {
+pub struct JSManaged<'a, Cx, T: ?Sized> {
     // JS reflector goes here
     raw: *mut T,
     marker: PhantomData<(&'a(),Cx)>,
 }
 
-impl<'a, Cx, T> Clone for JSManaged<'a, Cx, T> {
+impl<'a, Cx, T: ?Sized> Clone for JSManaged<'a, Cx, T> {
     fn clone(&self) -> Self {
         JSManaged {
             raw: self.raw,
@@ -163,22 +163,22 @@ impl<'a, Cx, T> Clone for JSManaged<'a, Cx, T> {
     }
 }
 
-impl<'a, Cx, T> Copy for JSManaged<'a, Cx, T> {
+impl<'a, Cx, T: ?Sized> Copy for JSManaged<'a, Cx, T> {
 }
 
-unsafe impl<'a, Cx, T> JSTraceable for JSManaged<'a, Cx, T> where
+unsafe impl<'a, Cx, T: ?Sized> JSTraceable for JSManaged<'a, Cx, T> where
     T: JSTraceable
 {
 }
 
-unsafe impl<'a, 'b, Cx, T> JSManageable<'b> for JSManaged<'a, Cx, T> where
+unsafe impl<'a, 'b, Cx, T: ?Sized> JSManageable<'b> for JSManaged<'a, Cx, T> where
     Cx: 'b,
-    T: JSManageable<'b>,
+    T: 'a + JSManageable<'b>,
 {
     type ChangeLifetime = JSManaged<'b, Cx, T::ChangeLifetime>;
 }
 
-impl<'a, Cx, T> JSManaged<'a, Cx, T> {
+impl<'a, Cx, T: ?Sized> JSManaged<'a, Cx, T> {
     /// Read-only access to JS-managed data.
     pub fn get<'b, Access: JSAccess<Cx>>(self, _: &'b Access) -> &'b T::ChangeLifetime where
         T: JSManageable<'b>,
@@ -274,11 +274,11 @@ impl JSContext for JSContextImpl {
 
     // This outline implementation just space-leaks all data,
     // the real thing would create a reflector, and add a finalizer hook.
-    fn manage<'a, T>(&'a self, value: T) -> JSManaged<'a, Self, T>
-        where T: 'a + JSManageable<'a, ChangeLifetime=T>
+    fn manage<'a, T>(&'a self, value: T) -> JSManaged<'a, Self, T::ChangeLifetime>
+        where T: 'static + JSManageable<'a>
     {
         JSManaged {
-            raw: Box::into_raw(Box::new(value)),
+            raw: Box::into_raw(Box::new(value)) as *mut T::ChangeLifetime,
             marker: PhantomData,
         }
     }
