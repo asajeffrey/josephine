@@ -83,6 +83,9 @@
 //!     cx.get_mut(x) = y;
 //! ```
 
+extern crate js;
+
+use js::rust::Runtime;
 use std::marker::PhantomData;
 
 /// A marker trait for accessing JS-managed data.
@@ -103,7 +106,8 @@ pub trait JSContext: 'static + JSAccess<Self> {
     fn manage<'a, T>(&'a self, value: T) -> JSManaged<'a, Self, T::ChangeLifetime>
         where T: 'static + JSManageable<'a>;
     
-    // A real implementation would also have JS methods such as those in jsapi.
+    /// The backing JS runtime.
+    fn runtime(&self) -> &Runtime;
 }
 
 /// A placholder for the real `JSTraceable`.
@@ -139,8 +143,10 @@ pub trait JSContextConsumer<T> {
 pub fn with_js_context<C, T>(consumer: C) -> T where
     C: JSContextConsumer<T>
 {
-    // A real implementation would allocate a JS context
-    let mut cx = JSContextImpl {};
+    // TODO: proper error handling
+    let mut cx = JSContextImpl {
+        runtime: Runtime::new().expect("Failed to crate runtime."),
+    };
     consumer.consume(&mut cx)
 }
 
@@ -257,7 +263,8 @@ unsafe impl<'c, Cx> JSAccess<Cx> for JSSnapshot<'c, Cx> where
 
 // It is important for safety that this implemention is not made public!
 struct JSContextImpl {
-    // JS context implementation goes here
+    // The underlying rust-mozjs runtime
+    runtime: Runtime,
 }
 
 unsafe impl JSAccess<JSContextImpl> for JSContextImpl {
@@ -281,6 +288,10 @@ impl JSContext for JSContextImpl {
             raw: Box::into_raw(Box::new(value)) as *mut T::ChangeLifetime,
             marker: PhantomData,
         }
+    }
+
+    fn runtime(&self) -> &Runtime {
+        &self.runtime
     }
 }
 
