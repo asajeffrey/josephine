@@ -180,15 +180,6 @@ impl<Cx> Drop for JSRoots<Cx> {
 /// some rooting.
 pub struct JSSnapshot<'c, Cx: 'c>(&'c mut Cx);
 
-impl<'c, Cx> JSSnapshot<'c, Cx> where
-    Cx: 'c + JSContext
-{
-    /// Build a new snapshot
-    pub fn new(cx: &mut Cx) -> JSSnapshot<Cx> {
-        JSSnapshot(cx)
-    }
-}
-
 unsafe impl<'c, Cx> JSAccess<Cx> for JSSnapshot<'c, Cx> where
     Cx: 'c + JSContext
 {
