@@ -148,6 +148,23 @@ impl<C> JSContext<C> where
         }
     }
 
+    /// Give ownership of data to JS.
+    /// This allocates JS heap, which may trigger GC.
+    pub fn snapshot_manage<'a, T>(&'a mut self, value: T) -> (JSSnapshot<'a, C>, JSManaged<'a, C, T::Aged>)
+        where T: 'static + JSManageable<'a, C>
+    {
+        // The real thing would use a JS reflector to manage the space,
+        // this just space-leaks
+        let managed = JSManaged {
+            raw: Box::into_raw(Box::new(value)) as *mut T::Aged,
+            marker: PhantomData,
+        };
+        let snapshot = JSSnapshot {
+            marker: PhantomData,
+        };
+        (snapshot, managed)
+    }
+
     // A real implementation would also have JS methods such as those in jsapi.
 }
 
@@ -345,7 +362,8 @@ fn test() {
     impl JSRunnable for Test {
         fn run<C: JSCompartment>(self, rt: &mut JSRuntime<C>) {
             let (cx, graph) = rt.manage(NativeGraph { nodes: vec![] });
-            self.add_nodes(cx, graph);
+            self.add_node1(cx, graph);
+            self.add_node2(cx, graph);
             assert_eq!(graph.get(cx).nodes[0].get(cx).data, 1);
             assert_eq!(graph.get(cx).nodes[1].get(cx).data, 2);
             let ref mut cx = cx.snapshot();
@@ -355,13 +373,17 @@ fn test() {
         }
     }
     impl Test {
-        fn add_nodes<C: JSCompartment>(&self, cx: &mut JSContext<C>, graph: Graph<C>) {
+        fn add_node1<C: JSCompartment>(&self, cx: &mut JSContext<C>, graph: Graph<C>) {
             // Creating nodes does memory allocation, which may trigger GC,
-            // so the nodes need to be rooted while they are being added.
+            // so we need to be careful about lifetimes while they are being added.
+            // Approach 1 is to root the node.
             let ref roots = cx.roots();
             let node1 = cx.manage(NativeNode { data: 1, edges: vec![] }).root(roots);
-            let node2 = cx.manage(NativeNode { data: 2, edges: vec![] }).root(roots);
             graph.get_mut(cx).nodes.push(node1.contract_lifetime());
+        }
+        fn add_node2<C: JSCompartment>(&self, cx: &mut JSContext<C>, graph: Graph<C>) {
+            // Approach 2 is to take a snapshot of the context right after allocation.
+            let (ref mut cx, node2) = cx.snapshot_manage(NativeNode { data: 2, edges: vec![] });
             graph.get_mut(cx).nodes.push(node2.contract_lifetime());
         }
         fn add_edges<C: JSCompartment>(&self, cx: &mut JSSnapshot<C>, graph: Graph<C>) {
