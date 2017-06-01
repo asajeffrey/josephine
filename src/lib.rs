@@ -97,6 +97,20 @@
 //!     let z: JSManaged<'a, C, String> = cx.manage(String::from("world")).root(&roots);
 //!     y.get_mut(cx) = z.contract_lifetime();
 //! ```
+//! A common case is to create JS-managed data, and to add it to an existing
+//! JS-managed object. Since no GC can be performed between the creation and
+//! the assignment, this is safe. To support this, there is a `cx.snapshot_manage(data)`
+//! method, which JS-manages the data, then takes a snapshot immediately afterwards,
+//! For example:
+//! ```rust
+//!     let ref roots = cx.roots();
+//!     let x = cx.manage(String::from("hello")).root(roots);
+//!     let y = cx.manage(x).root(roots);
+//!     let (ref mut cx, z) = cx.snapshot_manage(String::from("world"));
+//!     y.get_mut(cx) = z;
+//! ```
+//! Note that `z` does not need to be rooted, since the snapshot is taken just after
+//! `z` is allocated
 
 use std::marker::PhantomData;
 
