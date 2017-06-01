@@ -111,6 +111,64 @@
 //! ```
 //! Note that `z` does not need to be rooted, since the snapshot is taken just after
 //! `z` is allocated
+//!
+//! #Examples
+//!
+//! This is an example of building a two-node cyclic graph, which is the smallest
+//! example that Rust would need `Rc` and `RefCell` for. Note that this builds
+//! the graph with no need for rooting.
+//!
+//! ```rust
+//!     use linjs::{JSCompartment, JSContext, JSManageable, JSManaged, JSRunnable, JSRuntime, JSSnapshot};
+//!
+//!     // A graph type
+//!     type Graph<'a, C> = JSManaged<'a, C, NativeGraph<'a, C>>;
+//!     struct NativeGraph<'a, C: JSCompartment> {
+//!         nodes: Vec<Node<'a, C>>,
+//!     }
+//!     unsafe impl<'a, 'b, C: JSCompartment> JSManageable<'b, C> for NativeGraph<'a, C> {
+//!         type Aged = NativeGraph<'b, C>;
+//!     }
+//!
+//!     // A node type
+//!     type Node<'a, C> = JSManaged<'a, C, NativeNode<'a, C>>;
+//!     struct NativeNode<'a, C: JSCompartment> {
+//!         data: usize,
+//!         edges: Vec<Node<'a, C>>,
+//!     }
+//!     unsafe impl<'a, 'b, C: JSCompartment> JSManageable<'b, C> for NativeNode<'a, C> {
+//!         type Aged = NativeNode<'b, C>;
+//!     }
+//!
+//!     // Build a cyclic graph
+//!     struct Test;
+//!     impl JSRunnable for Test {
+//!         fn run<C: JSCompartment>(self, rt: &mut JSRuntime<C>) {
+//!             let (cx, graph) = rt.manage(NativeGraph { nodes: vec![] });
+//!             self.add_node(cx, graph, 1);
+//!             self.add_node(cx, graph, 2);
+//!             assert_eq!(graph.get(cx).nodes[0].get(cx).data, 1);
+//!             assert_eq!(graph.get(cx).nodes[1].get(cx).data, 2);
+//!             let ref mut cx = cx.snapshot();
+//!             self.add_edge(cx, graph, 0, 1);
+//!             self.add_edge(cx, graph, 1, 0);
+//!             assert_eq!(graph.get(cx).nodes[0].get(cx).edges[0].get(cx).data, 2);
+//!             assert_eq!(graph.get(cx).nodes[1].get(cx).edges[0].get(cx).data, 1);
+//!         }
+//!     }
+//!     impl Test {
+//!         fn add_node<C: JSCompartment>(&self, cx: &mut JSContext<C>, graph: Graph<C>, data: usize) {
+//!             let (ref mut cx, node) = cx.snapshot_manage(NativeNode { data: data, edges: vec![] });
+//!             graph.get_mut(cx).nodes.push(node);
+//!         }
+//!         fn add_edge<C: JSCompartment>(&self, cx: &mut JSSnapshot<C>, graph: Graph<C>, from: usize, to: usize) {
+//!             let node1 = graph.get(cx).nodes[from].extend_lifetime(cx);
+//!             let node2 = graph.get(cx).nodes[to].extend_lifetime(cx);
+//!             node1.get_mut(cx).edges.push(node2.contract_lifetime());
+//!         }
+//!     }
+//!     Test.start();
+//! ```
 
 use std::marker::PhantomData;
 
