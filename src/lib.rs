@@ -348,7 +348,8 @@ fn test() {
             self.add_nodes(cx, graph);
             assert_eq!(graph.get(cx).nodes[0].get(cx).data, 1);
             assert_eq!(graph.get(cx).nodes[1].get(cx).data, 2);
-            self.add_edges(&mut cx.snapshot(), graph);
+            let ref mut cx = cx.snapshot();
+            self.add_edges(cx, graph);
             assert_eq!(graph.get(cx).nodes[0].get(cx).edges[0].get(cx).data, 2);
             assert_eq!(graph.get(cx).nodes[1].get(cx).edges[0].get(cx).data, 1);
         }
@@ -357,9 +358,9 @@ fn test() {
         fn add_nodes<C: JSCompartment>(&self, cx: &mut JSContext<C>, graph: Graph<C>) {
             // Creating nodes does memory allocation, which may trigger GC,
             // so the nodes need to be rooted while they are being added.
-            let roots = cx.roots();
-            let node1 = cx.manage(NativeNode { data: 1, edges: vec![] }).root(&roots);
-            let node2 = cx.manage(NativeNode { data: 2, edges: vec![] }).root(&roots);
+            let ref roots = cx.roots();
+            let node1 = cx.manage(NativeNode { data: 1, edges: vec![] }).root(roots);
+            let node2 = cx.manage(NativeNode { data: 2, edges: vec![] }).root(roots);
             graph.get_mut(cx).nodes.push(node1.contract_lifetime());
             graph.get_mut(cx).nodes.push(node2.contract_lifetime());
         }
