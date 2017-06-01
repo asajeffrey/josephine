@@ -85,22 +85,32 @@
 
 use std::marker::PhantomData;
 
+/// A marker trait for JS compartments.
+pub unsafe trait JSCompartment: 'static {}
+
 /// A marker trait for accessing JS-managed data in compartment `C`.
-pub unsafe trait JSAccessToken<C>: Sized {}
+pub unsafe trait JSAccessToken<C: JSCompartment>: Sized {}
 
 /// The type for JS contexts whose current compartment is `C`.
-pub struct JSContext<C> {
-    snapshot: JSSnapshot<C>,
+pub struct JSContext<C: JSCompartment> {
+    marker: PhantomData<C>,
 }
 
-unsafe impl<C> JSAccessToken<C> for JSContext<C> {}
+unsafe impl<C> JSAccessToken<C> for JSContext<C> where
+    C: JSCompartment,
+{
+}
 
-impl<C> JSContext<C> {
+impl<C> JSContext<C> where
+    C: JSCompartment
+{
     /// Get a snapshot of the JS state.
     /// The snapshot only allows access to the methods that are guaranteed not to call GC,
     /// so we don't need to root JS-managed pointers during the lifetime of a snapshot.
-    pub fn snapshot<'a>(&'a mut self) -> &'a mut JSSnapshot<C> {
-        &mut self.snapshot
+    pub fn snapshot<'a>(&'a mut self) -> JSSnapshot<'a, C> {
+        JSSnapshot {
+            marker: PhantomData,
+        }        
     }
 
     /// Add a new root set to the context.
@@ -144,27 +154,29 @@ pub trait JSManageable<'a, C>: JSTraceable<C> + JSAgeable<'a> {}
 /// A user of a JS runtime implements `JSRunnable`.
 pub trait JSRunnable: Sized {
     /// This callback is called with a fresh JS compartment type `C`.
-    fn run<'a, C>(self, rt: &'a mut JSRuntime<C>);
+    fn run<C: JSCompartment>(self, rt: &mut JSRuntime<C>);
 
     /// To trigger the callback, call `rt.start()`.
     fn start(self) {
+        struct JSCompartmentImpl;
+        unsafe impl JSCompartment for JSCompartmentImpl {}
         let mut rt = JSRuntime {
             cx: JSContext {
-                snapshot: JSSnapshot {
-                    marker: PhantomData,
-                }
+                marker: PhantomData,
             }
         };
-        self.run::<'static, ()>(&mut rt);
+        self.run::<JSCompartmentImpl>(&mut rt);
     }
 }
 
-pub struct JSRuntime<C> {
+pub struct JSRuntime<C: JSCompartment> {
     // The real thing would have a JS runtime
     cx: JSContext<C>,
 }
 
-impl<C> JSRuntime<C> {
+impl<C> JSRuntime<C> where
+    C: JSCompartment
+{
     pub fn manage<'a, T>(&'a mut self, value: T) -> (&'a mut JSContext<C>, JSManaged<'a, C, T::Aged>)
         where T: 'static + JSManageable<'a, C>
     {
@@ -181,13 +193,15 @@ impl<C> JSRuntime<C> {
 ///
 /// If the user has access to a `JSManaged`, then the JS-managed
 /// data is live for the given lifetime.
-pub struct JSManaged<'a, C, T: ?Sized> {
+pub struct JSManaged<'a, C: JSCompartment, T: ?Sized> {
     // JS reflector goes here
     raw: *mut T,
     marker: PhantomData<(&'a(),C)>,
 }
 
-impl<'a, C, T: ?Sized> Clone for JSManaged<'a, C, T> {
+impl<'a, C, T: ?Sized> Clone for JSManaged<'a, C, T> where
+    C: JSCompartment
+{
     fn clone(&self) -> Self {
         JSManaged {
             raw: self.raw,
@@ -196,27 +210,32 @@ impl<'a, C, T: ?Sized> Clone for JSManaged<'a, C, T> {
     }
 }
 
-impl<'a, C, T: ?Sized> Copy for JSManaged<'a, C, T> {
+impl<'a, C, T: ?Sized> Copy for JSManaged<'a, C, T> where
+    C: JSCompartment,
+{
 }
 
 unsafe impl<'a, C, T: ?Sized> JSTraceable<C> for JSManaged<'a, C, T> where
-    T: JSTraceable<C>
+    C: JSCompartment,
+    T: JSTraceable<C>,
 {
 }
 
 unsafe impl<'a, 'b, C, T: ?Sized> JSAgeable<'b> for JSManaged<'a, C, T> where
-    C: 'b,
+    C: JSCompartment,
     T: JSAgeable<'b>,
 {
     type Aged = JSManaged<'b, C, T::Aged>;
 }
 
 impl<'a, 'b, C, T: ?Sized> JSManageable<'b, C> for JSManaged<'a, C, T> where
-    C: 'b,
+    C: JSCompartment,
     T: JSManageable<'b, C>,
 {}
 
-impl<'a, C, T: ?Sized> JSManaged<'a, C, T> {
+impl<'a, C, T: ?Sized> JSManaged<'a, C, T> where
+    C: JSCompartment
+{
     /// Read-only access to JS-managed data.
     pub fn get<'b, A: JSAccessToken<C>>(self, _: &'b A) -> &'b T::Aged where
         T: JSAgeable<'b>,
@@ -252,7 +271,7 @@ impl<'a, C, T: ?Sized> JSManaged<'a, C, T> {
     }
 
     /// It's safe to extend the lifetime of JS-managed data if it has been snapshotted.
-    pub fn extend_lifetime<'b>(self, _: &'b JSSnapshot<C>) -> JSManaged<'b, C, T::Aged> where
+    pub fn extend_lifetime<'b>(self, _: &JSSnapshot<'b, C>) -> JSManaged<'b, C, T::Aged> where
         T: JSAgeable<'b>,
         'b: 'a,
     {
@@ -286,12 +305,15 @@ impl<C> Drop for JSRoots<C> {
 /// The idea here is that during the lifetime of a JSSnapshot<C>, the JS state
 /// doesn't change, and in particular GC doesn't happen. This allows us to avoid
 /// some rooting.
-pub struct JSSnapshot<C> {
+pub struct JSSnapshot<'a, C: JSCompartment> {
     // The real thing would have a JS context.
-    marker: PhantomData<C>,
+    marker: PhantomData<&'a C>,
 }
 
-unsafe impl<C> JSAccessToken<C> for JSSnapshot<C> {}
+unsafe impl<'a, C> JSAccessToken<C> for JSSnapshot<'a, C> where
+    C: JSCompartment
+{
+}
 
 #[test]
 // This test constructs a two-node cyclic graph, which is the smallest
@@ -299,36 +321,36 @@ unsafe impl<C> JSAccessToken<C> for JSSnapshot<C> {}
 fn test() {
     // A graph type
     type Graph<'a, C> = JSManaged<'a, C, NativeGraph<'a, C>>;
-    struct NativeGraph<'a, C> {
+    struct NativeGraph<'a, C: JSCompartment> {
         nodes: Vec<Node<'a, C>>,
     }
-    unsafe impl<'a, C> JSTraceable<C> for NativeGraph<'a, C> {}
-    unsafe impl<'a, 'b, C: 'b> JSAgeable<'b> for NativeGraph<'a, C> { type Aged = NativeGraph<'b, C>; }
-    impl<'a, 'b, C: 'b> JSManageable<'b, C> for NativeGraph<'a, C> {}
+    unsafe impl<'a, C: JSCompartment> JSTraceable<C> for NativeGraph<'a, C> {}
+    unsafe impl<'a, 'b, C: JSCompartment> JSAgeable<'b> for NativeGraph<'a, C> { type Aged = NativeGraph<'b, C>; }
+    impl<'a, 'b, C: JSCompartment> JSManageable<'b, C> for NativeGraph<'a, C> {}
     // A node type
     type Node<'a, C> = JSManaged<'a, C, NativeNode<'a, C>>;
-    struct NativeNode<'a, C> {
+    struct NativeNode<'a, C: JSCompartment> {
         data: usize,
         edges: Vec<Node<'a, C>>,
     }
-    unsafe impl<'a, C> JSTraceable<C> for NativeNode<'a, C> {}
-    unsafe impl<'a, 'b, C: 'b> JSAgeable<'b> for NativeNode<'a, C> { type Aged = NativeNode<'b, C>; }
-    impl<'a, 'b, C: 'b> JSManageable<'b, C> for NativeNode<'a, C> {}
+    unsafe impl<'a, C: JSCompartment> JSTraceable<C> for NativeNode<'a, C> {}
+    unsafe impl<'a, 'b, C: JSCompartment> JSAgeable<'b> for NativeNode<'a, C> { type Aged = NativeNode<'b, C>; }
+    impl<'a, 'b, C: JSCompartment> JSManageable<'b, C> for NativeNode<'a, C> {}
     // Build a cyclic graph
     struct Test;
     impl JSRunnable for Test {
-        fn run<C: 'static>(self, rt: &mut JSRuntime<C>) {
+        fn run<C: JSCompartment>(self, rt: &mut JSRuntime<C>) {
             let (cx, graph) = rt.manage(NativeGraph { nodes: vec![] });
             self.add_nodes(cx, graph);
             assert_eq!(graph.get(cx).nodes[0].get(cx).data, 1);
             assert_eq!(graph.get(cx).nodes[1].get(cx).data, 2);
-            self.add_edges(cx.snapshot(), graph);
+            self.add_edges(&mut cx.snapshot(), graph);
             assert_eq!(graph.get(cx).nodes[0].get(cx).edges[0].get(cx).data, 2);
             assert_eq!(graph.get(cx).nodes[1].get(cx).edges[0].get(cx).data, 1);
         }
     }
     impl Test {
-        fn add_nodes<C: 'static>(&self, cx: &mut JSContext<C>, graph: Graph<C>) {
+        fn add_nodes<C: JSCompartment>(&self, cx: &mut JSContext<C>, graph: Graph<C>) {
             // Creating nodes does memory allocation, which may trigger GC,
             // so the nodes need to be rooted while they are being added.
             let roots = cx.roots();
@@ -337,7 +359,7 @@ fn test() {
             graph.get_mut(cx).nodes.push(node1.contract_lifetime());
             graph.get_mut(cx).nodes.push(node2.contract_lifetime());
         }
-        fn add_edges<C>(&self, cx: &mut JSSnapshot<C>, graph: Graph<C>) {
+        fn add_edges<C: JSCompartment>(&self, cx: &mut JSSnapshot<C>, graph: Graph<C>) {
             // Note that there's no rooting here.
             let node1 = graph.get(cx).nodes[0].extend_lifetime(cx);
             let node2 = graph.get(cx).nodes[1].extend_lifetime(cx);
@@ -347,7 +369,7 @@ fn test() {
     }
     #[allow(dead_code)]
     // Test that we can contract the lifetimes of nodes and graphs.
-    fn contract_graph<'a, 'b:'a, C: 'b>(graph: Graph<'b, C>) -> Graph<'a, C> {
+    fn contract_graph<'a, 'b:'a, C: JSCompartment>(graph: Graph<'b, C>) -> Graph<'a, C> {
         graph.contract_lifetime()
     }
     Test.start();
@@ -356,8 +378,8 @@ fn test() {
 #[test]
 fn test_covariant() {
     #[allow(dead_code)]
-    fn cast<'a, 'b:'a, C, T>(managed: JSManaged<'b, C, T>)
-                              -> JSManaged<'a, C, T>
+    fn cast<'a, 'b:'a, C: JSCompartment, T>(managed: JSManaged<'b, C, T>)
+                                            -> JSManaged<'a, C, T>
     {
         managed
     }
