@@ -138,7 +138,7 @@ impl<C> JSContext<C> where
     /// Give ownership of data to JS.
     /// This allocates JS heap, which may trigger GC.
     pub fn manage<'a, T>(&'a mut self, value: T) -> JSManaged<'a, C, T::Aged>
-        where T: 'static + JSManageable<'a, C>
+        where T: JSManageable<'a, C>
     {
         // The real thing would use a JS reflector to manage the space,
         // this just space-leaks
@@ -193,7 +193,7 @@ impl<C> JSRuntime<C> where
     C: JSCompartment
 {
     pub fn manage<'a, T>(&'a mut self, value: T) -> (&'a mut JSContext<C>, JSManaged<'a, C, T::Aged>)
-        where T: 'static + JSManageable<'a, C>
+        where T: JSManageable<'a, C>
     {
         // The real thing would set the global of `cx`.
         let global = JSManaged {
