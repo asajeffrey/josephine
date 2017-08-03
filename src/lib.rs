@@ -1,39 +1,43 @@
 //! An outline of how linear types could be combined with JS-managed data
 //!
 //! The goals are:
+//! 
 //! 1. Ensure that JS objects are only accessed in the right JS compartment.
 //! 2. Remove the need for the rooting lint.
 //! 3. Don't require rooting in code that can't perform GC.
 //! 4. Allow `&mut T` access to JS-managed data, so we don't need as much interior mutability.
 //!
 //! The idea is that Rust data can be given to JS to manage, and then accessed.
-//! ```rust
-//!     let x: JSManaged<C, String> = cx.manage(String::from("hello"));
-//!     ...
-//!     let x_ref: &String = x.get(cx);
+//! 
 //! ```
-//! We use polymorphism to track the type of the JS context 'cx: &mut JSContext<C>`
+//! let x: JSManaged<C, String> = cx.manage(String::from("hello"));
+//! ...
+//! let x_ref: &String = x.get(cx);
+//! ```
+//! We use polymorphism to track the type of the JS context `'cx: &mut JSContext<C>`
 //! where there is an opaque type `C: JSCompartment`. Each JS compartment has
-//! a different type. so objects from one JS compartment cannot
+//! a different type. So objects from one JS compartment cannot
 //! accidentally be used in another.
 //!
 //! Unfortunately, even this simple example is not safe, due to garbage collection.
 //! If GC happened during the `...`, there is nothing keeping `x` alive, so
 //! the access might be to GC'd memory. To avoid this, we introduce root sets,
 //! that keep memory alive. For example:
-//! ```rust
-//!     let roots: JSRoots<C> = cx.roots();
-//!     let x: JSManaged<C, String> = cx.manage(String::from("hello")).root(&roots);
-//!     ...
-//!     let x_ref: &String = x.get(cx);
+//! 
+//! ```
+//! let roots: JSRoots<C> = cx.roots();
+//! let x: JSManaged<C, String> = cx.manage(String::from("hello")).root(&roots);
+//! ...
+//! let x_ref: &String = x.get(cx);
 //! ```
 //! This example is now safe, since `x` is rooted during its access. To see why
 //! the modified example type-checks, but the original does not, we introduce
 //! explicit lifetimes (where `&roots` has type `&'a JSRoots<C>`):
-//! ```rust
-//!     let x: JSManaged<'a, C, String> = cx.manage(String::from("hello")).root(&roots);
-//!     ...
-//!     let x_ref: &'a String = x.get(cx);
+//! 
+//! ```
+//! let x: JSManaged<'a, C, String> = cx.manage(String::from("hello")).root(&roots);
+//! ...
+//! let x_ref: &'a String = x.get(cx);
 //! ```
 //! Without the rooting, the lifetimes do not match, since the call to `cx.manage`
 //! requires a mutable borrow of `cx`, which will have lifetime `'b`, so
@@ -45,17 +49,19 @@
 //!
 //! JS-managed data can be explicity converted to a more constrained
 //! lifetime, for example if `'b` is a sublifetime of `'a`:
-//! ```rust
-//!     let x: JSManaged<'a, C, String> = cx.manage(String::from("hello")).root(&roots);
-//!     let y: JSManaged<'b, C, String> = x.contract_lifetime();
+//! 
+//! ```
+//! let x: JSManaged<'a, C, String> = cx.manage(String::from("hello")).root(&roots);
+//! let y: JSManaged<'b, C, String> = x.contract_lifetime();
 //! ```
 //! Things get interesting when managed references are nested,
 //! since the nested lifetimes also change:
-//! ```rust
-//!     type JSHandle<'a, C, T> = JSManaged<'a, C, JSManaged<'a, C, T>>;
-//!     let x: JSManaged<'a, C, String> = cx.manage(String::from("hello")).root(&roots);
-//!     let y: JSHandle<'a, C, String> = cx.manage(x).root(&roots);
-//!     let z: JSHandle<'b, C, String> = x.contact_lifetime();
+//! 
+//! ```
+//! type JSHandle<'a, C, T> = JSManaged<'a, C, JSManaged<'a, C, T>>;
+//! let x: JSManaged<'a, C, String> = cx.manage(String::from("hello")).root(&roots);
+//! let y: JSHandle<'a, C, String> = cx.manage(x).root(&roots);
+//! let z: JSHandle<'b, C, String> = x.contact_lifetime();
 //! ```
 //! There is a `JSManageable` trait which drives these changes of lifetime.
 //! If `T: JSManageable<'a>` then `T::Aged` is the same type as `T`,
@@ -66,15 +72,16 @@
 //! A full implementation would provide a `[#derive(JSManageable)]` annotation,
 //! for user-defined types, but for the moment users have to implement this by hand.
 //! For example:
-//! ```rust
-//!     type Node<'a, C> = JSManaged<'a, C, NativeNode<'a, C>>;
-//!     struct NativeNode<'a, C: JSCompartment> {
-//!         data: usize,
-//!         edges: Vec<Node<'a, C>>,
-//!     }
-//!     unsafe impl<'a, 'b, C: JSCompartment> JSManageable<'b> for NativeNode<'a, C> {
-//!         type Aged = NativeNode<'b, C>;
-//!     }
+//! 
+//! ```
+//! type Node<'a, C> = JSManaged<'a, C, NativeNode<'a, C>>;
+//! struct NativeNode<'a, C: JSCompartment> {
+//!     data: usize,
+//!     edges: Vec<Node<'a, C>>,
+//! }
+//! unsafe impl<'a, 'b, C: JSCompartment> JSManageable<'b> for NativeNode<'a, C> {
+//!     type Aged = NativeNode<'b, C>;
+//! }
 //! ```
 //! To avoid rooting in code that can't perform GC, we allow a snapshot to
 //! be taken of the JS context. Snapshots are limited as to what JS
@@ -82,32 +89,35 @@
 //! while a snapshot is live. The benefit of this is that the lifetimes
 //! of JS-managed data can be extended to the lifetime of the snapshot.
 //! For example, if `cx: &'c JSSnapshot<C>` and `'c` is a superlifetime of `'b`:
-//! ```rust
-//!     let y: JSManaged<'b, C, String> = x.contract_lifetime();
-//!     let z: JSManaged<'c, C, String> = y.extend_lifetime(cx);
+//! 
+//! ```
+//! let y: JSManaged<'b, C, String> = x.contract_lifetime();
+//! let z: JSManaged<'c, C, String> = y.extend_lifetime(cx);
 //! ```
 //! We allow mutable JS contexts to gain mutable access to JS-managed data.
 //! Since we require the JS context to be mutable, we can only safely
 //! access one JS-managed value at a time. To do this safely, we either need to root
 //! the data or use a snapshot. For example with rooting:
-//! ```rust
-//!     let roots: JSRoots<C> = cx.roots();
-//!     let x: JSManaged<'a, C, String> = cx.manage(String::from("hello")).root(&roots);
-//!     let y: JSHandle<'a, C, String> = cx.manage(x).root(&roots);
-//!     let z: JSManaged<'a, C, String> = cx.manage(String::from("world")).root(&roots);
-//!     y.get_mut(cx) = z.contract_lifetime();
+//! 
+//! ```
+//! let roots: JSRoots<C> = cx.roots();
+//! let x: JSManaged<'a, C, String> = cx.manage(String::from("hello")).root(&roots);
+//! let y: JSHandle<'a, C, String> = cx.manage(x).root(&roots);
+//! let z: JSManaged<'a, C, String> = cx.manage(String::from("world")).root(&roots);
+//! y.get_mut(cx) = z.contract_lifetime();
 //! ```
 //! A common case is to create JS-managed data, and to add it to an existing
 //! JS-managed object. Since no GC can be performed between the creation and
 //! the assignment, this is safe. To support this, there is a `cx.snapshot_manage(data)`
 //! method, which JS-manages the data, then takes a snapshot immediately afterwards,
 //! For example:
-//! ```rust
-//!     let ref roots = cx.roots();
-//!     let x = cx.manage(String::from("hello")).root(roots);
-//!     let y = cx.manage(x).root(roots);
-//!     let (ref mut cx, z) = cx.snapshot_manage(String::from("world"));
-//!     y.get_mut(cx) = z;
+//! 
+//! ```
+//! let ref roots = cx.roots();
+//! let x = cx.manage(String::from("hello")).root(roots);
+//! let y = cx.manage(x).root(roots);
+//! let (ref mut cx, z) = cx.snapshot_manage(String::from("world"));
+//! y.get_mut(cx) = z;
 //! ```
 //! Note that `z` does not need to be rooted, since the snapshot is taken just after
 //! `z` is allocated
@@ -118,56 +128,56 @@
 //! example that Rust would need `Rc` and `RefCell` for. Note that this builds
 //! the graph with no need for rooting.
 //!
-//! ```rust
-//!     use linjs::{JSCompartment, JSContext, JSManageable, JSManaged, JSRunnable, JSRuntime, JSSnapshot};
+//! ```
+//! use linjs::{JSCompartment, JSContext, JSManageable, JSManaged, JSRunnable, JSRuntime, JSSnapshot};
 //!
-//!     // A graph type
-//!     type Graph<'a, C> = JSManaged<'a, C, NativeGraph<'a, C>>;
-//!     struct NativeGraph<'a, C: JSCompartment> {
-//!         nodes: Vec<Node<'a, C>>,
-//!     }
-//!     unsafe impl<'a, 'b, C: JSCompartment> JSManageable<'b, C> for NativeGraph<'a, C> {
-//!         type Aged = NativeGraph<'b, C>;
-//!     }
+//! // A graph type
+//! type Graph<'a, C> = JSManaged<'a, C, NativeGraph<'a, C>>;
+//! struct NativeGraph<'a, C: JSCompartment> {
+//!     nodes: Vec<Node<'a, C>>,
+//! }
+//! unsafe impl<'a, 'b, C: JSCompartment> JSManageable<'b, C> for NativeGraph<'a, C> {
+//!     type Aged = NativeGraph<'b, C>;
+//! }
 //!
-//!     // A node type
-//!     type Node<'a, C> = JSManaged<'a, C, NativeNode<'a, C>>;
-//!     struct NativeNode<'a, C: JSCompartment> {
-//!         data: usize,
-//!         edges: Vec<Node<'a, C>>,
-//!     }
-//!     unsafe impl<'a, 'b, C: JSCompartment> JSManageable<'b, C> for NativeNode<'a, C> {
-//!         type Aged = NativeNode<'b, C>;
-//!     }
+//! // A node type
+//! type Node<'a, C> = JSManaged<'a, C, NativeNode<'a, C>>;
+//! struct NativeNode<'a, C: JSCompartment> {
+//!     data: usize,
+//!     edges: Vec<Node<'a, C>>,
+//! }
+//! unsafe impl<'a, 'b, C: JSCompartment> JSManageable<'b, C> for NativeNode<'a, C> {
+//!     type Aged = NativeNode<'b, C>;
+//! }
 //!
-//!     // Build a cyclic graph
-//!     struct Test;
-//!     impl JSRunnable for Test {
-//!         fn run<C: JSCompartment>(self, rt: &mut JSRuntime<C>) {
-//!             let (cx, graph) = rt.manage(NativeGraph { nodes: vec![] });
-//!             self.add_node(cx, graph, 1);
-//!             self.add_node(cx, graph, 2);
-//!             assert_eq!(graph.get(cx).nodes[0].get(cx).data, 1);
-//!             assert_eq!(graph.get(cx).nodes[1].get(cx).data, 2);
-//!             let ref mut cx = cx.snapshot();
-//!             self.add_edge(cx, graph, 0, 1);
-//!             self.add_edge(cx, graph, 1, 0);
-//!             assert_eq!(graph.get(cx).nodes[0].get(cx).edges[0].get(cx).data, 2);
-//!             assert_eq!(graph.get(cx).nodes[1].get(cx).edges[0].get(cx).data, 1);
-//!         }
+//! // Build a cyclic graph
+//! struct Test;
+//! impl JSRunnable for Test {
+//!     fn run<C: JSCompartment>(self, rt: &mut JSRuntime<C>) {
+//!         let (cx, graph) = rt.manage(NativeGraph { nodes: vec![] });
+//!         self.add_node(cx, graph, 1);
+//!         self.add_node(cx, graph, 2);
+//!         assert_eq!(graph.get(cx).nodes[0].get(cx).data, 1);
+//!         assert_eq!(graph.get(cx).nodes[1].get(cx).data, 2);
+//!         let ref mut cx = cx.snapshot();
+//!         self.add_edge(cx, graph, 0, 1);
+//!         self.add_edge(cx, graph, 1, 0);
+//!         assert_eq!(graph.get(cx).nodes[0].get(cx).edges[0].get(cx).data, 2);
+//!         assert_eq!(graph.get(cx).nodes[1].get(cx).edges[0].get(cx).data, 1);
 //!     }
-//!     impl Test {
-//!         fn add_node<C: JSCompartment>(&self, cx: &mut JSContext<C>, graph: Graph<C>, data: usize) {
-//!             let (ref mut cx, node) = cx.snapshot_manage(NativeNode { data: data, edges: vec![] });
-//!             graph.get_mut(cx).nodes.push(node);
-//!         }
-//!         fn add_edge<C: JSCompartment>(&self, cx: &mut JSSnapshot<C>, graph: Graph<C>, from: usize, to: usize) {
-//!             let node1 = graph.get(cx).nodes[from].extend_lifetime(cx);
-//!             let node2 = graph.get(cx).nodes[to].extend_lifetime(cx);
-//!             node1.get_mut(cx).edges.push(node2.contract_lifetime());
-//!         }
+//! }
+//! impl Test {
+//!     fn add_node<C: JSCompartment>(&self, cx: &mut JSContext<C>, graph: Graph<C>, data: usize) {
+//!         let (ref mut cx, node) = cx.snapshot_manage(NativeNode { data: data, edges: vec![] });
+//!         graph.get_mut(cx).nodes.push(node);
 //!     }
-//!     Test.start();
+//!     fn add_edge<C: JSCompartment>(&self, cx: &mut JSSnapshot<C>, graph: Graph<C>, from: usize, to: usize) {
+//!         let node1 = graph.get(cx).nodes[from].extend_lifetime(cx);
+//!         let node2 = graph.get(cx).nodes[to].extend_lifetime(cx);
+//!         node1.get_mut(cx).edges.push(node2.contract_lifetime());
+//!     }
+//! }
+//! Test.start();
 //! ```
 
 use std::marker::PhantomData;
