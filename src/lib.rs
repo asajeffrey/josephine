@@ -499,12 +499,12 @@ fn test_with_derive() {
     struct NativeGraph<'a, C: JSCompartment> {
         nodes: Vec<Node<'a, C>>,
     }
-    // A generic node type, with mixed trait bounds and where clause predicates
+    // A generic node type, with mixed naming, trait bounds, and where clause predicates
     type Node<'a, C> = JSManaged<'a, C, NativeNode<'a, C, usize>>;
     #[derive(JSManageable)]
-    struct NativeNode<'a, C, T: Marker> where C: JSCompartment {
+    struct NativeNode<'x, D, T: Marker> where D: JSCompartment {
         data: T,
-        edges: Vec<Node<'a, C>>,
+        edges: Vec<Node<'x, D>>,
     }
     // Build a cyclic graph
     struct Test;
