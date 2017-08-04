@@ -5,38 +5,47 @@ extern crate syn;
 extern crate quote;
 
 use proc_macro::TokenStream;
-use syn::{MetaItem, Lit, Ident};
 
-#[proc_macro_derive(JSManageable, attributes(jsmanaged))]
+#[proc_macro_derive(JSManageable)]
 pub fn derive_js_manageable(input: TokenStream) -> TokenStream {
     let s = input.to_string();
     let ast = syn::parse_derive_input(&s).unwrap();
-    let gen = impl_js_manageable(&ast);  
+    let gen = impl_js_manageable(&ast);
     gen.parse().unwrap()
 }
 
 fn impl_js_manageable(ast: &syn::DeriveInput) -> quote::Tokens {
     let name = &ast.ident;
+    let (_, ty_generics, _) = ast.generics.split_for_impl();
 
-    let mut managed_name = None;
-    for attr in &ast.attrs {
-        if let &MetaItem::NameValue(ref ident, ref lit) = &attr.value {
-            if ident == "jsmanaged" {
-                managed_name = match *lit {
-                    Lit::Str(ref s, _) => Some(Ident::from(s.to_string())),
-                    _ => panic!("the jsmanaged attribute requires a string name")
-                };
-            }
-        }
-    }
+    // we assume there's at least 1 generic type parameter: the JSCompartment
+    assert!(ast.generics.ty_params.len() >= 1);
+    let impl_generics = ast.generics.ty_params.iter().map(|ty| quote! { #ty });
+    let impl_generics = quote! { #(#impl_generics),* };
 
-    let managed_name = managed_name.expect("the jsmanaged attribute is required, example: #[jsmanaged=\"ManagedAlias\"]");
+    // append the lifetime constraints to the generic type parameters following the JSCompartment
+    let lifetime_constraints = ast.generics.ty_params.iter().skip(1).map(|ty| {
+        let ident = &ty.ident;
+        quote! { #ident: 'b }
+    });
+    let where_clause_predicates = ast.generics.where_clause.predicates.iter().map(|pred| quote! { #pred });
+    let where_clause_items = lifetime_constraints.chain(where_clause_predicates).collect::<Vec<_>>();
+    let where_clause = if where_clause_items.is_empty() {
+        quote! { }
+    } else {
+        quote! { where #(#where_clause_items),* }
+    };
+
+    // the `Aged` associated type params are the ty_params without their bounds
+    let aged_ty_params = ast.generics.ty_params.iter().map(|ty| {
+        let ident = &ty.ident;
+        quote! { #ident }
+    });
+    let aged_ty_params = quote! { #(#aged_ty_params),* };
 
     quote! {
-        type #managed_name<'a, C> = JSManaged<'a, C, #name<'a, C>>;
-
-        unsafe impl<'a, 'b, C: JSCompartment> JSManageable<'b, C> for #name<'a, C> {
-            type Aged = #name<'b, C>;
+        unsafe impl<'a, 'b, #impl_generics> JSManageable<'b, C> for #name #ty_generics #where_clause {
+            type Aged = #name<'b, #aged_ty_params>;
         }
     }
 }

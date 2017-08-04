@@ -170,6 +170,7 @@
 //!     Test.start();
 //! ```
 
+#[cfg(test)]
 #[macro_use]
 extern crate linjs_derive;
 
@@ -490,17 +491,19 @@ fn test_covariant() {
 #[test]
 // This test is the same as test() but using derive
 fn test_with_derive() {
+    trait Marker {}    
+    impl Marker for usize {}
     // A graph type
+    type Graph<'a, C> = JSManaged<'a, C, NativeGraph<'a, C>>;
     #[derive(JSManageable)]
-    #[jsmanaged = "Graph"]
     struct NativeGraph<'a, C: JSCompartment> {
         nodes: Vec<Node<'a, C>>,
     }
-    // A node type
+    // A generic node type, with mixed trait bounds and where clause predicates
+    type Node<'a, C> = JSManaged<'a, C, NativeNode<'a, C, usize>>;
     #[derive(JSManageable)]
-    #[jsmanaged = "Node"]
-    struct NativeNode<'a, C: JSCompartment> {
-        data: usize,
+    struct NativeNode<'a, C, T: Marker> where C: JSCompartment {
+        data: T,
         edges: Vec<Node<'a, C>>,
     }
     // Build a cyclic graph
