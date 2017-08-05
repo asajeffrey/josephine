@@ -180,6 +180,10 @@
 //! Test.start();
 //! ```
 
+#[cfg(test)]
+#[macro_use]
+extern crate linjs_derive;
+
 use std::marker::PhantomData;
 
 /// A marker trait for JS compartments.
@@ -492,4 +496,67 @@ fn test_covariant() {
     {
         managed
     }
+}
+
+#[test]
+// This test is the same as test() but using derive
+fn test_with_derive() {
+    trait Marker {}    
+    impl Marker for usize {}
+    // A graph type
+    type Graph<'a, C> = JSManaged<'a, C, NativeGraph<'a, C>>;
+    #[derive(JSManageable)]
+    struct NativeGraph<'a, C: JSCompartment> {
+        nodes: Vec<Node<'a, C>>,
+    }
+    // A generic node type, with mixed naming, trait bounds, and where clause predicates
+    type Node<'a, C> = JSManaged<'a, C, NativeNode<'a, C, usize>>;
+    #[derive(JSManageable)]
+    struct NativeNode<'x, D, T: Marker> where D: JSCompartment {
+        data: T,
+        edges: Vec<Node<'x, D>>,
+    }
+    // Build a cyclic graph
+    struct Test;
+    impl JSRunnable for Test {
+        fn run<C: JSCompartment>(self, rt: &mut JSRuntime<C>) {
+            let (cx, graph) = rt.manage(NativeGraph { nodes: vec![] });
+            self.add_node1(cx, graph);
+            self.add_node2(cx, graph);
+            assert_eq!(graph.get(cx).nodes[0].get(cx).data, 1);
+            assert_eq!(graph.get(cx).nodes[1].get(cx).data, 2);
+            let ref mut cx = cx.snapshot();
+            self.add_edges(cx, graph);
+            assert_eq!(graph.get(cx).nodes[0].get(cx).edges[0].get(cx).data, 2);
+            assert_eq!(graph.get(cx).nodes[1].get(cx).edges[0].get(cx).data, 1);
+        }
+    }
+    impl Test {
+        fn add_node1<C: JSCompartment>(&self, cx: &mut JSContext<C>, graph: Graph<C>) {
+            // Creating nodes does memory allocation, which may trigger GC,
+            // so we need to be careful about lifetimes while they are being added.
+            // Approach 1 is to root the node.
+            let ref roots = cx.roots();
+            let node1 = cx.manage(NativeNode { data: 1, edges: vec![] }).root(roots);
+            graph.get_mut(cx).nodes.push(node1.contract_lifetime());
+        }
+        fn add_node2<C: JSCompartment>(&self, cx: &mut JSContext<C>, graph: Graph<C>) {
+            // Approach 2 is to take a snapshot of the context right after allocation.
+            let (ref mut cx, node2) = cx.snapshot_manage(NativeNode { data: 2, edges: vec![] });
+            graph.get_mut(cx).nodes.push(node2.contract_lifetime());
+        }
+        fn add_edges<C: JSCompartment>(&self, cx: &mut JSSnapshot<C>, graph: Graph<C>) {
+            // Note that there's no rooting here.
+            let node1 = graph.get(cx).nodes[0].extend_lifetime(cx);
+            let node2 = graph.get(cx).nodes[1].extend_lifetime(cx);
+            node1.get_mut(cx).edges.push(node2.contract_lifetime());
+            node2.get_mut(cx).edges.push(node1.contract_lifetime());
+        }
+    }
+    #[allow(dead_code)]
+    // Test that we can contract the lifetimes of nodes and graphs.
+    fn contract_graph<'a, 'b:'a, C: JSCompartment>(graph: Graph<'b, C>) -> Graph<'a, C> {
+        graph.contract_lifetime()
+    }
+    Test.start();
 }
