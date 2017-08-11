@@ -30,8 +30,8 @@ fn impl_js_manageable(ast: &syn::DeriveInput) -> quote::Tokens {
     let impl_generics = ast.generics.ty_params.iter().map(|ty| quote! { #ty });
     let impl_generics = quote! { #(#impl_generics),* };
 
-    // append the lifetime constraints to the generic type parameters following the JSCompartment
-    let lifetime_constraints = ast.generics.ty_params.iter().skip(1).map(|ty| {
+    // append the lifetime constraints to the generic type parameters
+    let lifetime_constraints = ast.generics.ty_params.iter().map(|ty| {
         let ident = &ty.ident;
         quote! { #ident: 'b }
     });
