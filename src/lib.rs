@@ -155,9 +155,8 @@
 //!     fn run<C, S>(self, cx: JSContext<S>) where
 //!         S: CanInitialize<C>
 //!     {
-//!         let ref mut cx = cx.init();
-//!         let ref mut roots = cx.roots();
-//!         let graph = cx.manage(NativeGraph { nodes: vec![] }).root(roots);
+//!         let ref mut cx = cx.init(NativeGraph { nodes: vec![] });
+//!         let graph = cx.global();
 //!         self.add_node1(cx, graph);
 //!         self.add_node2(cx, graph);
 //!         assert_eq!(graph.get(cx).nodes[0].get(cx).data, 1);
@@ -206,46 +205,63 @@ use std::marker::PhantomData;
 
 /// The type for JS contexts whose current state is `S`.
 pub struct JSContext<S> {
-    marker: PhantomData<S>,
+    state: S,
 }
 
-/// A context state in initialized compartment `C`.
-pub struct Initialized<C> (PhantomData<C>);
+/// A context state in an initialized compartment with global of type `G`.
+pub struct Initialized<G> (G);
 
-/// A context state in snapshotted compartment `C`,
+/// A context state in snapshotted compartment in underlying state `S`,
 /// which guarantees that no GC will happen during the lifetime `'a`.
-pub struct Snapshotted<'a, C> (PhantomData<(&'a(), C)>);
+pub struct Snapshotted<'a, S: 'a> (&'a S);
 
 /// A context state in uninitialized compartment `C`.
 pub struct Uninitialized<C> (PhantomData<C>);
 
 /// A marker trait for JS contexts that can access native state
 pub trait CanAccess<C> {}
-impl<C> CanAccess<C> for Initialized<C> {}
-impl<'a, C> CanAccess<C> for Snapshotted<'a, C> {}
+impl<'a, C, T> CanAccess<C> for Initialized<JSManaged<'a, C, T>> {}
+impl<'a, C, S> CanAccess<C> for Snapshotted<'a, S> where S: CanAccess<C> {}
 
 /// A marker trait for JS contexts that can extend the lifetime of objects
-pub trait CanExtend<'a, C: 'a> {}
-impl<'a, C:'a> CanExtend<'a, C> for Snapshotted<'a, C> {}
+pub trait CanExtend<'a, C> {}
+impl<'a, C, S> CanExtend<'a, C> for Snapshotted<'a, S> where S: CanAccess<C> {}
 
 /// A marker trait for JS contexts that can allocate objects
 pub trait CanAlloc<C> {}
-impl<C> CanAlloc<C> for Initialized<C> {}
+impl<'a, C, T> CanAlloc<C> for Initialized<JSManaged<'a, C, T>> {}
 impl<C> CanAlloc<C> for Uninitialized<C> {}
 
 /// A marker trait for JS contexts that can be initialized
 pub trait CanInitialize<C> {}
 impl<C> CanInitialize<C> for Uninitialized<C> {}
 
+/// A trait for JS contexts that have a global
+pub trait HasGlobal<G> {
+    fn global(&self) -> G;
+}
+impl<G> HasGlobal<G> for Initialized<G> where
+    G: Clone,
+{
+    fn global(&self) -> G {
+        self.0.clone()
+    }
+}
+impl<'a, G, S> HasGlobal<G> for Snapshotted<'a, S> where
+    S: HasGlobal<G>,
+{
+    fn global(&self) -> G {
+        self.0.global()
+    }
+}
+
 impl<S> JSContext<S> {
     /// Get a snapshot of the JS state.
     /// The snapshot only allows access to the methods that are guaranteed not to call GC,
     /// so we don't need to root JS-managed pointers during the lifetime of a snapshot.
-    pub fn snapshot<'a, C>(&'a mut self) -> JSContext<Snapshotted<'a, C>> where
-        S: CanAlloc<C>,
-    {
+    pub fn snapshot<'a>(&'a mut self) -> JSContext<Snapshotted<'a, S>> {
         JSContext {
-            marker: PhantomData
+           state: Snapshotted(&self.state)
         }
     }
 
@@ -274,7 +290,7 @@ impl<S> JSContext<S> {
 
     /// Give ownership of data to JS.
     /// This allocates JS heap, which may trigger GC.
-    pub fn snapshot_manage<'a, C, T>(&'a mut self, value: T) -> (JSContext<Snapshotted<C>>, JSManaged<'a, C, T::Aged>) where
+    pub fn snapshot_manage<'a, C, T>(&'a mut self, value: T) -> (JSContext<Snapshotted<'a, S>>, JSManaged<'a, C, T::Aged>) where
         S: CanAlloc<C>,
         T: JSManageable<'a, C>
     {
@@ -285,19 +301,31 @@ impl<S> JSContext<S> {
             marker: PhantomData,
         };
         let snapshot = JSContext {
-            marker: PhantomData
+            state: Snapshotted(&self.state),
         };
         (snapshot, managed)
     }
 
     /// Initialize a JS Context
-    /// TODO: provide data to be managed by the global
-    pub fn init<C>(self) -> JSContext<Initialized<C>> where
-        S: CanInitialize<C>
+    pub fn init<'a, C, T>(self, value: T) -> JSContext<Initialized<JSManaged<'a, C, T::Aged>>> where
+        S: CanInitialize<C>,
+        T: JSManageable<'a, C>,
     {
+        let global = JSManaged {
+            raw: Box::into_raw(Box::new(value)) as *mut T::Aged,
+            marker: PhantomData,
+        };
         JSContext {
-            marker: PhantomData
+            state: Initialized(global)
         }
+    }
+
+    /// Get the global of an initialized context.
+    pub fn global<G>(&self) -> G where
+        S: HasGlobal<G>,
+        G: Clone,
+    {
+        self.state.global()
     }
 
     // A real implementation would also have JS methods such as those in jsapi.
@@ -327,7 +355,7 @@ pub trait JSRunnable: Sized {
     fn start(self) {
         struct JSCompartmentImpl;
         let cx = JSContext {
-            marker: PhantomData,
+            state: Uninitialized(PhantomData),
         };
         self.run::<JSCompartmentImpl, Uninitialized<JSCompartmentImpl>>(cx);
     }
