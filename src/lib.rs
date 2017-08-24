@@ -132,7 +132,7 @@
 //! extern crate linjs;
 //! #[macro_use] extern crate linjs_derive;
 //! use linjs::{CanAlloc, CanAccess, CanExtend, CanInitialize};
-//! use linjs::{JSContext, JSManageable, JSManaged, JSRunnable};
+//! use linjs::{JSContext, JSManageable, JSManaged, JSRunnable, JSTraceable};
 //!
 //! // A graph type
 //! type Graph<'a, C> = JSManaged<'a, C, NativeGraph<'a, C>>;
