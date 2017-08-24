@@ -373,9 +373,17 @@ impl<S> JSContext<S> {
     // A real implementation would also have JS methods such as those in jsapi.
 }
 
+/// This is a placeholder for the real JSTraceable trait
+pub unsafe trait JSTraceable {}
+
+unsafe impl JSTraceable for String {}
+unsafe impl JSTraceable for usize {}
+unsafe impl<T> JSTraceable for Vec<T> where T: JSTraceable {}
+// etc.
+
 /// Change the JS-managed lifetime of a type.
 /// The real thing would include a JS tracer.
-pub unsafe trait JSManageable<'a, C> {
+pub unsafe trait JSManageable<'a, C> : JSTraceable {
     /// This type should have the same memory represention as `Self`.
     /// The only difference between `Self` and `Self::Aged`
     /// is that any `JSManaged<'b, C, T>` should be replaced by
@@ -424,6 +432,10 @@ impl<'a, C, T: ?Sized> Clone for JSManaged<'a, C, T> {
 
 impl<'a, C, T: ?Sized> Copy for JSManaged<'a, C, T> {
 }
+
+unsafe impl<'a, C, T: ?Sized> JSTraceable for JSManaged<'a, C, T> where
+    T: JSTraceable
+{}
 
 unsafe impl<'a, 'b, C: 'b, T: ?Sized> JSManageable<'b, C> for JSManaged<'a, C, T> where
     T: JSManageable<'b, C>,

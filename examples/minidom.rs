@@ -8,6 +8,7 @@ use linjs::CanInitialize;
 use linjs::Initialized;
 use linjs::JSContext;
 use linjs::JSManaged;
+use linjs::JSTraceable;
 use linjs::JSManageable;
 use linjs::JSRunnable;
 
