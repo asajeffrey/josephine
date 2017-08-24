@@ -1,8 +1,11 @@
+#![allow(dead_code)]
+
 extern crate linjs;
 #[macro_use] extern crate linjs_derive;
 
 use linjs::CanAlloc;
 use linjs::CanInitialize;
+use linjs::Initialized;
 use linjs::JSContext;
 use linjs::JSManaged;
 use linjs::JSManageable;
@@ -18,6 +21,22 @@ type Window<'a, C> = JSManaged<'a, C, NativeWindow<'a, C>>;
 struct NativeWindow<'a, C> {
     console: Console<'a, C>,
     body: Element<'a, C>,
+}
+
+type DOMContext<'a, C> = JSContext<Initialized<Window<'a, C>>>;
+
+fn init_window<'a, C, S>(cx: JSContext<S>) -> DOMContext<'a, C> where
+    C: 'a,
+    S: CanInitialize<C>,
+{
+    let mut cx = cx.pre_init();
+    let ref mut roots = cx.roots();
+    let console = new_console(&mut cx).root(roots);
+    let body = new_element(&mut cx).root(roots);
+    cx.post_init(NativeWindow {
+        console: console,
+        body: body,
+    })
 }
 
 // -------------------------------------------------------------------
@@ -60,7 +79,7 @@ struct Main;
 
 impl JSRunnable for Main {
     fn run<C, S>(self, cx: JSContext<S>) where S: CanInitialize<C> {
-        println!("Hello, world.");
+        let ref mut _cx = init_window(cx);
     }
 }
 

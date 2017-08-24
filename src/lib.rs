@@ -202,6 +202,7 @@
 //! ```
 
 use std::marker::PhantomData;
+use std::mem;
 
 /// The type for JS contexts whose current state is `S`.
 pub struct JSContext<S> {
@@ -218,6 +219,9 @@ pub struct Snapshotted<'a, S: 'a> (&'a S);
 /// A context state in uninitialized compartment `C`.
 pub struct Uninitialized<C> (PhantomData<C>);
 
+/// A context state in the middle of initializing a compartment with global of type `G`.
+pub struct Initializing<G> (G);
+
 /// A marker trait for JS contexts that can access native state
 pub trait CanAccess<C> {}
 impl<'a, C, T> CanAccess<C> for Initialized<JSManaged<'a, C, T>> {}
@@ -230,17 +234,28 @@ impl<'a, C, S> CanExtend<'a, C> for Snapshotted<'a, S> where S: CanAccess<C> {}
 /// A marker trait for JS contexts that can allocate objects
 pub trait CanAlloc<C> {}
 impl<'a, C, T> CanAlloc<C> for Initialized<JSManaged<'a, C, T>> {}
-impl<C> CanAlloc<C> for Uninitialized<C> {}
+impl<'a, C, T> CanAlloc<C> for Initializing<JSManaged<'a, C, T>> {}
 
 /// A marker trait for JS contexts that can be initialized
 pub trait CanInitialize<C> {}
 impl<C> CanInitialize<C> for Uninitialized<C> {}
+
+/// A marker trait for JS contexts that are in the middle of initializing
+pub trait IsInitializing<G>: HasGlobal<G> {}
+impl<G: Clone> IsInitializing<G> for Initializing<G> {}
 
 /// A trait for JS contexts that have a global
 pub trait HasGlobal<G> {
     fn global(&self) -> G;
 }
 impl<G> HasGlobal<G> for Initialized<G> where
+    G: Clone,
+{
+    fn global(&self) -> G {
+        self.0.clone()
+    }
+}
+impl<G> HasGlobal<G> for Initializing<G> where
     G: Clone,
 {
     fn global(&self) -> G {
@@ -311,10 +326,37 @@ impl<S> JSContext<S> {
         S: CanInitialize<C>,
         T: JSManageable<'a, C>,
     {
+        self.pre_init().post_init(value)
+    }
+
+    /// Prepare a JS context for initialization
+    pub fn pre_init<'a, C, T>(self) -> JSContext<Initializing<JSManaged<'a, C, T>>> where
+        S: CanInitialize<C>,
+    {
+        // This is dangerous!
+        // This is only safe because dereferencing this pointer is only done by user code
+        // in posession of a context whose state is `CanAccess<C>`. The only way a user can
+        // access such a context is by calling `post_init`, which initializes the raw pointer.
+        // TODO: check that `Drop` and GC tracing are safe.
+        // TODO: check the performance of the safer version of this code, which stores an `Option<T>` rather than a `T`.
+        let raw = unsafe { Box::into_raw(Box::new(mem::uninitialized())) };
         let global = JSManaged {
-            raw: Box::into_raw(Box::new(value)) as *mut T::Aged,
+            raw: raw,
             marker: PhantomData,
         };
+        JSContext {
+            state: Initializing(global),
+        }
+    }
+
+    /// Finish initializing a JS Context
+    pub fn post_init<'a, C, T>(self, value: T) -> JSContext<Initialized<JSManaged<'a, C, T::Aged>>> where
+        S: IsInitializing<JSManaged<'a, C, T::Aged>>,
+        T: JSManageable<'a, C>,
+    {
+        let global = self.state.global();
+        let raw = global.raw as *mut T;
+        unsafe { *raw = value; }
         JSContext {
             state: Initialized(global)
         }
