@@ -203,6 +203,7 @@
 
 use std::marker::PhantomData;
 use std::mem;
+use std::ptr;
 
 /// The type for JS contexts whose current state is `S`.
 pub struct JSContext<S> {
@@ -210,17 +211,23 @@ pub struct JSContext<S> {
 }
 
 /// A context state in an initialized compartment with global of type `G`.
-pub struct Initialized<G> (G);
+pub struct Initialized<G> {
+    global: G,
+    roots: JSPinnedRoots,
+}
 
 /// A context state in snapshotted compartment in underlying state `S`,
 /// which guarantees that no GC will happen during the lifetime `'a`.
-pub struct Snapshotted<'a, S: 'a> (&'a S);
+pub struct Snapshotted<'a, S: 'a> (&'a mut S);
 
 /// A context state in uninitialized compartment `C`.
 pub struct Uninitialized<C> (PhantomData<C>);
 
 /// A context state in the middle of initializing a compartment with global of type `G`.
-pub struct Initializing<G> (G);
+pub struct Initializing<G> {
+    global: G,
+    roots: JSPinnedRoots,
+}
 
 /// A marker trait for JS contexts that can access native state
 pub trait CanAccess<C> {}
@@ -230,6 +237,35 @@ impl<'a, C, S> CanAccess<C> for Snapshotted<'a, S> where S: CanAccess<C> {}
 /// A marker trait for JS contexts that can extend the lifetime of objects
 pub trait CanExtend<'a, C> {}
 impl<'a, C, S> CanExtend<'a, C> for Snapshotted<'a, S> where S: CanAccess<C> {}
+
+/// A trait for JS contexts that can create roots
+pub trait CanRoot {
+    fn roots(self) -> JSPinnedRoots;
+    fn roots_ref(&self) -> &JSPinnedRoots;
+    fn roots_mut(&mut self) -> &mut JSPinnedRoots;
+}
+impl<G> CanRoot for Initialized<G> {
+    fn roots(self) -> JSPinnedRoots {
+        self.roots
+    }
+    fn roots_ref(&self) -> &JSPinnedRoots {
+        &self.roots
+    }
+    fn roots_mut(&mut self) -> &mut JSPinnedRoots {
+        &mut self.roots
+    }
+}
+impl<G> CanRoot for Initializing<G> {
+    fn roots(self) -> JSPinnedRoots {
+        self.roots
+    }
+    fn roots_ref(&self) -> &JSPinnedRoots {
+        &self.roots
+    }
+    fn roots_mut(&mut self) -> &mut JSPinnedRoots {
+        &mut self.roots
+    }
+}
 
 /// A marker trait for JS contexts that can allocate objects
 pub trait CanAlloc<C> {}
@@ -241,7 +277,7 @@ pub trait CanInitialize<C> {}
 impl<C> CanInitialize<C> for Uninitialized<C> {}
 
 /// A marker trait for JS contexts that are in the middle of initializing
-pub trait IsInitializing<G>: HasGlobal<G> {}
+pub trait IsInitializing<G>: CanRoot + HasGlobal<G> {}
 impl<G: Clone> IsInitializing<G> for Initializing<G> {}
 
 /// A trait for JS contexts that have a global
@@ -252,14 +288,14 @@ impl<G> HasGlobal<G> for Initialized<G> where
     G: Clone,
 {
     fn global(&self) -> G {
-        self.0.clone()
+        self.global.clone()
     }
 }
 impl<G> HasGlobal<G> for Initializing<G> where
     G: Clone,
 {
     fn global(&self) -> G {
-        self.0.clone()
+        self.global.clone()
     }
 }
 impl<'a, G, S> HasGlobal<G> for Snapshotted<'a, S> where
@@ -276,7 +312,7 @@ impl<S> JSContext<S> {
     /// so we don't need to root JS-managed pointers during the lifetime of a snapshot.
     pub fn snapshot<'a>(&'a mut self) -> JSContext<Snapshotted<'a, S>> {
         JSContext {
-           state: Snapshotted(&self.state)
+            state: Snapshotted(&mut self.state),
         }
     }
 
@@ -316,7 +352,7 @@ impl<S> JSContext<S> {
             marker: PhantomData,
         };
         let snapshot = JSContext {
-            state: Snapshotted(&self.state),
+            state: Snapshotted(&mut self.state),
         };
         (snapshot, managed)
     }
@@ -345,7 +381,10 @@ impl<S> JSContext<S> {
             marker: PhantomData,
         };
         JSContext {
-            state: Initializing(global),
+            state: Initializing {
+                global: global,
+                roots: JSPinnedRoots(ptr::null_mut()),
+            }
         }
     }
 
@@ -358,7 +397,10 @@ impl<S> JSContext<S> {
         let raw = global.raw as *mut T;
         unsafe { *raw = value; }
         JSContext {
-            state: Initialized(global)
+            state: Initialized {
+                global: global,
+                roots: self.state.roots(),
+            }
         }
     }
 
@@ -374,7 +416,14 @@ impl<S> JSContext<S> {
 }
 
 /// This is a placeholder for the real JSTraceable trait
-pub unsafe trait JSTraceable {}
+pub unsafe trait JSTraceable {
+    fn as_ptr(&self) -> *const JSTraceable where Self: Sized {
+        unsafe { mem::transmute(self as &JSTraceable) }
+    }
+    fn as_mut_ptr(&mut self) -> *mut JSTraceable where Self: Sized {
+        unsafe { mem::transmute(self as &mut JSTraceable) }
+    }
+}
 
 unsafe impl JSTraceable for String {}
 unsafe impl JSTraceable for usize {}
@@ -389,11 +438,54 @@ pub unsafe trait JSManageable<'a, C> : JSTraceable {
     /// is that any `JSManaged<'b, C, T>` should be replaced by
     /// `JSManaged<'a, C, T::Aged>`.
     type Aged: 'a + JSManageable<'a, C, Aged=Self::Aged>;
+
+    unsafe fn change_lifetime(self) -> Self::Aged where Self: Sized {
+        let result = mem::transmute_copy(&self);
+        mem::forget(self);
+        result
+    }
+
+    unsafe fn change_lifetime_ref(&'a self) -> &'a Self::Aged {
+        &*(self as *const Self as *const Self::Aged)
+    }
+
+    unsafe fn change_lifetime_mut(&'a mut self) -> &'a mut Self::Aged {
+        &mut *(self as *mut Self as *mut Self::Aged)
+    }
+
+    fn contract_lifetime(self) -> Self::Aged where Self: 'a + Sized {
+        unsafe { self.change_lifetime() }
+    }
+
+    fn contract_lifetime_ref(&'a self) -> &'a Self::Aged where Self: 'a {
+        unsafe { self.change_lifetime_ref() }
+    }
+
+    fn contract_lifetime_mut(&'a mut self) -> &'a mut Self::Aged where Self: 'a {
+        unsafe { self.change_lifetime_mut() }
+    }
 }
 
-unsafe impl<'a, C> JSManageable<'a, C> for String { type Aged = String; }
-unsafe impl<'a, C> JSManageable<'a, C> for usize { type Aged = usize; }
-unsafe impl<'a, C, T> JSManageable<'a, C> for Vec<T> where T: JSManageable<'a, C> { type Aged = Vec<T::Aged>; }
+unsafe impl<'a, C> JSManageable<'a, C> for String {
+    type Aged = String;
+    unsafe fn change_lifetime(self) -> Self::Aged where Self: Sized {
+        self
+    }
+}
+
+unsafe impl<'a, C> JSManageable<'a, C> for usize {
+    type Aged = usize;
+    unsafe fn change_lifetime(self) -> Self::Aged where Self: Sized {
+        self
+    }
+}
+
+unsafe impl<'a, C, T> JSManageable<'a, C> for Vec<T> where T: JSManageable<'a, C> {
+    type Aged = Vec<T::Aged>;
+    unsafe fn change_lifetime(self) -> Self::Aged where Self: Sized {
+        mem::transmute(self)
+    }
+}
 // etc.
 
 /// A user of a JS runtime implements `JSRunnable`.
@@ -509,5 +601,90 @@ pub struct JSRoots<C> {
 impl<C> Drop for JSRoots<C> {
     fn drop(&mut self) {
         // The real thing would unroot the root set.
+    }
+}
+
+/// A stack allocated root
+pub struct JSRoot<T> {
+    value: T,
+    pin: JSUntypedPinnedRoot,
+}
+
+/// A stack allocated root that haz been pinned, so the backing store can't move.
+pub struct JSPinnedRoot<'a, T:'a> (&'a mut JSRoot<T>);
+
+/// A doubly linked list with all the pinned roots.
+pub struct JSPinnedRoots(*mut JSUntypedPinnedRoot);
+
+/// A stack allocated root that has been pinned, but we don't have a type for the contents
+struct JSUntypedPinnedRoot {
+    value: *mut JSTraceable,
+    next: *mut JSUntypedPinnedRoot,
+    prev: *mut JSUntypedPinnedRoot,
+}
+
+impl<T> JSRoot<T> {
+    pub fn new<'a, C>(value: T) -> JSRoot<T::Aged> where
+        T: JSManageable<'a, C>,
+    {
+        JSRoot {
+            value: unsafe { value.change_lifetime() },
+            pin: JSUntypedPinnedRoot {
+                value: unsafe { mem::zeroed() },
+                next: ptr::null_mut(),
+                prev: ptr::null_mut(),
+            },
+        }
+    }
+
+    pub fn pin<'a, S>(&'a mut self, cx: &mut JSContext<S>) -> JSPinnedRoot<'a, T> where
+        S: CanRoot,
+        T: 'a + JSTraceable,
+    {
+        self.pin.value = self.value.as_mut_ptr();
+        self.pin.next = cx.state.roots_ref().0;
+        self.pin.prev = ptr::null_mut();
+        if let Some(next) = unsafe { self.pin.next.as_mut() } {
+            next.prev = &mut self.pin;
+        }
+        *cx.state.roots_mut() = JSPinnedRoots(&mut self.pin);
+        JSPinnedRoot(self)
+    }
+}
+
+impl<'a, T> Drop for JSPinnedRoot<'a, T> {
+    fn drop(&mut self) {
+        unsafe {
+            if let Some(next) = self.0.pin.next.as_mut() {
+                next.prev = self.0.pin.prev;
+            }
+            if let Some(prev) = self.0.pin.prev.as_mut() {
+                prev.next = self.0.pin.next;
+            }
+            self.0.pin.value = mem::zeroed();
+            self.0.pin.next = ptr::null_mut();
+            self.0.pin.prev = ptr::null_mut();
+        }
+    }
+}
+
+impl<'a, T> JSPinnedRoot<'a, T> {
+    pub fn get<'b, C>(&'b self) -> T::Aged where
+        T: JSManageable<'b, C>,
+        T::Aged: Copy,
+    {
+        *self.get_ref()
+    }
+
+    pub fn get_ref<'b, C>(&'b self) -> &'b T::Aged where
+        T: JSManageable<'b, C>,
+    {
+        self.0.value.contract_lifetime_ref()
+    }
+
+    pub fn get_mut<'b, C>(&'b mut self) -> &'b mut T::Aged where
+        T: JSManageable<'b, C>,
+    {
+        self.0.value.contract_lifetime_mut()
     }
 }
