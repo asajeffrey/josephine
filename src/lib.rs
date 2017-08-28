@@ -631,6 +631,7 @@ pub struct JSRoot<T> {
 pub struct JSPinnedRoot<'a, T:'a> (&'a mut JSRoot<T>);
 
 /// A doubly linked list with all the pinned roots.
+#[derive(Eq, PartialEq)]
 pub struct JSPinnedRoots(*mut JSUntypedPinnedRoot);
 
 /// A stack allocated root that has been pinned, but we don't have a type for the contents
@@ -664,7 +665,8 @@ impl<T> JSRoot<T> {
             }
             if let Some(prev) = self.pin.prev.as_mut() {
                 prev.next = self.pin.next;
-            } else if !self.pin.next.is_null() {
+            }
+            if *self.roots == JSPinnedRoots(&mut self.pin) {
                 *self.roots = JSPinnedRoots(self.pin.next);
             }
             self.value = None;
