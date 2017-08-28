@@ -417,7 +417,7 @@ impl<S> JSContext<S> {
         S: CanRoot,
     {
         JSRoot {
-            value: unsafe { mem::zeroed() },
+            value: None,
             pin: JSUntypedPinnedRoot {
                 value: unsafe { mem::zeroed() },
                 next: ptr::null_mut(),
@@ -442,6 +442,7 @@ pub unsafe trait JSTraceable {
 
 unsafe impl JSTraceable for String {}
 unsafe impl JSTraceable for usize {}
+unsafe impl<T> JSTraceable for Option<T> where T: JSTraceable {}
 unsafe impl<T> JSTraceable for Vec<T> where T: JSTraceable {}
 // etc.
 
@@ -621,7 +622,7 @@ impl<C> Drop for JSRoots<C> {
 
 /// A stack allocated root
 pub struct JSRoot<T> {
-    value: T,
+    value: Option<T>,
     pin: JSUntypedPinnedRoot,
     roots: *mut JSPinnedRoots,
 }
@@ -645,7 +646,7 @@ impl<T> JSRoot<T> {
         U: JSManageable<'a, C, Aged=T>,
     {
         unsafe {
-            self.value = value.change_lifetime();
+            self.value = Some(value.change_lifetime());
             self.pin.value = self.value.as_mut_ptr();
             self.pin.next = (*self.roots).0;
             self.pin.prev = ptr::null_mut();
@@ -685,12 +686,12 @@ impl<'a, T> JSPinnedRoot<'a, T> {
     pub fn get_ref<'b, C>(&'b self) -> &'b T::Aged where
         T: JSManageable<'b, C>,
     {
-        self.0.value.contract_lifetime_ref()
+        self.0.value.as_ref().unwrap().contract_lifetime_ref()
     }
 
     pub fn get_mut<'b, C>(&'b mut self) -> &'b mut T::Aged where
         T: JSManageable<'b, C>,
     {
-        self.0.value.contract_lifetime_mut()
+        self.0.value.as_mut().unwrap().contract_lifetime_mut()
     }
 }
