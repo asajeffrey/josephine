@@ -671,6 +671,7 @@ impl<'a, T> Drop for JSPinnedRoot<'a, T> {
             self.0.pin.value = mem::zeroed();
             self.0.pin.next = ptr::null_mut();
             self.0.pin.prev = ptr::null_mut();
+            self.0.value = None;
         }
     }
 }
