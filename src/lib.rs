@@ -334,15 +334,6 @@ impl<S> JSContext<S> {
         }
     }
 
-    /// Add a new root set to the context.
-    pub fn roots<C>(&mut self) -> JSRoots<C> where
-        S: CanAlloc<C>,
-    {
-        JSRoots {
-            marker: PhantomData,
-        }
-    }
-
     /// Give ownership of data to JS.
     /// This allocates JS heap, which may trigger GC.
     pub fn manage<'a, C, T>(&'a mut self, value: T) -> JSManaged<'a, C, T::Aged> where
@@ -614,27 +605,6 @@ impl<'a, C, T: ?Sized> JSManaged<'a, C, T> {
         'b: 'a,
     {
         unsafe { self.change_lifetime() }
-    }
-
-    /// It's safe to extend the lifetime of JS-managed data by rooting it.
-    pub fn root<'b>(self, _: &'b JSRoots<C>) -> JSManaged<'b, C, T::Aged> where
-        T: JSManageable<'b, C>,
-        'b: 'a,
-    {
-        // The real thing would add the reflector to the root set.
-        unsafe { self.change_lifetime() }
-    }
-}
-
-/// A root set.
-pub struct JSRoots<C> {
-    // The real thing would contain a set of rooted JS objects.
-    marker: PhantomData<C>,
-}
-
-impl<C> Drop for JSRoots<C> {
-    fn drop(&mut self) {
-        // The real thing would unroot the root set.
     }
 }
 
