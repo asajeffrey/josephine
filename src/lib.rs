@@ -3,125 +3,139 @@
 //! The goals are:
 //! 
 //! 1. Ensure that JS objects are only accessed in the right JS compartment.
-//! 2. Remove the need for the rooting lint.
-//! 3. Don't require rooting in code that can't perform GC.
-//! 4. Allow `&mut T` access to JS-managed data, so we don't need as much interior mutability.
+//! 2. Support stack-allocated roots.
+//! 3. Remove the need for the rooting lint.
+//! 4. Don't require rooting in code that can't perform GC.
+//! 5. Allow `&mut T` access to JS-managed data, so we don't need as much interior mutability.
 //!
-//! The idea is that Rust data can be given to JS to manage, and then accessed.
-//! 
-//! ```ignore
-//! let x: JSManaged<C, String> = cx.manage(String::from("hello"));
-//! ...
-//! let x_ref: &String = x.get(cx);
-//! ```
-//! We use polymorphism to track the type of the JS context `cx: &mut JSContext<C>`
-//! where there is an opaque type `C`. Each JS compartment has
-//! a different type, so objects from one JS compartment cannot
-//! accidentally be used in another.
+//! The idea is that Rust data can be given to JS to manage, and then accessed,
+//! using the JS context. This is passed as a variable of type `JSContext<S>`,
+//! where the type parameter `S` is used to track the state of the context.
 //!
-//! Unfortunately, even this simple example is not safe, due to garbage collection.
-//! If GC happened during the `...`, there is nothing keeping `x` alive, so
-//! the access might be to GC'd memory. To avoid this, we introduce root sets,
-//! that keep memory alive. For example:
-//! 
-//! ```ignore
-//! let roots: JSRoots<C> = cx.roots();
-//! let x: JSManaged<C, String> = cx.manage(String::from("hello")).root(&roots);
-//! ...
-//! let x_ref: &String = x.get(cx);
+//! For example, we can give JS some Rust data to manage in compartment
+//! `C` when the context state implements the `CanAlloc<C>` trait:
+//!
+//! ```rust
+//! # use linjs::*;
+//! fn example<C, S>(cx: &mut JSContext<S>) where
+//!     S: CanAlloc<C>,
+//! {
+//!     let x: JSManaged<C, String> = cx.manage(String::from("hello"));
+//! }
 //! ```
-//! This example is now safe, since `x` is rooted during its access. To see why
-//! the modified example type-checks, but the original does not, we introduce
-//! explicit lifetimes (where `&roots` has type `&'a JSRoots<C>`):
-//! 
-//! ```ignore
-//! let x: JSManaged<'a, C, String> = cx.manage(String::from("hello")).root(&roots);
-//! ...
-//! let x_ref: &'a String = x.get(cx);
+//!
+//! JS-managed data in compartment `C` can be accessed if the context state
+//! implements the `CanAccess<C>` trait:
+//!
+//! ```rust
+//! # use linjs::*;
+//! fn example<C, S>(cx: &mut JSContext<S>, x: JSManaged<C, String>) where
+//!     S: CanAccess<C>,
+//! {
+//!     println!("{} world", x.get(cx));
+//! }
 //! ```
-//! Without the rooting, the lifetimes do not match, since the call to `cx.manage`
-//! requires a mutable borrow of `cx`, which will have lifetime `'b`, so
-//! `x` has type `JSManaged<'b, C, String>`. The call to `x.get(cx)` requires
-//! an immutable borrow of `cx`, which will have lifetime `'c` which does not overlap
-//! with `'b`, and so `x.get(cx)` does not pass the borrow-checker.
+//!
+//! Unfortunately, combining these two examples is not memory-safe, due to
+//! garbage collection:
+//!
+//! ```rust,ignore
+//! # use linjs::*;
+//! fn unsafe_example<C, S>(cx: &mut JSContext<S>) where
+//!     S: CanAlloc<C> + CanAccess<C>,
+//! {
+//!     let x: JSManaged<C, String> = cx.manage(String::from("hello"));
+//!     // Imagine something triggers GC here
+//!     println!("{} world", x.get(cx));
+//! }
+//! ```
+//!
+//! This example is not safe, as there is nothing keeping `x` alive in JS,
+//! so if garbage collection is triggered, then `x` will be reclaimed
+//! which will drop the Rust data, and so the call to `x.get(cx)` will be a use-after-free.
+//!
+//! This example is not memory-safe, and fortunately fails to typecheck:
+//!
+//! ```text
+//! 	error[E0502]: cannot borrow `*cx` as immutable because it is also borrowed as mutable
+//!  --> <anon>:7:32
+//!   |
+//! 5 |     let x: JSManaged<C, String> = cx.manage(String::from("hello"));
+//!   |                                   -- mutable borrow occurs here
+//! 6 |     // Imagine something triggers GC here
+//! 7 |     println!("{} world", x.get(cx));
+//!   |                                ^^ immutable borrow occurs here
+//! 8 | }
+//!   | - mutable borrow ends here
+//! ```
+//!
+//! To see why this example fails to typecheck, we can introduce explicit lifetimes:
+//!
+//! ```rust,ignore
+//! # use linjs::*;
+//! fn unsafe_example<'a, C, S>(cx: &'a mut JSContext<S>) where
+//!     S: CanAlloc<C> + CanAccess<C>,
+//! {
+//!     // x has type JSManaged<'b, C, String>
+//!     let x = cx.manage(String::from("hello"));
+//!     // Imagine something triggers GC here
+//!     // x_ref has type &'c String
+//!     let x_ref = x.get(cx);
+//!     println!("{} world", x_ref);
+//! }
+//! ```
+//!
+//! We can now see why this fails to typecheck: since `cx` is borrowed mutably at type
+//! `&'b mut JSContext<S>`, then immutably at type `&'c mut JSContext<S>` these lifetimes
+//! cannot overlap, but the call to `x.get(cx)` requires them to overlap. These contradicting
+//! constraints cause the example to fail to compile.
+//!
+//! To fix this example, we need to make sure that `x` lives long enough. One way to do this is
+//! to root `x`, so that it will not be garbage collected. 
+//!
+//! ```rust
+//! # use linjs::*;
+//! fn example<'a, C: 'a, S>(cx: &'a mut JSContext<S>) where
+//!     S: CanAlloc<C> + CanAccess<C> + CanRoot,
+//! {
+//!     // Function body has lifetime 'b
+//!     // root has type JSRoot<JSManaged<'b, C, String>>
+//!     let mut root = cx.new_root();
+//!     // pinned has type JSPinnedRoot<'b, JSManaged<'b, C, String>>
+//!     let pinned = root.pin(cx.manage(String::from("hello")));
+//!     // x has type JSManaged<'b, C, String> 
+//!     let x = pinned.get();
+//!     // Imagine something triggers GC here
+//!     // x_ref has type &'c String
+//!     let x_ref = x.get(cx);
+//!     println!("{} world", x_ref);
+//! }
+//! ```
+//!
+//! This example is now safe, since `x` is rooted during its access.
+//! The example typechecks because the root has lifetime `'b`, and there is
+//! no constraint that `'b` and `'c` don't overlap.
 //! This use of lifetimes allows safe access to JS-managed data without a special
 //! rooting lint.
 //!
-//! JS-managed data can be explicity converted to a more constrained
+//! JS-managed lifetimes are variant, so can be converted to a more constrained
 //! lifetime, for example if `'b` is a sublifetime of `'a`:
 //! 
-//! ```ignore
-//! let x: JSManaged<'a, C, String> = cx.manage(String::from("hello")).root(&roots);
-//! let y: JSManaged<'b, C, String> = x.contract_lifetime();
-//! ```
-//! Things get interesting when managed references are nested,
-//! since the nested lifetimes also change:
-//! 
-//! ```ignore
-//! type JSHandle<'a, C, T> = JSManaged<'a, C, JSManaged<'a, C, T>>;
-//! let x: JSManaged<'a, C, String> = cx.manage(String::from("hello")).root(&roots);
-//! let y: JSHandle<'a, C, String> = cx.manage(x).root(&roots);
-//! let z: JSHandle<'b, C, String> = x.contact_lifetime();
-//! ```
-//! There is a `JSManageable` trait which drives these changes of lifetime.
-//! If `T: JSManageable<'a>` then `T::Aged` is the same type as `T`,
-//! but with any reachable JS-managed data now with lifetime `'a`.
-//! For example `JSHandle<'a, Cx, String>` implements `JSManageable<'b>`,
-//! with `Aged=JSHandle<'b, Cx, String>`.
-//!
-//! A full implementation would provide a `[#derive(JSManageable)]` annotation,
-//! for user-defined types, but for the moment users have to implement this by hand.
-//! For example:
-//! 
-//! ```ignore
-//! type Node<'a, C> = JSManaged<'a, C, NativeNode<'a, C>>;
-//! struct NativeNode<'a, C> {
-//!     data: usize,
-//!     edges: Vec<Node<'a, C>>,
-//! }
-//! unsafe impl<'a, 'b, C> JSManageable<'b> for NativeNode<'a, C> {
-//!     type Aged = NativeNode<'b, C>;
+//! ```rust
+//! # use linjs::*;
+//! fn example<'a, 'b, C, S>(cx: &'a mut JSContext<S>) where
+//!    'a: 'b,
+//!    S: CanAlloc<C>,
+//! {
+//!    let x: JSManaged<'a, C, String> = cx.manage(String::from("hello"));
+//!    let y: JSManaged<'b, C, String> = x;
 //! }
 //! ```
-//! To avoid rooting in code that can't perform GC, we allow a snapshot to
-//! be taken of the JS context. Snapshots are limited as to what JS
-//! functionality is supported, to ensure that no GC is performed
-//! while a snapshot is live. The benefit of this is that the lifetimes
-//! of JS-managed data can be extended to the lifetime of the snapshot.
-//! For example, if `cx: &'c JSSnapshot<C>` and `'c` is a superlifetime of `'b`:
-//! 
-//! ```ignore
-//! let y: JSManaged<'b, C, String> = x.contract_lifetime();
-//! let z: JSManaged<'c, C, String> = y.extend_lifetime(cx);
-//! ```
-//! We allow mutable JS contexts to gain mutable access to JS-managed data.
-//! Since we require the JS context to be mutable, we can only safely
-//! access one JS-managed value at a time. To do this safely, we either need to root
-//! the data or use a snapshot. For example with rooting:
-//! 
-//! ```ignore
-//! let roots: JSRoots<C> = cx.roots();
-//! let x: JSManaged<'a, C, String> = cx.manage(String::from("hello")).root(&roots);
-//! let y: JSHandle<'a, C, String> = cx.manage(x).root(&roots);
-//! let z: JSManaged<'a, C, String> = cx.manage(String::from("world")).root(&roots);
-//! y.get_mut(cx) = z.contract_lifetime();
-//! ```
-//! A common case is to create JS-managed data, and to add it to an existing
-//! JS-managed object. Since no GC can be performed between the creation and
-//! the assignment, this is safe. To support this, there is a `cx.snapshot_manage(data)`
-//! method, which JS-manages the data, then takes a snapshot immediately afterwards,
-//! For example:
-//! 
-//! ```ignore
-//! let ref roots = cx.roots();
-//! let x = cx.manage(String::from("hello")).root(roots);
-//! let y = cx.manage(x).root(roots);
-//! let (ref mut cx, z) = cx.snapshot_manage(String::from("world"));
-//! y.get_mut(cx) = z;
-//! ```
-//! Note that `z` does not need to be rooted, since the snapshot is taken just after
-//! `z` is allocated
 //!
+
+// TODO: write docs for mutable access, snapshotting, globals, runnables, cyclic initialization.
+// TODO: rewrite this example
+
 //! #Examples
 //!
 //! This is an example of building a two-node cyclic graph, which is the smallest
