@@ -145,7 +145,7 @@
 //! ```
 //! extern crate linjs;
 //! #[macro_use] extern crate linjs_derive;
-//! use linjs::{CanAlloc, CanAccess, CanExtend, CanInitialize};
+//! use linjs::{CanAlloc, CanAccess, CanExtend, CanInitialize, CanRoot};
 //! use linjs::{JSContext, JSManageable, JSManaged, JSRunnable, JSTraceable};
 //!
 //! // A graph type
@@ -184,14 +184,15 @@
 //!
 //! impl Example {
 //!     fn add_node1<S, C>(&self, cx: &mut JSContext<S>, graph: Graph<C>) where
-//!         S: CanAccess<C> + CanAlloc<C>
+//!         S: CanAccess<C> + CanAlloc<C> + CanRoot
 //!     {
 //!         // Creating nodes does memory allocation, which may trigger GC,
 //!         // so we need to be careful about lifetimes while they are being added.
 //!         // Approach 1 is to root the node.
-//!         let ref roots = cx.roots();
-//!         let node1 = cx.manage(NativeNode { data: 1, edges: vec![] }).root(roots);
-//!         graph.get_mut(cx).nodes.push(node1.contract_lifetime());
+//!         let ref mut root = cx.new_root();
+//!         let pinned = root.pin(cx.manage(NativeNode { data: 1, edges: vec![] }));
+//!         let node1 = pinned.get();
+//!         graph.get_mut(cx).nodes.push(node1);
 //!     }
 //!     fn add_node2<S, C>(&self, cx: &mut JSContext<S>, graph: Graph<C>) where
 //!         S: CanAccess<C> + CanAlloc<C>
