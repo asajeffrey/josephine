@@ -657,22 +657,27 @@ impl<T> JSRoot<T> {
             JSPinnedRoot(self)
         }
     }
+    fn unpin(&mut self) {
+        unsafe {
+            if let Some(next) = self.pin.next.as_mut() {
+                next.prev = self.pin.prev;
+            }
+            if let Some(prev) = self.pin.prev.as_mut() {
+                prev.next = self.pin.next;
+            } else if !self.pin.next.is_null() {
+                *self.roots = JSPinnedRoots(self.pin.next);
+            }
+            self.value = None;
+            self.pin.value = mem::zeroed();
+            self.pin.next = ptr::null_mut();
+            self.pin.prev = ptr::null_mut();
+        }
+    }
 }
 
 impl<'a, T> Drop for JSPinnedRoot<'a, T> {
     fn drop(&mut self) {
-        unsafe {
-            if let Some(next) = self.0.pin.next.as_mut() {
-                next.prev = self.0.pin.prev;
-            }
-            if let Some(prev) = self.0.pin.prev.as_mut() {
-                prev.next = self.0.pin.next;
-            }
-            self.0.pin.value = mem::zeroed();
-            self.0.pin.next = ptr::null_mut();
-            self.0.pin.prev = ptr::null_mut();
-            self.0.value = None;
-        }
+        self.0.unpin()
     }
 }
 
