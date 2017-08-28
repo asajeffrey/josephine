@@ -201,6 +201,9 @@
 //! fn main() { Example.start(); }
 //! ```
 
+#![feature(generic_param_attrs)]
+#![feature(dropck_eyepatch)]
+
 use std::marker::PhantomData;
 use std::mem;
 use std::ptr;
@@ -674,6 +677,27 @@ impl<T> JSRoot<T> {
             self.pin.next = ptr::null_mut();
             self.pin.prev = ptr::null_mut();
         }
+    }
+}
+
+// Under normal circumstances, there's no point in dropping a root, since
+// the pinned root will already have been dropped. However, there might
+// have been a use of `mem::forget` on the pinned root, causing its destructor
+// not to have been run. For this reason, we unpin the root here.
+//
+// Unfortunately, just implementing `Drop` causes the drop checker to reject
+// valid code, because it can't verify that `T` strictly outlives the root.
+// To get around this, we allow `T` to dangle, but this makes dropping it
+// unsafe. For this reason, we explicitly about the value, and don't call its
+// destructor.
+//
+// This can cause a memory leak, since the value is never dropped, but this
+// leak only occurs when the root is pinned, and then the pinned root is
+// mem::forgotten.
+unsafe impl< #[may_dangle] T> Drop for JSRoot<T> {
+    fn drop(&mut self) {
+        mem::forget(self.value.take());
+        self.unpin()
     }
 }
 
