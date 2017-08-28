@@ -412,6 +412,21 @@ impl<S> JSContext<S> {
         self.state.global()
     }
 
+    /// Create a new root.
+    pub fn new_root<T>(&mut self) -> JSRoot<T> where
+        S: CanRoot,
+    {
+        JSRoot {
+            value: unsafe { mem::zeroed() },
+            pin: JSUntypedPinnedRoot {
+                value: unsafe { mem::zeroed() },
+                next: ptr::null_mut(),
+                prev: ptr::null_mut(),
+            },
+            roots: self.state.roots_mut(),
+        }
+    }
+
     // A real implementation would also have JS methods such as those in jsapi.
 }
 
@@ -608,6 +623,7 @@ impl<C> Drop for JSRoots<C> {
 pub struct JSRoot<T> {
     value: T,
     pin: JSUntypedPinnedRoot,
+    roots: *mut JSPinnedRoots,
 }
 
 /// A stack allocated root that haz been pinned, so the backing store can't move.
@@ -624,31 +640,21 @@ struct JSUntypedPinnedRoot {
 }
 
 impl<T> JSRoot<T> {
-    pub fn new<'a, C>(value: T) -> JSRoot<T::Aged> where
-        T: JSManageable<'a, C>,
+    pub fn pin<'a, C, U>(&'a mut self, value: U) -> JSPinnedRoot<'a, T> where
+        T: JSManageable<'a, C, Aged=T>,
+        U: JSManageable<'a, C, Aged=T>,
     {
-        JSRoot {
-            value: unsafe { value.change_lifetime() },
-            pin: JSUntypedPinnedRoot {
-                value: unsafe { mem::zeroed() },
-                next: ptr::null_mut(),
-                prev: ptr::null_mut(),
-            },
+        unsafe {
+            self.value = value.change_lifetime();
+            self.pin.value = self.value.as_mut_ptr();
+            self.pin.next = (*self.roots).0;
+            self.pin.prev = ptr::null_mut();
+            if let Some(next) = self.pin.next.as_mut() {
+                next.prev = &mut self.pin;
+            }
+            *self.roots = JSPinnedRoots(&mut self.pin);
+            JSPinnedRoot(self)
         }
-    }
-
-    pub fn pin<'a, S>(&'a mut self, cx: &mut JSContext<S>) -> JSPinnedRoot<'a, T> where
-        S: CanRoot,
-        T: 'a + JSTraceable,
-    {
-        self.pin.value = self.value.as_mut_ptr();
-        self.pin.next = cx.state.roots_ref().0;
-        self.pin.prev = ptr::null_mut();
-        if let Some(next) = unsafe { self.pin.next.as_mut() } {
-            next.prev = &mut self.pin;
-        }
-        *cx.state.roots_mut() = JSPinnedRoots(&mut self.pin);
-        JSPinnedRoot(self)
     }
 }
 

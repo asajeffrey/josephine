@@ -11,7 +11,6 @@ use linjs::JSManaged;
 use linjs::JSTraceable;
 use linjs::JSManageable;
 use linjs::JSRunnable;
-use linjs::JSRoot;
 
 use std::marker::PhantomData;
 
@@ -32,10 +31,10 @@ fn init_window<'a, C, S>(cx: JSContext<S>) -> DOMContext<'a, C> where
     S: CanInitialize<C>,
 {
     let mut cx = cx.pre_init();
-    let mut console = JSRoot::new(new_console(&mut cx));
-    let mut body = JSRoot::new(new_element(&mut cx));
-    let console = console.pin(&mut cx);
-    let body = body.pin(&mut cx);
+    let mut console = cx.new_root();
+    let mut body = cx.new_root();
+    let console = console.pin(new_console(&mut cx));
+    let body = body.pin(new_element(&mut cx));
     cx.post_init(NativeWindow {
         console: console.get(),
         body: body.get(),
