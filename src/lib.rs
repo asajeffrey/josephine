@@ -188,8 +188,74 @@
 //! }
 //! # fn main() {}
 //! ```
+//!
+//! Some cases of building JS managed data require rooting, but in some cases
+//! the rooting can be avoided, since the program does nothing to trigger
+//! garbage collection. In this case, we can snapshot the JS context after
+//! performing allocation. The snapshot supports accessing JS managed data,
+//! but does not support any calls that might trigger garbage collection.
+//! As a result, we know that any data which is live at the beginning of
+//! the snapshot is also live at the end.
+//!
+//! ```rust
+//! # #[macro_use] extern crate linjs;
+//! # #[macro_use] extern crate linjs_derive;
+//! # use linjs::*;
+//! # #[derive(JSManageable)]
+//! # struct NativeLoop<'a, C> {
+//! #    next: Option<Loop<'a, C>>,
+//! # }
+//! # type Loop<'a, C> = JSManaged<'a, C, NativeLoop<'a, C>>;
+//! fn example<C, S>(cx: &mut JSContext<S>) where
+//!     S: CanAccess<C> + CanAlloc<C>
+//! {
+//!    let (ref mut cx, l) = cx.snapshot_manage(NativeLoop { next: None });
+//!    l.get_mut(cx).next = Some(l);
+//! }
+//! # fn main() {}
+//! ```
+//!
+//! A program which tries to use a function which might trigger GC will
+//! not typecheck, as the snapshotted JS context state does not support
+//! the appropriate traits. For example:
+//!
+//! ```rust,ignore
+//! # #[macro_use] extern crate linjs;
+//! # #[macro_use] extern crate linjs_derive;
+//! # use linjs::*;
+//! # #[derive(JSManageable)]
+//! # struct NativeLoop<'a, C> {
+//! #    next: Option<Loop<'a, C>>,
+//! # }
+//! # type Loop<'a, C> = JSManaged<'a, C, NativeLoop<'a, C>>;
+//! fn might_trigger_gc<C, S>(cx: &mut JSContext<S>) where
+//!     S: CanAccess<C> + CanAlloc<C>
+//! { }
+//!
+//! fn unsafe_example<C, S>(cx: &mut JSContext<S>) where
+//!     S: CanAccess<C> + CanAlloc<C>
+//! {
+//!    let (ref mut cx, l) = cx.snapshot_manage(NativeLoop { next: None });
+//!    might_trigger_gc(cx);
+//!    l.get_mut(cx).next = Some(l);
+//! }
+//! # fn main() {}
+//! ```
+//!
+//! In this program, the function `might_trigger_gc` requires the state
+//! to support `CanAlloc<C>`, which is not allowed by the snapshotted state.
+//! 
+//! ```text
+//! 	error[E0277]: the trait bound `linjs::Snapshotted<'_, S>: linjs::CanAlloc<C>` is not satisfied
+//!   --> <anon>:16:4
+//!    |
+//! 16 |    might_trigger_gc(cx);
+//!    |    ^^^^^^^^^^^^^^^^ the trait `linjs::CanAlloc<C>` is not implemented for `linjs::Snapshotted<'_, S>`
+//!    |
+//!    = note: required by `might_trigger_gc`
+//! ```
 
-// TODO: write docs for snapshotting, globals, runnables, cyclic initialization.
+// TODO: write docs for globals, runnables, cyclic initialization.
 
 //! #Examples
 //!
