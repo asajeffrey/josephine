@@ -1,6 +1,6 @@
 #![allow(dead_code)]
 
-extern crate linjs;
+#[macro_use] extern crate linjs;
 #[macro_use] extern crate linjs_derive;
 
 use linjs::CanAlloc;
@@ -31,10 +31,8 @@ fn init_window<'a, C, S>(cx: JSContext<S>) -> DOMContext<'a, C> where
     S: CanInitialize<C>,
 {
     let mut cx = cx.pre_init();
-    let mut console = cx.new_root();
-    let mut body = cx.new_root();
-    let console = console.pin(new_console(&mut cx));
-    let body = body.pin(new_element(&mut cx));
+    rooted!(in(cx) let console = new_console(&mut cx));
+    rooted!(in(cx) let body = new_element(&mut cx));
     cx.post_init(NativeWindow {
         console: console.get(),
         body: body.get(),

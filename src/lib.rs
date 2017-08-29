@@ -99,10 +99,8 @@
 //!     S: CanAlloc<C> + CanAccess<C> + CanRoot,
 //! {
 //!     // Function body has lifetime 'b
-//!     // root has type JSRoot<JSManaged<'b, C, String>>
-//!     let mut root = cx.new_root();
-//!     // pinned has type JSPinnedRoot<'b, JSManaged<'b, C, String>>
-//!     let pinned = root.pin(cx.manage(String::from("hello")));
+//!     // pinned has type JSPinnedRoot<'b, JSRoot<JSManaged<'b, C, String>>>
+//!     rooted!(in(cx) let pinned = cx.manage(String::from("hello")));
 //!     // x has type JSManaged<'b, C, String> 
 //!     let x = pinned.get();
 //!     // Imagine something triggers GC here
@@ -143,7 +141,7 @@
 //! the graph with no need for rooting.
 //!
 //! ```
-//! extern crate linjs;
+//! #[macro_use] extern crate linjs;
 //! #[macro_use] extern crate linjs_derive;
 //! use linjs::{CanAlloc, CanAccess, CanExtend, CanInitialize, CanRoot};
 //! use linjs::{JSContext, JSManageable, JSManaged, JSRunnable, JSTraceable};
@@ -189,8 +187,7 @@
 //!         // Creating nodes does memory allocation, which may trigger GC,
 //!         // so we need to be careful about lifetimes while they are being added.
 //!         // Approach 1 is to root the node.
-//!         let ref mut root = cx.new_root();
-//!         let pinned = root.pin(cx.manage(NativeNode { data: 1, edges: vec![] }));
+//!         rooted!(in(cx) let pinned = cx.manage(NativeNode { data: 1, edges: vec![] }));
 //!         let node1 = pinned.get();
 //!         graph.get_mut(cx).nodes.push(node1);
 //!     }
@@ -630,65 +627,41 @@ struct JSUntypedPinnedRoot {
 }
 
 impl<T> JSRoot<T> {
-    pub fn pin<'a, C, U>(&'a mut self, value: U) -> JSPinnedRoot<'a, T> where
+    // Very annoyingly, this function has to be marked as unsafe,
+    // because we can't rely on the destructor for the pinned root running.
+    // See the discussion about `mem::forget` being safe at
+    // https://github.com/rust-lang/rfcs/pull/1066.
+    // This is safe as long as it is unpinned before the memory
+    // is reclaimed, but Rust does not enforce that.
+    pub unsafe fn pin<'a, C, U>(&'a mut self, value: U) -> JSPinnedRoot<'a, T> where
         T: JSManageable<'a, C, Aged=T>,
         U: JSManageable<'a, C, Aged=T>,
     {
-        unsafe {
-            self.value = Some(value.change_lifetime());
-            self.pin.value = self.value.as_mut_ptr();
-            self.pin.next = (*self.roots).0;
-            self.pin.prev = ptr::null_mut();
-            if let Some(next) = self.pin.next.as_mut() {
-                next.prev = &mut self.pin;
-            }
-            *self.roots = JSPinnedRoots(&mut self.pin);
-            JSPinnedRoot(self)
+        self.value = Some(value.change_lifetime());
+        self.pin.value = self.value.as_mut_ptr();
+        self.pin.next = (*self.roots).0;
+        self.pin.prev = ptr::null_mut();
+        if let Some(next) = self.pin.next.as_mut() {
+            next.prev = &mut self.pin;
         }
+        *self.roots = JSPinnedRoots(&mut self.pin);
+        JSPinnedRoot(self)
     }
-    fn unpin(&mut self) {
-        unsafe {
-            if let Some(next) = self.pin.next.as_mut() {
-                next.prev = self.pin.prev;
-            }
-            if let Some(prev) = self.pin.prev.as_mut() {
-                prev.next = self.pin.next;
-            }
-            if *self.roots == JSPinnedRoots(&mut self.pin) {
-                *self.roots = JSPinnedRoots(self.pin.next);
-            }
-            self.value = None;
-            self.pin.value = mem::zeroed();
-            self.pin.next = ptr::null_mut();
-            self.pin.prev = ptr::null_mut();
+
+    pub unsafe fn unpin(&mut self) {
+        if let Some(next) = self.pin.next.as_mut() {
+            next.prev = self.pin.prev;
         }
-    }
-}
-
-// Under normal circumstances, there's no point in dropping a root, since
-// the pinned root will already have been dropped. However, there might
-// have been a use of `mem::forget` on the pinned root, causing its destructor
-// not to have been run. For this reason, we unpin the root here.
-//
-// Unfortunately, just implementing `Drop` causes the drop checker to reject
-// valid code, because it can't verify that `T` strictly outlives the root.
-// To get around this, we allow `T` to dangle, but this makes dropping it
-// unsafe. For this reason, we explicitly about the value, and don't call its
-// destructor.
-//
-// This can cause a memory leak, since the value is never dropped, but this
-// leak only occurs when the root is pinned, and then the pinned root is
-// mem::forgotten.
-unsafe impl< #[may_dangle] T> Drop for JSRoot<T> {
-    fn drop(&mut self) {
-        mem::forget(self.value.take());
-        self.unpin()
-    }
-}
-
-impl<'a, T> Drop for JSPinnedRoot<'a, T> {
-    fn drop(&mut self) {
-        self.0.unpin()
+        if let Some(prev) = self.pin.prev.as_mut() {
+            prev.next = self.pin.next;
+        }
+        if *self.roots == JSPinnedRoots(&mut self.pin) {
+            *self.roots = JSPinnedRoots(self.pin.next);
+        }
+        self.value = None;
+        self.pin.value = mem::zeroed();
+        self.pin.next = ptr::null_mut();
+        self.pin.prev = ptr::null_mut();
     }
 }
 
@@ -711,4 +684,17 @@ impl<'a, T> JSPinnedRoot<'a, T> {
     {
         self.0.value.as_mut().unwrap().contract_lifetime_mut()
     }
+}
+
+
+#[macro_export]
+macro_rules! rooted {
+    (in($cx:expr) let $name:ident = $init:expr) => (
+        let mut __root = $cx.new_root();
+        let $name = unsafe { __root.pin($init) };
+    );
+    (in($cx:expr) let mut $name:ident = $init:expr) => (
+        let mut __root = $cx.new_root();
+        let mut $name = unsafe { __root.pin($init) };
+    )
 }
