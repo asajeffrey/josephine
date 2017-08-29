@@ -130,9 +130,66 @@
 //! }
 //! ```
 //!
+//! JS managed data can be accessed mutably as well as immutably.
+//! This is safe because mutably accessing JS manage data requires
+//! mutably borrowing the JS context, so there cannot be two simultaneous
+//! mutable accesses.
+//!
+//! ```rust
+//! # use linjs::*;
+//! fn example<C, S>(cx: &mut JSContext<S>, x: JSManaged<C, String>) where
+//!     S: CanAccess<C>,
+//! {
+//!     println!("{} world", x.get(cx));
+//!     *x.get_mut(cx) = String::from("hi");
+//!     println!("{} world", x.get(cx));
+//! }
+//! ```
+//!
+//! An attempt to mutably access JS managed data more than once simultaneously
+//! results in an error from the borrow-checker, for example:
+//!
+//! ```rust,ignore
+//! # use linjs::*; use std::mem;
+//! fn unsafe_example<C, S>(cx: &mut JSContext<S>, x: JSManaged<C, String>, y: JSManaged<C, String>) where
+//!     S: CanAccess<C>,
+//! {
+//!     mem::swap(x.get_mut(cx), y.get_mut(cx));
+//! }
+//! ```
+//!
+//! ```text
+//!         error[E0499]: cannot borrow `*cx` as mutable more than once at a time
+//!  --> <anon>:7:40
+//!   |
+//! 7 |     mem::swap(x.get_mut(cx), y.get_mut(cx));
+//!   |                         --             ^^ - first borrow ends here
+//!   |                         |              |
+//!   |                         |              second mutable borrow occurs here
+//!   |                         first mutable borrow occurs here
+//! ```
+//!
+//! One way to build cyclic structures is by mutable update, for example:
+//!
+//! ```rust
+//! # #[macro_use] extern crate linjs;
+//! # #[macro_use] extern crate linjs_derive;
+//! # use linjs::*;
+//! #[derive(JSManageable)]
+//! struct NativeLoop<'a, C> {
+//!    next: Option<Loop<'a, C>>,
+//! }
+//! type Loop<'a, C> = JSManaged<'a, C, NativeLoop<'a, C>>;
+//! fn example<C, S>(cx: &mut JSContext<S>) where
+//!     S: CanAccess<C> + CanAlloc<C> + CanRoot,
+//! {
+//!    rooted!(in(cx) let l = cx.manage(NativeLoop { next: None }));
+//!    l.get().get_mut(cx).next = Some(l.get());
+//! }
+//! # fn main() {}
+//! ```
 
-// TODO: write docs for mutable access, snapshotting, globals, runnables, cyclic initialization.
-// TODO: rewrite this example
+// TODO: write docs for snapshotting, globals, runnables, cyclic initialization.
 
 //! #Examples
 //!
