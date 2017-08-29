@@ -814,10 +814,10 @@ impl<'a, T> JSPinnedRoot<'a, T> {
 macro_rules! rooted {
     (in($cx:expr) let $name:ident = $init:expr) => (
         let mut __root = $cx.new_root();
-        let $name = unsafe { __root.pin($init) };
+        let ref $name = unsafe { __root.pin($init) };
     );
     (in($cx:expr) let mut $name:ident = $init:expr) => (
         let mut __root = $cx.new_root();
-        let mut $name = unsafe { __root.pin($init) };
+        let ref mut $name = unsafe { __root.pin($init) };
     )
 }
