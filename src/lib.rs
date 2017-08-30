@@ -809,6 +809,11 @@ impl<'a, T> JSPinnedRoot<'a, T> {
     }
 }
 
+impl<'a, T> Drop for JSPinnedRoot<'a, T> {
+    fn drop(&mut self) {
+        unsafe { self.0.unpin() }
+    }
+}
 
 #[macro_export]
 macro_rules! rooted {
