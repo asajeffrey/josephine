@@ -622,8 +622,9 @@ impl<S> JSContext<S> {
         // TODO: check that `Drop` and GC tracing are safe.
         // TODO: check the performance of the safer version of this code, which stores an `Option<T>` rather than a `T`.
         let boxed: Box<T> = unsafe { Box::new(mem::uninitialized()) };
+        let raw = Box::into_raw(boxed) as *mut ();
         let global = JSManaged {
-            raw: Box::into_raw(boxed) as *mut (),
+            raw: raw,
             marker: PhantomData,
         };
         JSContext {
@@ -641,7 +642,8 @@ impl<S> JSContext<S> {
     {
         let global = self.state.global();
         let raw = global.raw as *mut T;
-        unsafe { *raw = value; }
+        let uninitialized = unsafe { mem::replace(&mut *raw, value) };
+        mem::forget(uninitialized);
         JSContext {
             state: Initialized {
                 global: global,
