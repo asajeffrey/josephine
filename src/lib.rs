@@ -1,4 +1,4 @@
-//! An outline of how linear types could be combined with JS-managed data
+//! An outline of how Rust's ownership, borrowing and lifetimes could be combined with JS-managed data
 //!
 //! The goals are:
 //! 
