@@ -8,6 +8,8 @@
 //! 4. Don't require rooting in code that can't perform GC.
 //! 5. Allow `&mut T` access to JS-managed data, so we don't need as much interior mutability.
 //!
+//! # JS-managed data
+//!
 //! The idea is that Rust data can be given to JS to manage, and then accessed,
 //! using the JS context. This is passed as a variable of type `JSContext<S>`,
 //! where the type parameter `S` is used to track the state of the context.
@@ -35,6 +37,8 @@
 //!     println!("{} world", x.get(cx));
 //! }
 //! ```
+//!
+//! # Lifetimes of JS-managed data
 //!
 //! Unfortunately, combining these two examples is not memory-safe, due to
 //! garbage collection:
@@ -90,6 +94,8 @@
 //! cannot overlap, but the call to `x.get(cx)` requires them to overlap. These contradicting
 //! constraints cause the example to fail to compile.
 //!
+//! # Rooting
+//!
 //! To fix this example, we need to make sure that `x` lives long enough. One way to do this is
 //! to root `x`, so that it will not be garbage collected. 
 //!
@@ -113,6 +119,8 @@
 //! no constraint that `'b` and `'c` don't overlap.
 //! This use of lifetimes allows safe access to JS-managed data without a special
 //! rooting lint.
+//!
+//! # JS-manageable data
 //!
 //! JS-managed lifetimes are variant, so can be converted to a more constrained
 //! lifetime, for example if `'b` is a sublifetime of `'a`:
@@ -144,6 +152,8 @@
 //! ```
 //!
 //! This trait can be derived, using the `#[derive(JSManageable)]` type annotation.
+//!
+//! # Mutating JS-managed data
 //!
 //! JS managed data can be accessed mutably as well as immutably.
 //! This is safe because mutably accessing JS manage data requires
@@ -184,7 +194,7 @@
 //!   |                         first mutable borrow occurs here
 //! ```
 //!
-//! One way to build cyclic structures is by mutable update, for example:
+//! Mutable update allows the construction of cyclic structures, for example:
 //!
 //! ```rust
 //! # #[macro_use] extern crate linjs;
@@ -203,6 +213,8 @@
 //! }
 //! # fn main() {}
 //! ```
+//!
+//! # Snapshots
 //!
 //! Some cases of building JS managed data require rooting, but in some cases
 //! the rooting can be avoided, since the program does nothing to trigger
@@ -269,6 +281,8 @@
 //!    |
 //!    = note: required by `might_trigger_gc`
 //! ```
+//!
+//! # Globals
 //!
 //! JS contexts require initialization. In particular, each compartment has a global,
 //! which should be JS managed data. The global can be initialized using `cx.init(value)`,
@@ -362,7 +376,7 @@
 //! ```
 //!
 //! This code is unsafe, since the global is accessed before it is initialized,
-//! but doex not typecheck because the context state does not allow accessing
+//! but does not typecheck because the context state does not allow accessing
 //! JS-managed data during initialization.
 //!
 //! ```text
@@ -372,6 +386,8 @@
 //! 14 |    let oops = cx.global().get(&cx).name.get(&cx);
 //!    |                           ^^^ the trait `linjs::CanAccess<C>` is not implemented for `linjs::Initializing<linjs::JSManaged<'_, C, _>>`
 //! ```
+//!
+//! # Bootstrapping
 //!
 //! To bootstrap initialization, a user defines a type which implements the `JSRunnable` trait.
 //! This requires a `run` method, which takes the JS context as an argument.  The `JSRunnable`
