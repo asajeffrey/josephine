@@ -372,9 +372,34 @@
 //! 14 |    let oops = cx.global().get(&cx).name.get(&cx);
 //!    |                           ^^^ the trait `linjs::CanAccess<C>` is not implemented for `linjs::Initializing<linjs::JSManaged<'_, C, _>>`
 //! ```
-
-// TODO: write docs for runnables, cyclic initialization.
-
+//!
+//! To bootstrap initialization, a user defines a type which implements the `JSRunnable` trait.
+//! This requires a `run` method, which takes the JS context as an argument.  The `JSRunnable`
+//! trait provides a `start()` method which calls the `run(cx)` method back with an appropriate
+//! context.
+//!
+//! ```rust
+//! # extern crate linjs;
+//! # #[macro_use] extern crate linjs_derive;
+//! # use linjs::*;
+//! #[derive(JSManageable)]
+//! struct NativeMyGlobal { name: String }
+//!
+//! struct Example;
+//!
+//! impl JSRunnable for Example {
+//!     fn run<C, S>(self, cx: JSContext<S>) where
+//!         S: CanInitialize<C>,
+//!     {
+//!         let name = String::from("Alice"); println!("0");
+//!         let ref cx = cx.init(NativeMyGlobal { name: name }); println!("A");
+//!         assert_eq!(cx.global().get(cx).name, "Alice");
+//!     }
+//! }
+//!
+//! fn main() { Example.start(); }
+//! ```
+//!
 //! #Examples
 //!
 //! This is an example of building a two-node cyclic graph, which is the smallest
