@@ -200,7 +200,7 @@
 //! # #[macro_use] extern crate linjs;
 //! # #[macro_use] extern crate linjs_derive;
 //! # use linjs::*;
-//! #[derive(JSManageable)]
+//! #[derive(JSTraceable, JSManageable)]
 //! struct NativeLoop<'a, C> {
 //!    next: Option<Loop<'a, C>>,
 //! }
@@ -228,7 +228,7 @@
 //! # #[macro_use] extern crate linjs;
 //! # #[macro_use] extern crate linjs_derive;
 //! # use linjs::*;
-//! # #[derive(JSManageable)]
+//! # #[derive(JSTraceable, JSManageable)]
 //! # struct NativeLoop<'a, C> {
 //! #    next: Option<Loop<'a, C>>,
 //! # }
@@ -250,7 +250,7 @@
 //! # #[macro_use] extern crate linjs;
 //! # #[macro_use] extern crate linjs_derive;
 //! # use linjs::*;
-//! # #[derive(JSManageable)]
+//! # #[derive(JSTraceable, JSManageable)]
 //! # struct NativeLoop<'a, C> {
 //! #    next: Option<Loop<'a, C>>,
 //! # }
@@ -292,7 +292,7 @@
 //! # #[macro_use] extern crate linjs;
 //! # #[macro_use] extern crate linjs_derive;
 //! # use linjs::*;
-//! #[derive(JSManageable)]
+//! #[derive(JSTraceable, JSManageable)]
 //! struct NativeMyGlobal { name: String }
 //! type MyGlobal<'a, C> = JSManaged<'a, C, NativeMyGlobal>;
 //! type MyContext<'a, C> = JSContext<Initialized<MyGlobal<'a, C>>>;
@@ -313,7 +313,7 @@
 //! # #[macro_use] extern crate linjs;
 //! # #[macro_use] extern crate linjs_derive;
 //! # use linjs::*;
-//! #[derive(JSManageable)]
+//! #[derive(JSTraceable, JSManageable)]
 //! # struct NativeMyGlobal { name: String }
 //! # type MyGlobal<'a, C> = JSManaged<'a, C, NativeMyGlobal>;
 //! # type MyContext<'a, C> = JSContext<Initialized<MyGlobal<'a, C>>>;
@@ -334,7 +334,7 @@
 //! # #[macro_use] extern crate linjs;
 //! # #[macro_use] extern crate linjs_derive;
 //! # use linjs::*;
-//! #[derive(JSManageable)]
+//! #[derive(JSTraceable, JSManageable)]
 //! struct NativeMyGlobal<'a, C> { name: JSManaged<'a, C, String> }
 //! type MyGlobal<'a, C> = JSManaged<'a, C, NativeMyGlobal<'a, C>>;
 //! type MyContext<'a, C> = JSContext<Initialized<MyGlobal<'a, C>>>;
@@ -358,7 +358,7 @@
 //! # #[macro_use] extern crate linjs;
 //! # #[macro_use] extern crate linjs_derive;
 //! # use linjs::*;
-//! # #[derive(JSManageable)]
+//! # #[derive(JSTraceable, JSManageable)]
 //! # struct NativeMyGlobal<'a, C> { name: JSManaged<'a, C, String> }
 //! # type MyGlobal<'a, C> = JSManaged<'a, C, NativeMyGlobal<'a, C>>;
 //! # type MyContext<'a, C> = JSContext<Initialized<MyGlobal<'a, C>>>;
@@ -398,7 +398,7 @@
 //! # extern crate linjs;
 //! # #[macro_use] extern crate linjs_derive;
 //! # use linjs::*;
-//! #[derive(JSManageable)]
+//! #[derive(JSTraceable, JSManageable)]
 //! struct NativeMyGlobal { name: String }
 //!
 //! struct Example;
@@ -430,14 +430,14 @@
 //!
 //! // A graph type
 //! type Graph<'a, C> = JSManaged<'a, C, NativeGraph<'a, C>>;
-//! #[derive(JSManageable)]
+//! #[derive(JSTraceable, JSManageable)]
 //! struct NativeGraph<'a, C> {
 //!     nodes: Vec<Node<'a, C>>,
 //! }
 //!
 //! // A node type
 //! type Node<'a, C> = JSManaged<'a, C, NativeNode<'a, C>>;
-//! #[derive(JSManageable)]
+//! #[derive(JSTraceable, JSManageable)]
 //! struct NativeNode<'a, C> {
 //!     data: usize,
 //!     edges: Vec<Node<'a, C>>,
@@ -498,6 +498,8 @@
 #![feature(dropck_eyepatch)]
 
 extern crate js;
+
+pub use js::jsapi::JSTracer;
 
 use std::marker::PhantomData;
 use std::mem;
@@ -723,18 +725,41 @@ impl<S> JSContext<S> {
 
 /// This is a placeholder for the real JSTraceable trait
 pub unsafe trait JSTraceable {
+    unsafe fn trace(&self, trc: *mut JSTracer);
+
     fn as_ptr(&self) -> *const JSTraceable where Self: Sized {
         unsafe { mem::transmute(self as &JSTraceable) }
     }
+
     fn as_mut_ptr(&mut self) -> *mut JSTraceable where Self: Sized {
         unsafe { mem::transmute(self as &mut JSTraceable) }
     }
 }
 
-unsafe impl JSTraceable for String {}
-unsafe impl JSTraceable for usize {}
-unsafe impl<T> JSTraceable for Option<T> where T: JSTraceable {}
-unsafe impl<T> JSTraceable for Vec<T> where T: JSTraceable {}
+unsafe impl JSTraceable for String {
+    unsafe fn trace(&self, _trc: *mut JSTracer) {}
+}
+
+unsafe impl JSTraceable for usize {
+    unsafe fn trace(&self, _trc: *mut JSTracer) {}
+}
+
+unsafe impl<T> JSTraceable for Option<T> where T: JSTraceable {
+    unsafe fn trace(&self, trc: *mut JSTracer) {
+        if let Some(ref val) = *self {
+            val.trace(trc);
+        }
+    }
+}
+
+unsafe impl<T> JSTraceable for Vec<T> where T: JSTraceable {
+    unsafe fn trace(&self, trc: *mut JSTracer) {
+        for val in self {
+            val.trace(trc);
+        }
+    }
+}
+
 // etc.
 
 /// Change the JS-managed lifetime of a type.
@@ -836,7 +861,11 @@ impl<'a, C, T: ?Sized> Copy for JSManaged<'a, C, T> {
 
 unsafe impl<'a, C, T: ?Sized> JSTraceable for JSManaged<'a, C, T> where
     T: JSTraceable
-{}
+{
+    unsafe fn trace(&self, _trc: *mut JSTracer) {
+        // Trace the reflector.
+    }
+}
 
 unsafe impl<'a, 'b, C: 'b, T: ?Sized> JSManageable<'b, C> for JSManaged<'a, C, T> where
     T: JSManageable<'b, C>,

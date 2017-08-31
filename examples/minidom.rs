@@ -9,15 +9,13 @@ use linjs::CanInitialize;
 use linjs::Initialized;
 use linjs::JSContext;
 use linjs::JSManaged;
-use linjs::JSTraceable;
-use linjs::JSManageable;
 use linjs::JSRunnable;
 
 // -------------------------------------------------------------------
 
 type Window<'a, C> = JSManaged<'a, C, NativeWindow<'a, C>>;
 
-#[derive(JSManageable)]
+#[derive(JSTraceable, JSManageable)]
 struct NativeWindow<'a, C> {
     console: Console<'a, C>,
     body: Element<'a, C>,
@@ -42,7 +40,7 @@ fn init_window<'a, C, S>(cx: JSContext<S>) -> DOMContext<'a, C> where
 
 type Console<'a, C> = JSManaged<'a, C, NativeConsole>;
 
-#[derive(JSManageable)]
+#[derive(JSTraceable, JSManageable)]
 struct NativeConsole();
 
 fn new_console<'a, C, S>(cx: &'a mut JSContext<S>) -> Console<'a, C> where
@@ -56,7 +54,7 @@ fn new_console<'a, C, S>(cx: &'a mut JSContext<S>) -> Console<'a, C> where
 
 type Element<'a, C> = JSManaged<'a, C, NativeElement<'a, C>>;
 
-#[derive(JSManageable)]
+#[derive(JSTraceable, JSManageable)]
 struct NativeElement<'a, C> {
     parent: Option<Element<'a, C>>,
     children: Vec<Element<'a, C>>,
