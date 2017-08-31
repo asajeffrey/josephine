@@ -121,12 +121,11 @@
 //! 
 //! ```rust
 //! # use linjs::*;
-//! fn example<'a, 'b, C, S>(cx: &'a mut JSContext<S>) where
+//! type JSHandle<'a, C, T> = JSManaged<'a, C, JSManaged<'a, C, T>>;
+//! fn example<'a, 'b, C, S>(handle: JSHandle<'a, C, String>) -> JSHandle<'b, C, String> where
 //!    'a: 'b,
-//!    S: CanAlloc<C>,
 //! {
-//!    let x: JSManaged<'a, C, String> = cx.manage(String::from("hello"));
-//!    let y: JSManaged<'b, C, String> = x;
+//!    handle
 //! }
 //! ```
 //!
@@ -463,7 +462,7 @@ impl<S> JSContext<S> {
         // The real thing would use a JS reflector to manage the space,
         // this just space-leaks
         JSManaged {
-            raw: Box::into_raw(Box::new(value)) as *mut T::Aged,
+            raw: Box::into_raw(Box::new(value)) as *mut (),
             marker: PhantomData,
         }
     }
@@ -477,7 +476,7 @@ impl<S> JSContext<S> {
         // The real thing would use a JS reflector to manage the space,
         // this just space-leaks
         let managed = JSManaged {
-            raw: Box::into_raw(Box::new(value)) as *mut T::Aged,
+            raw: Box::into_raw(Box::new(value)) as *mut (),
             marker: PhantomData,
         };
         let snapshot = JSContext {
@@ -504,9 +503,9 @@ impl<S> JSContext<S> {
         // access such a context is by calling `post_init`, which initializes the raw pointer.
         // TODO: check that `Drop` and GC tracing are safe.
         // TODO: check the performance of the safer version of this code, which stores an `Option<T>` rather than a `T`.
-        let raw = unsafe { Box::into_raw(Box::new(mem::uninitialized())) };
+        let boxed: Box<T> = unsafe { Box::new(mem::uninitialized()) };
         let global = JSManaged {
-            raw: raw,
+            raw: Box::into_raw(boxed) as *mut (),
             marker: PhantomData,
         };
         JSContext {
@@ -654,8 +653,10 @@ pub trait JSRunnable: Sized {
 /// data is live for the given lifetime.
 pub struct JSManaged<'a, C, T: ?Sized> {
     // JS reflector goes here
-    raw: *mut T,
-    marker: PhantomData<(&'a(),C)>,
+    // This raw pointer should really be of type `*mut T`, but that is invariant in T.
+    // To make the type variant in T, we use a `*mut ()` instead.
+    raw: *mut (),
+    marker: PhantomData<(&'a(), C, T)>,
 }
 
 impl<'a, C, T: ?Sized> Clone for JSManaged<'a, C, T> {
@@ -687,7 +688,7 @@ impl<'a, C, T: ?Sized> JSManaged<'a, C, T> {
         T: JSManageable<'b, C>,
         'a: 'b,
     {
-        unsafe { &*self.contract_lifetime().raw }
+        unsafe { &*(self.raw as *mut T::Aged) }
     }
 
     /// Read-write access to JS-managed data.
@@ -696,7 +697,7 @@ impl<'a, C, T: ?Sized> JSManaged<'a, C, T> {
         T: JSManageable<'b, C>,
         'a: 'b,
     {
-        unsafe { &mut *self.contract_lifetime().raw }
+        unsafe { &mut *(self.raw as *mut T::Aged) }
     }
 
     /// Change the lifetime of JS-managed data.
@@ -704,7 +705,7 @@ impl<'a, C, T: ?Sized> JSManaged<'a, C, T> {
         T: JSManageable<'b, C>,
     {
         JSManaged {
-            raw: self.raw as *mut T::Aged,
+            raw: self.raw,
             marker: PhantomData,
         }
     }
