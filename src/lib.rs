@@ -269,8 +269,111 @@
 //!    |
 //!    = note: required by `might_trigger_gc`
 //! ```
+//!
+//! JS contexts require initialization. In particular, each compartment has a global,
+//! which should be JS managed data. The global can be initialized using `cx.init(value)`,
+//! which updates the state of the context from uninitialized to initialized.
+//!
+//! ```rust
+//! # #[macro_use] extern crate linjs;
+//! # #[macro_use] extern crate linjs_derive;
+//! # use linjs::*;
+//! #[derive(JSManageable)]
+//! struct NativeMyGlobal { name: String }
+//! type MyGlobal<'a, C> = JSManaged<'a, C, NativeMyGlobal>;
+//! type MyContext<'a, C> = JSContext<Initialized<MyGlobal<'a, C>>>;
+//!
+//! fn example<'a, C, S>(cx: JSContext<S>) -> MyContext<'a, C> where
+//!    C: 'a,
+//!    S: CanInitialize<C>,
+//! {
+//!    let name = String::from("Alice");
+//!    cx.init(NativeMyGlobal { name: name })
+//! }
+//! # fn main() {}
+//! ```
+//!
+//! The current global can be accessed from the JS context, for example:
+//!
+//! ```rust
+//! # #[macro_use] extern crate linjs;
+//! # #[macro_use] extern crate linjs_derive;
+//! # use linjs::*;
+//! #[derive(JSManageable)]
+//! # struct NativeMyGlobal { name: String }
+//! # type MyGlobal<'a, C> = JSManaged<'a, C, NativeMyGlobal>;
+//! # type MyContext<'a, C> = JSContext<Initialized<MyGlobal<'a, C>>>;
+//! #
+//! fn example<'a, C, S>(cx: &JSContext<S>) where
+//!    S: HasGlobal<MyGlobal<'a, C>> + CanAccess<C>,
+//! {
+//!    println!("My global is named {}.", cx.global().get(cx).name);
+//! }
+//! # fn main() {}
+//! ```
+//!
+//! In some cases, the global contains some JS-managed data, in which case the initialization
+//! is split into two steps: pre-initialization creates the global, and post-initialization
+//! provides the JS-managed data for the global, for example:
+//!
+//! ```rust
+//! # #[macro_use] extern crate linjs;
+//! # #[macro_use] extern crate linjs_derive;
+//! # use linjs::*;
+//! #[derive(JSManageable)]
+//! struct NativeMyGlobal<'a, C> { name: JSManaged<'a, C, String> }
+//! type MyGlobal<'a, C> = JSManaged<'a, C, NativeMyGlobal<'a, C>>;
+//! type MyContext<'a, C> = JSContext<Initialized<MyGlobal<'a, C>>>;
+//!
+//! fn example<'a, C, S>(cx: JSContext<S>) -> MyContext<'a, C> where
+//!    C: 'a,
+//!    S: CanInitialize<C>,
+//! {
+//!    let mut cx = cx.pre_init();
+//!    rooted!(in(cx) let name = cx.manage(String::from("Alice")));
+//!    cx.post_init(NativeMyGlobal { name: name })
+//! }
+//! # fn main() {}
+//! ```
+//!
+//! During initialization, it is safe to perform allocation, but
+//! not much else, as the global is still uninitialized.
+//! For example:
+//!
+//! ```rust,ignore
+//! # #[macro_use] extern crate linjs;
+//! # #[macro_use] extern crate linjs_derive;
+//! # use linjs::*;
+//! # #[derive(JSManageable)]
+//! # struct NativeMyGlobal<'a, C> { name: JSManaged<'a, C, String> }
+//! # type MyGlobal<'a, C> = JSManaged<'a, C, NativeMyGlobal<'a, C>>;
+//! # type MyContext<'a, C> = JSContext<Initialized<MyGlobal<'a, C>>>;
+//! #
+//! fn unsafe_example<'a, C, S>(cx: JSContext<S>) -> MyContext<'a, C> where
+//!    C: 'a,
+//!    S: CanInitialize<C>,
+//! {
+//!    let mut cx = cx.pre_init();
+//!    let oops = cx.global().get(&cx).name.get(&cx);
+//!    rooted!(in(cx) let name = cx.manage(String::from("Alice")));
+//!    cx.post_init(NativeMyGlobal { name: name })
+//! }
+//! # fn main() {}
+//! ```
+//!
+//! This code is unsafe, since the global is accessed before it is initialized,
+//! but doex not typecheck because the context state does not allow accessing
+//! JS-managed data during initialization.
+//!
+//! ```text
+//! 	error[E0277]: the trait bound `linjs::Initializing<linjs::JSManaged<'_, C, _>>: linjs::CanAccess<C>` is not satisfied
+//!   --> <anon>:14:27
+//!    |
+//! 14 |    let oops = cx.global().get(&cx).name.get(&cx);
+//!    |                           ^^^ the trait `linjs::CanAccess<C>` is not implemented for `linjs::Initializing<linjs::JSManaged<'_, C, _>>`
+//! ```
 
-// TODO: write docs for globals, runnables, cyclic initialization.
+// TODO: write docs for runnables, cyclic initialization.
 
 //! #Examples
 //!
