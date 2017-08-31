@@ -34,8 +34,8 @@ fn init_window<'a, C, S>(cx: JSContext<S>) -> DOMContext<'a, C> where
     rooted!(in(cx) let console = new_console(&mut cx));
     rooted!(in(cx) let body = new_element(&mut cx));
     cx.post_init(NativeWindow {
-        console: console.get(),
-        body: body.get(),
+        console: console,
+        body: body,
     })
 }
 

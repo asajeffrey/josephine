@@ -99,10 +99,8 @@
 //!     S: CanAlloc<C> + CanAccess<C> + CanRoot,
 //! {
 //!     // Function body has lifetime 'b
-//!     // pinned has type JSPinnedRoot<'b, JSRoot<JSManaged<'b, C, String>>>
-//!     rooted!(in(cx) let pinned = cx.manage(String::from("hello")));
-//!     // x has type JSManaged<'b, C, String> 
-//!     let x = pinned.get();
+//!     // x has type JSManaged<'b, C, String>
+//!     rooted!(in(cx) let x = cx.manage(String::from("hello")));
 //!     // Imagine something triggers GC here
 //!     // x_ref has type &'c String
 //!     let x_ref = x.get(cx);
@@ -183,7 +181,7 @@
 //!     S: CanAccess<C> + CanAlloc<C> + CanRoot,
 //! {
 //!    rooted!(in(cx) let l = cx.manage(NativeLoop { next: None }));
-//!    l.get().get_mut(cx).next = Some(l.get());
+//!    l.get_mut(cx).next = Some(l);
 //! }
 //! # fn main() {}
 //! ```
@@ -309,8 +307,7 @@
 //!         // Creating nodes does memory allocation, which may trigger GC,
 //!         // so we need to be careful about lifetimes while they are being added.
 //!         // Approach 1 is to root the node.
-//!         rooted!(in(cx) let pinned = cx.manage(NativeNode { data: 1, edges: vec![] }));
-//!         let node1 = pinned.get();
+//!         rooted!(in(cx) let node1 = cx.manage(NativeNode { data: 1, edges: vec![] }));
 //!         graph.get_mut(cx).nodes.push(node1);
 //!     }
 //!     fn add_node2<S, C>(&self, cx: &mut JSContext<S>, graph: Graph<C>) where
@@ -820,10 +817,22 @@ impl<'a, T> Drop for JSPinnedRoot<'a, T> {
 macro_rules! rooted {
     (in($cx:expr) let $name:ident = $init:expr) => (
         let mut __root = $cx.new_root();
-        let ref $name = unsafe { __root.pin($init) };
+        let ref __pinned = unsafe { __root.pin($init) };
+        let $name = __pinned.get();
     );
     (in($cx:expr) let mut $name:ident = $init:expr) => (
         let mut __root = $cx.new_root();
-        let ref mut $name = unsafe { __root.pin($init) };
+        let ref __pinned = unsafe { __root.pin($init) };
+        let mut $name = __pinned.get();
+    );
+    (in($cx:expr) let ref $name:ident = $init:expr) => (
+        let mut __root = $cx.new_root();
+        let ref __pinned = unsafe { __root.pin($init) };
+        let $name = __pinned.get_ref();
+    );
+    (in($cx:expr) let ref mut $name:ident = $init:expr) => (
+        let mut __root = $cx.new_root();
+        let ref __pinned = unsafe { __root.pin($init) };
+        let mut $name = __pinned.get_mut();
     )
 }
