@@ -51,7 +51,9 @@ fn impl_js_manageable(ast: &syn::DeriveInput) -> quote::Tokens {
     let aged_ty_params = quote! { #(#aged_ty_params),* };
 
     quote! {
+        #[allow(unsafe_code)]
         unsafe impl<#impl_lifetime, #impl_generics> JSTraceable for #name #ty_generics {}
+        #[allow(unsafe_code)]
         unsafe impl<#impl_lifetime, 'b, #impl_generics> JSManageable<'b, #compartment> for #name #ty_generics #where_clause {
             type Aged = #name<'b, #aged_ty_params>;
         }

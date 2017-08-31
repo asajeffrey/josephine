@@ -817,21 +817,25 @@ impl<'a, T> Drop for JSPinnedRoot<'a, T> {
 macro_rules! rooted {
     (in($cx:expr) let $name:ident = $init:expr) => (
         let mut __root = $cx.new_root();
+        #[allow(unsafe_code)]
         let ref __pinned = unsafe { __root.pin($init) };
         let $name = __pinned.get();
     );
     (in($cx:expr) let mut $name:ident = $init:expr) => (
         let mut __root = $cx.new_root();
+        #[allow(unsafe_code)]
         let ref __pinned = unsafe { __root.pin($init) };
         let mut $name = __pinned.get();
     );
     (in($cx:expr) let ref $name:ident = $init:expr) => (
         let mut __root = $cx.new_root();
+        #[allow(unsafe_code)]
         let ref __pinned = unsafe { __root.pin($init) };
         let $name = __pinned.get_ref();
     );
     (in($cx:expr) let ref mut $name:ident = $init:expr) => (
         let mut __root = $cx.new_root();
+        #[allow(unsafe_code)]
         let ref __pinned = unsafe { __root.pin($init) };
         let mut $name = __pinned.get_mut();
     )

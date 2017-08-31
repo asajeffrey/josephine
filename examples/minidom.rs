@@ -1,4 +1,5 @@
 #![allow(dead_code)]
+#![deny(unsafe_code)]
 
 #[macro_use] extern crate linjs;
 #[macro_use] extern crate linjs_derive;
