@@ -1,3 +1,19 @@
 language: rust
+sudo: 9000
+dist: trusty
 rust:
   - nightly
+os:
+  - linux
+  - osx
+
+before_install:
+- if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then brew install ccache yasm; fi
+
+script:
+  - ccache -z
+  - CCACHE=$(which ccache) cargo build -vv
+  - CCACHE=$(which ccache) cargo test
+  - ccache -s
+
+cache: ccache
