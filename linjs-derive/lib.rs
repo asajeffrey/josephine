@@ -18,15 +18,6 @@ fn impl_js_manageable(ast: &syn::DeriveInput) -> quote::Tokens {
     let name = &ast.ident;
     let (_, ty_generics, _) = ast.generics.split_for_impl();
 
-    // we assume there's only one lifetime param, not named 'b
-    assert!(ast.generics.lifetimes.len() == 1, "deriving JSManageable requires a single lifetime");    
-    
-    let impl_lifetime = &ast.generics.lifetimes[0].lifetime.ident;
-    assert!(impl_lifetime != "'b", "deriving JSManageable requires the lifetime to not be named 'b");
-
-    // we assume there's at least 1 generic type param: the JSCompartment
-    assert!(ast.generics.ty_params.len() >= 1);
-    let compartment = &ast.generics.ty_params[0].ident;
     let impl_generics = ast.generics.ty_params.iter().map(|ty| quote! { #ty });
     let impl_generics = quote! { #(#impl_generics),* };
 
@@ -35,6 +26,7 @@ fn impl_js_manageable(ast: &syn::DeriveInput) -> quote::Tokens {
         let ident = &ty.ident;
         quote! { #ident: 'b }
     });
+
     let where_clause_predicates = ast.generics.where_clause.predicates.iter().map(|pred| quote! { #pred });
     let where_clause_items = lifetime_constraints.chain(where_clause_predicates).collect::<Vec<_>>();
     let where_clause = if where_clause_items.is_empty() {
@@ -42,6 +34,29 @@ fn impl_js_manageable(ast: &syn::DeriveInput) -> quote::Tokens {
     } else {
         quote! { where #(#where_clause_items),* }
     };
+
+    // For types without any liftime parameters, we provide a trivial
+    // implementation of `JSManageable`.
+    if ast.generics.lifetimes.is_empty() {
+        return quote! {
+            #[allow(unsafe_code)]
+            unsafe impl<#impl_generics> JSTraceable for #name #ty_generics {}
+            #[allow(unsafe_code)]
+            unsafe impl<'a, C, #impl_generics> JSManageable<'a, C> for #name #ty_generics #where_clause {
+                type Aged = #name #ty_generics;
+            }
+        }
+    }
+
+    // we assume there's only one lifetime param, not named 'b
+    assert!(ast.generics.lifetimes.len() == 1, "deriving JSManageable requires a single lifetime");
+
+    let impl_lifetime = &ast.generics.lifetimes[0].lifetime.ident;
+    assert!(impl_lifetime != "'b", "deriving JSManageable requires the lifetime to not be named 'b");
+
+    // we assume there's at least 1 generic type param: the JSCompartment
+    assert!(ast.generics.ty_params.len() >= 1);
+    let compartment = &ast.generics.ty_params[0].ident;
 
     // the `Aged` associated type params are the ty_params without their bounds
     let aged_ty_params = ast.generics.ty_params.iter().map(|ty| {
