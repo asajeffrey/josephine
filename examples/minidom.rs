@@ -13,8 +13,6 @@ use linjs::JSTraceable;
 use linjs::JSManageable;
 use linjs::JSRunnable;
 
-use std::marker::PhantomData;
-
 // -------------------------------------------------------------------
 
 type Window<'a, C> = JSManaged<'a, C, NativeWindow<'a, C>>;
@@ -42,16 +40,16 @@ fn init_window<'a, C, S>(cx: JSContext<S>) -> DOMContext<'a, C> where
 
 // -------------------------------------------------------------------
 
-type Console<'a, C> = JSManaged<'a, C, NativeConsole<'a, C>>;
+type Console<'a, C> = JSManaged<'a, C, NativeConsole>;
 
 #[derive(JSManageable)]
-struct NativeConsole<'a, C>(PhantomData<(&'a(), C)>);
+struct NativeConsole();
 
 fn new_console<'a, C, S>(cx: &'a mut JSContext<S>) -> Console<'a, C> where
     C: 'a,
     S: CanAlloc<C>,
 {
-    cx.manage(NativeConsole(PhantomData))
+    cx.manage(NativeConsole())
 }
 
 // -------------------------------------------------------------------
