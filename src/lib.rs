@@ -497,6 +497,8 @@
 #![feature(generic_param_attrs)]
 #![feature(dropck_eyepatch)]
 
+extern crate js;
+
 use std::marker::PhantomData;
 use std::mem;
 use std::ptr;
