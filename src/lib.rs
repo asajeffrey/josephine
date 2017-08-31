@@ -120,12 +120,30 @@
 //! ```rust
 //! # use linjs::*;
 //! type JSHandle<'a, C, T> = JSManaged<'a, C, JSManaged<'a, C, T>>;
-//! fn example<'a, 'b, C, S>(handle: JSHandle<'a, C, String>) -> JSHandle<'b, C, String> where
+//! fn example<'a, 'b, C>(handle: JSHandle<'a, C, String>) -> JSHandle<'b, C, String> where
 //!    'a: 'b,
 //! {
 //!    handle
 //! }
 //! ```
+//! This use of variance is fine for monomorphic code, but sometimes polymorphic code
+//! needs to change the lifetime of a type parameter. For this reason, we provide
+//! a `JSManageable` trait. If `T: JSManageable<'a, C>` then `T` is a type whose lifetime
+//! can be changed to `'a`. For example:
+//!
+//! ```rust
+//! # use linjs::*;
+//! type JSHandle<'a, C, T> = JSManaged<'a, C, JSManaged<'a, C, T>>;
+//! fn example<'a, 'b, C, T>(handle: JSHandle<'a, C, T>) -> JSHandle<'b, C, T::Aged> where
+//!    'a: 'b,
+//!    C: 'b,
+//!    T: JSManageable<'b, C>,
+//! {
+//!    handle.contract_lifetime()
+//! }
+//! ```
+//!
+//! This trait can be derived, using the `#[derive(JSManageable)]` type annotation.
 //!
 //! JS managed data can be accessed mutably as well as immutably.
 //! This is safe because mutably accessing JS manage data requires
