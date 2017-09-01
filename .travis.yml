@@ -3,12 +3,6 @@ sudo: 9000
 dist: trusty
 rust:
   - nightly
-os:
-  - linux
-  - osx
-
-before_install:
-- if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then brew install ccache yasm; fi
 
 script:
   - ccache -z
