@@ -297,6 +297,11 @@
 //! type MyGlobal<'a, C> = JSManaged<'a, C, NativeMyGlobal>;
 //! type MyContext<'a, C> = JSContext<Initialized<MyGlobal<'a, C>>>;
 //!
+//! thread_local!{ static MY_CLASS: JSOwnedClass = JSOwnedClass::new("MyClass"); }
+//! impl JSGlobalizeable for NativeMyGlobal {
+//!     fn js_class() -> JSThreadLocalClass { &MY_CLASS }
+//! }
+//!
 //! fn example<'a, C, S>(cx: JSContext<S>) -> MyContext<'a, C> where
 //!    C: 'a,
 //!    S: CanInitialize<C>,
@@ -338,6 +343,11 @@
 //! struct NativeMyGlobal<'a, C> { name: JSManaged<'a, C, String> }
 //! type MyGlobal<'a, C> = JSManaged<'a, C, NativeMyGlobal<'a, C>>;
 //! type MyContext<'a, C> = JSContext<Initialized<MyGlobal<'a, C>>>;
+//!
+//! thread_local!{ static MY_CLASS: JSOwnedClass = JSOwnedClass::new("MyClass"); }
+//! impl<'a, C> JSGlobalizeable for NativeMyGlobal<'a, C> {
+//!     fn js_class() -> JSThreadLocalClass { &MY_CLASS }
+//! }
 //!
 //! fn example<'a, C, S>(cx: JSContext<S>) -> MyContext<'a, C> where
 //!    C: 'a,
@@ -401,6 +411,11 @@
 //! #[derive(JSTraceable, JSManageable)]
 //! struct NativeMyGlobal { name: String }
 //!
+//! thread_local!{ static MY_CLASS: JSOwnedClass = JSOwnedClass::new("MyClass"); }
+//! impl JSGlobalizeable for NativeMyGlobal {
+//!     fn js_class() -> JSThreadLocalClass { &MY_CLASS }
+//! }
+//!
 //! struct Example;
 //!
 //! impl JSRunnable for Example {
@@ -426,13 +441,18 @@
 //! #[macro_use] extern crate linjs;
 //! #[macro_use] extern crate linjs_derive;
 //! use linjs::{CanAlloc, CanAccess, CanExtend, CanInitialize, CanRoot};
-//! use linjs::{JSContext, JSManageable, JSManaged, JSRunnable, JSTraceable};
+//! use linjs::{JSContext, JSGlobalizeable, JSManageable, JSManaged, JSOwnedClass, JSRunnable, JSThreadLocalClass, JSTraceable};
 //!
 //! // A graph type
 //! type Graph<'a, C> = JSManaged<'a, C, NativeGraph<'a, C>>;
 //! #[derive(JSTraceable, JSManageable)]
 //! struct NativeGraph<'a, C> {
 //!     nodes: Vec<Node<'a, C>>,
+//! }
+//!
+//! thread_local!{ static GRAPH_CLASS: JSOwnedClass = JSOwnedClass::new("Graph"); }
+//! impl<'a, C> JSGlobalizeable for NativeGraph<'a, C> {
+//!     fn js_class() -> JSThreadLocalClass { &GRAPH_CLASS }
 //! }
 //!
 //! // A node type
@@ -499,11 +519,17 @@
 
 extern crate js;
 
+use js::JSCLASS_IS_GLOBAL;
+use js::jsapi::JSClass;
+use js::jsapi::JSClassOps;
+
 pub use js::jsapi::JSTracer;
 
+use std::ffi::CString;
 use std::marker::PhantomData;
 use std::mem;
 use std::ptr;
+use std::thread::LocalKey;
 
 /// The type for JS contexts whose current state is `S`.
 pub struct JSContext<S> {
@@ -652,6 +678,7 @@ impl<S> JSContext<S> {
     pub fn init<'a, C, T>(self, value: T) -> JSContext<Initialized<JSManaged<'a, C, T::Aged>>> where
         S: CanInitialize<C>,
         T: JSManageable<'a, C>,
+        T::Aged: JSGlobalizeable,
     {
         self.pre_init().post_init(value)
     }
@@ -659,6 +686,7 @@ impl<S> JSContext<S> {
     /// Prepare a JS context for initialization
     pub fn pre_init<'a, C, T>(self) -> JSContext<Initializing<JSManaged<'a, C, T>>> where
         S: CanInitialize<C>,
+        T: JSGlobalizeable,
     {
         // This is dangerous!
         // This is only safe because dereferencing this pointer is only done by user code
@@ -723,7 +751,7 @@ impl<S> JSContext<S> {
     // A real implementation would also have JS methods such as those in jsapi.
 }
 
-/// This is a placeholder for the real JSTraceable trait
+/// A trait for Rust data that can be traced.
 pub unsafe trait JSTraceable {
     unsafe fn trace(&self, trc: *mut JSTracer);
 
@@ -762,8 +790,52 @@ unsafe impl<T> JSTraceable for Vec<T> where T: JSTraceable {
 
 // etc.
 
+/// A trait for Rust data which has a JSClass.
+
+pub trait JSGlobalizeable {
+    fn js_class() -> &'static LocalKey<JSOwnedClass>;
+}
+
+pub struct JSOwnedClass {
+    class_name: Box<CString>,
+    class_ops: Box<JSClassOps>,
+    class: Box<JSClass>,
+}
+
+impl JSOwnedClass {
+    pub fn new(name: &str) -> JSOwnedClass {
+        let class_name = Box::new(CString::new(name).unwrap());
+        let class_ops = Box::new(JSClassOps {
+            addProperty: None,
+            call: None,
+            construct: None,
+            delProperty: None,
+            enumerate: None,
+            finalize: None,
+            getProperty: None,
+            hasInstance: None,
+            mayResolve: None,
+            resolve: None,
+            setProperty: None,
+            trace: None,
+        });
+        let class = Box::new(JSClass {
+            name: class_name.as_ptr(),
+            flags: JSCLASS_IS_GLOBAL,
+            cOps: &*class_ops,
+            reserved: [0 as *mut _; 3],
+        });
+        JSOwnedClass {
+            class_name: class_name,
+            class_ops: class_ops,
+            class: class,
+        }
+    }
+}
+
+pub type JSThreadLocalClass = &'static LocalKey<JSOwnedClass>;
+
 /// Change the JS-managed lifetime of a type.
-/// The real thing would include a JS tracer.
 pub unsafe trait JSManageable<'a, C> : JSTraceable {
     /// This type should have the same memory represention as `Self`.
     /// The only difference between `Self` and `Self::Aged`

@@ -8,6 +8,7 @@ license = "MPL-2.0"
 
 [dependencies]
 js = { git = "https://github.com/servo/rust-mozjs" }
+libc = "0.2.30"
 
 [dev-dependencies]
 linjs_derive = { path = "linjs-derive" }

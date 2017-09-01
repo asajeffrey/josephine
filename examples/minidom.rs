@@ -1,13 +1,17 @@
 #![allow(dead_code)]
 #![deny(unsafe_code)]
 
+extern crate libc;
 #[macro_use] extern crate linjs;
 #[macro_use] extern crate linjs_derive;
 
 use linjs::CanAlloc;
 use linjs::CanInitialize;
 use linjs::Initialized;
+use linjs::JSThreadLocalClass;
+use linjs::JSOwnedClass;
 use linjs::JSContext;
+use linjs::JSGlobalizeable;
 use linjs::JSManaged;
 use linjs::JSRunnable;
 
@@ -34,6 +38,14 @@ fn init_window<'a, C, S>(cx: JSContext<S>) -> DOMContext<'a, C> where
         console: console,
         body: body,
     })
+}
+
+// This is boilerplate which should be deriveable.
+
+thread_local! { static WINDOW_CLASS: JSOwnedClass = JSOwnedClass::new("Window"); }
+
+impl<'a, C> JSGlobalizeable for NativeWindow<'a, C> {
+    fn js_class() -> JSThreadLocalClass { &WINDOW_CLASS }
 }
 
 // -------------------------------------------------------------------
