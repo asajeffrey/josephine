@@ -16,4 +16,8 @@ script:
   - CCACHE=$(which ccache) cargo test
   - ccache -s
 
-cache: ccache
+cache:
+  - ccache: true
+  - directories:
+      - $TRAVIS_BUILD_DIR/target
+      - $HOME/.cargo
