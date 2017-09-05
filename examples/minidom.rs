@@ -7,6 +7,7 @@ extern crate libc;
 
 use linjs::CanAlloc;
 use linjs::CanInitialize;
+use linjs::CanRoot;
 use linjs::Initialized;
 use linjs::JSThreadLocalClass;
 use linjs::JSOwnedClass;
@@ -22,7 +23,7 @@ type Window<'a, C> = JSManaged<'a, C, NativeWindow<'a, C>>;
 #[derive(JSTraceable, JSManageable)]
 struct NativeWindow<'a, C> {
     console: Console<'a, C>,
-    body: Element<'a, C>,
+    document: Document<'a, C>,
 }
 
 type DOMContext<'a, C> = JSContext<Initialized<Window<'a, C>>>;
@@ -33,10 +34,10 @@ fn init_window<'a, C, S>(cx: JSContext<S>) -> DOMContext<'a, C> where
 {
     let mut cx = cx.pre_init();
     rooted!(in(cx) let console = new_console(&mut cx));
-    rooted!(in(cx) let body = new_element(&mut cx));
+    rooted!(in(cx) let document = new_document(&mut cx));
     cx.post_init(NativeWindow {
         console: console,
-        body: body,
+        document: document,
     })
 }
 
@@ -60,6 +61,25 @@ fn new_console<'a, C, S>(cx: &'a mut JSContext<S>) -> Console<'a, C> where
     S: CanAlloc<C>,
 {
     cx.manage(NativeConsole())
+}
+
+// -------------------------------------------------------------------
+
+type Document<'a, C> = JSManaged<'a, C, NativeDocument<'a, C>>;
+
+#[derive(JSTraceable, JSManageable)]
+struct NativeDocument<'a, C> {
+    body: Element<'a, C>,
+}
+
+fn new_document<'a, C, S>(cx: &'a mut JSContext<S>) -> Document<'a, C> where
+    C: 'a,
+    S: CanAlloc<C> + CanRoot,
+{
+    rooted!(in(cx) let body = new_element(cx));
+    cx.manage(NativeDocument {
+        body: body,
+    })
 }
 
 // -------------------------------------------------------------------
