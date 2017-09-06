@@ -294,13 +294,9 @@
 //! # use linjs::*;
 //! #[derive(JSTraceable, JSManageable)]
 //! struct NativeMyGlobal { name: String }
+//! impl HasClass for NativeMyGlobal {}
 //! type MyGlobal<'a, C> = JSManaged<'a, C, NativeMyGlobal>;
 //! type MyContext<'a, C> = JSContext<Initialized<MyGlobal<'a, C>>>;
-//!
-//! thread_local!{ static MY_CLASS: JSOwnedClass = JSOwnedClass::new("MyClass"); }
-//! impl JSGlobalizeable for NativeMyGlobal {
-//!     fn js_class() -> JSThreadLocalClass { &MY_CLASS }
-//! }
 //!
 //! fn example<'a, C, S>(cx: JSContext<S>) -> MyContext<'a, C> where
 //!    C: 'a,
@@ -320,6 +316,7 @@
 //! # use linjs::*;
 //! #[derive(JSTraceable, JSManageable)]
 //! # struct NativeMyGlobal { name: String }
+//! # impl HasClass for NativeMyGlobal {}
 //! # type MyGlobal<'a, C> = JSManaged<'a, C, NativeMyGlobal>;
 //! # type MyContext<'a, C> = JSContext<Initialized<MyGlobal<'a, C>>>;
 //! #
@@ -341,13 +338,9 @@
 //! # use linjs::*;
 //! #[derive(JSTraceable, JSManageable)]
 //! struct NativeMyGlobal<'a, C> { name: JSManaged<'a, C, String> }
+//! impl<'a, C> HasClass for NativeMyGlobal<'a, C> {}
 //! type MyGlobal<'a, C> = JSManaged<'a, C, NativeMyGlobal<'a, C>>;
 //! type MyContext<'a, C> = JSContext<Initialized<MyGlobal<'a, C>>>;
-//!
-//! thread_local!{ static MY_CLASS: JSOwnedClass = JSOwnedClass::new("MyClass"); }
-//! impl<'a, C> JSGlobalizeable for NativeMyGlobal<'a, C> {
-//!     fn js_class() -> JSThreadLocalClass { &MY_CLASS }
-//! }
 //!
 //! fn example<'a, C, S>(cx: JSContext<S>) -> MyContext<'a, C> where
 //!    C: 'a,
@@ -370,6 +363,7 @@
 //! # use linjs::*;
 //! # #[derive(JSTraceable, JSManageable)]
 //! # struct NativeMyGlobal<'a, C> { name: JSManaged<'a, C, String> }
+//! # impl HasClass for NativeMyGlobal {}
 //! # type MyGlobal<'a, C> = JSManaged<'a, C, NativeMyGlobal<'a, C>>;
 //! # type MyContext<'a, C> = JSContext<Initialized<MyGlobal<'a, C>>>;
 //! #
@@ -410,11 +404,7 @@
 //! # use linjs::*;
 //! #[derive(JSTraceable, JSManageable)]
 //! struct NativeMyGlobal { name: String }
-//!
-//! thread_local!{ static MY_CLASS: JSOwnedClass = JSOwnedClass::new("MyClass"); }
-//! impl JSGlobalizeable for NativeMyGlobal {
-//!     fn js_class() -> JSThreadLocalClass { &MY_CLASS }
-//! }
+//! impl HasClass for NativeMyGlobal {}
 //!
 //! struct Example;
 //!
@@ -440,8 +430,8 @@
 //! ```
 //! #[macro_use] extern crate linjs;
 //! #[macro_use] extern crate linjs_derive;
-//! use linjs::{CanAlloc, CanAccess, CanExtend, CanInitialize, CanRoot};
-//! use linjs::{JSContext, JSGlobalizeable, JSManageable, JSManaged, JSOwnedClass, JSRunnable, JSThreadLocalClass, JSTraceable};
+//! use linjs::{CanAlloc, CanAccess, CanExtend, CanInitialize, CanRoot, HasClass};
+//! use linjs::{JSContext, JSManageable, JSManaged, JSRunnable, JSTraceable};
 //!
 //! // A graph type
 //! type Graph<'a, C> = JSManaged<'a, C, NativeGraph<'a, C>>;
@@ -449,11 +439,7 @@
 //! struct NativeGraph<'a, C> {
 //!     nodes: Vec<Node<'a, C>>,
 //! }
-//!
-//! thread_local!{ static GRAPH_CLASS: JSOwnedClass = JSOwnedClass::new("Graph"); }
-//! impl<'a, C> JSGlobalizeable for NativeGraph<'a, C> {
-//!     fn js_class() -> JSThreadLocalClass { &GRAPH_CLASS }
-//! }
+//! impl<'a, C> HasClass for NativeGraph<'a, C> {}
 //!
 //! // A node type
 //! type Node<'a, C> = JSManaged<'a, C, NativeNode<'a, C>>;
@@ -514,22 +500,31 @@
 //! fn main() { Example.start(); }
 //! ```
 
-#![feature(generic_param_attrs)]
-#![feature(dropck_eyepatch)]
-
+#![feature(associated_type_defaults)]
+#![feature(const_fn)]
+    
 extern crate js;
+extern crate libc;
 
-use js::JSCLASS_IS_GLOBAL;
+use js::jsapi;
+use js::jsapi::CallArgs;
+use js::jsapi::Handle;
+use js::jsapi::HandleObject;
 use js::jsapi::JSClass;
 use js::jsapi::JSClassOps;
+use js::jsapi::JSNativeWrapper;
+use js::jsapi::JSPropertySpec;
+use js::jsapi::JS_InitClass;
+use js::jsapi::JS_InitStandardClasses;
+use js::jsapi::Value;
 
 pub use js::jsapi::JSTracer;
 
-use std::ffi::CString;
+use libc::c_char;
+
 use std::marker::PhantomData;
 use std::mem;
 use std::ptr;
-use std::thread::LocalKey;
 
 /// The type for JS contexts whose current state is `S`.
 pub struct JSContext<S> {
@@ -678,7 +673,7 @@ impl<S> JSContext<S> {
     pub fn init<'a, C, T>(self, value: T) -> JSContext<Initialized<JSManaged<'a, C, T::Aged>>> where
         S: CanInitialize<C>,
         T: JSManageable<'a, C>,
-        T::Aged: JSGlobalizeable,
+        T::Aged: HasClass,
     {
         self.pre_init().post_init(value)
     }
@@ -686,7 +681,7 @@ impl<S> JSContext<S> {
     /// Prepare a JS context for initialization
     pub fn pre_init<'a, C, T>(self) -> JSContext<Initializing<JSManaged<'a, C, T>>> where
         S: CanInitialize<C>,
-        T: JSGlobalizeable,
+        T: HasClass,
     {
         // This is dangerous!
         // This is only safe because dereferencing this pointer is only done by user code
@@ -790,50 +785,93 @@ unsafe impl<T> JSTraceable for Vec<T> where T: JSTraceable {
 
 // etc.
 
-/// A trait for Rust data which has a JSClass.
+/// A trait for Rust data which has a class.
 
-pub trait JSGlobalizeable {
-    fn js_class() -> &'static LocalKey<JSOwnedClass>;
+pub trait HasClass {
+    type Class = ObjectClass;
 }
 
-pub struct JSOwnedClass {
-    class_name: Box<CString>,
-    class_ops: Box<JSClassOps>,
-    class: Box<JSClass>,
-}
+/// Initialize JS data
 
-impl JSOwnedClass {
-    pub fn new(name: &str) -> JSOwnedClass {
-        let class_name = Box::new(CString::new(name).unwrap());
-        let class_ops = Box::new(JSClassOps {
-            addProperty: None,
-            call: None,
-            construct: None,
-            delProperty: None,
-            enumerate: None,
-            finalize: None,
-            getProperty: None,
-            hasInstance: None,
-            mayResolve: None,
-            resolve: None,
-            setProperty: None,
-            trace: None,
-        });
-        let class = Box::new(JSClass {
-            name: class_name.as_ptr(),
-            flags: JSCLASS_IS_GLOBAL,
-            cOps: &*class_ops,
-            reserved: [0 as *mut _; 3],
-        });
-        JSOwnedClass {
-            class_name: class_name,
-            class_ops: class_ops,
-            class: class,
-        }
+pub trait JSInitializer {
+    unsafe fn js_init_class(cx: *mut jsapi::JSContext, global: jsapi::HandleObject) {
+        JS_InitClass(cx, global, HandleObject::null(), &OBJECT_CLASS, None, 0, ptr::null(), ptr::null(), ptr::null(), ptr::null());
+    }
+
+    unsafe fn js_init_object(cx: *mut jsapi::JSContext, obj: jsapi::HandleObject) {
     }
 }
 
-pub type JSThreadLocalClass = &'static LocalKey<JSOwnedClass>;
+/// Delegate JS initialization
+
+pub trait JSDelegate {
+    type Target;
+}
+
+impl<T> JSInitializer for T where
+    T: JSDelegate,
+    T::Target: JSInitializer,
+{
+    unsafe fn js_init_class(cx: *mut jsapi::JSContext, global: HandleObject) {
+        T::Target::js_init_class(cx, global);
+    }
+
+    unsafe fn js_init_object(cx: *mut jsapi::JSContext, obj: HandleObject) {
+        T::Target::js_init_object(cx, obj);
+    }
+}
+
+/// A default class.
+
+pub struct ObjectClass;
+
+impl JSInitializer for ObjectClass {}
+
+static OBJECT_CLASS: JSClass = JSClass {
+    name: b"[Object]\0" as *const u8 as *const c_char,
+    flags: 0,
+    cOps: &JSClassOps {
+        addProperty: None,
+        call: None,
+        construct: None,
+        delProperty: None,
+        enumerate: None,
+        finalize: None,
+        getProperty: None,
+        hasInstance: None,
+        mayResolve: None,
+        resolve: None,
+        setProperty: None,
+        trace: None,
+    },
+    reserved: [0 as *mut _; 3],
+};
+
+pub trait HasNativeClass {
+    type NativeClass: HasJSClass;
+}
+
+pub const fn null_wrapper() -> JSNativeWrapper {
+    JSNativeWrapper {
+        op: None,
+        info: ptr::null(),
+    }
+}
+
+pub const fn null_property() -> JSPropertySpec {
+    JSPropertySpec {
+        name: ptr::null(),
+        flags: 0,
+        getter: null_wrapper(),
+        setter: null_wrapper(),
+    }
+}
+
+/// A trait for a Rust class.
+
+pub trait HasJSClass {
+    fn js_class() -> &'static JSClass;
+}
 
 /// Change the JS-managed lifetime of a type.
 pub unsafe trait JSManageable<'a, C> : JSTraceable {

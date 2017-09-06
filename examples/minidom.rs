@@ -1,20 +1,39 @@
+#![feature(const_fn)]
 #![allow(dead_code)]
 #![deny(unsafe_code)]
 
+extern crate js;
 extern crate libc;
 #[macro_use] extern crate linjs;
 #[macro_use] extern crate linjs_derive;
+
+use js::jsapi;
+use js::jsapi::HandleObject;
+use js::jsapi::JSClass;
+use js::jsapi::JSClassOps;
+use js::jsapi::JSNativeWrapper;
+use js::jsapi::JSPropertySpec;
+use js::jsapi::JS_InitClass;
+use js::jsapi::JS_InitStandardClasses;
+use js::jsapi::Value;
+
+use libc::c_char;
+use libc::c_uint;
 
 use linjs::CanAlloc;
 use linjs::CanInitialize;
 use linjs::CanRoot;
 use linjs::Initialized;
-use linjs::JSThreadLocalClass;
-use linjs::JSOwnedClass;
+use linjs::HasClass;
 use linjs::JSContext;
-use linjs::JSGlobalizeable;
+use linjs::JSDelegate;
+use linjs::JSInitializer;
 use linjs::JSManaged;
 use linjs::JSRunnable;
+use linjs::null_property;
+use linjs::null_wrapper;
+
+use std::ptr;
 
 // -------------------------------------------------------------------
 
@@ -27,6 +46,10 @@ struct NativeWindow<'a, C> {
 }
 
 type DOMContext<'a, C> = JSContext<Initialized<Window<'a, C>>>;
+
+impl<'a, C> HasClass for NativeWindow<'a, C> {
+    type Class = WindowClass;
+}
 
 fn init_window<'a, C, S>(cx: JSContext<S>) -> DOMContext<'a, C> where
     C: 'a,
@@ -41,12 +64,94 @@ fn init_window<'a, C, S>(cx: JSContext<S>) -> DOMContext<'a, C> where
     })
 }
 
-// This is boilerplate which should be deriveable.
+struct WindowClass;
 
-thread_local! { static WINDOW_CLASS: JSOwnedClass = JSOwnedClass::new("Window"); }
+impl WindowMethods for WindowClass {
+    fn Console<'a, C>(cx: &'a mut DOMContext<'a, C>, this: Window<'a, C>) -> Console<'a, C> {
+        this.get(cx).console
+    }
 
-impl<'a, C> JSGlobalizeable for NativeWindow<'a, C> {
-    fn js_class() -> JSThreadLocalClass { &WINDOW_CLASS }
+    fn Document<'a, C>(cx: &'a mut DOMContext<'a, C>, this: Window<'a, C>) -> Document<'a, C> {
+        this.get(cx).document
+    }
+}
+
+impl JSDelegate for WindowClass {
+    type Target = WindowInitializer;
+}
+
+// Stuff which is produced by codegen
+
+#[allow(non_snake_case)]
+trait WindowMethods {
+    fn Console<'a, C>(cx: &'a mut DOMContext<'a, C>, this: Window<'a, C>) -> Console<'a, C>;
+    fn Document<'a, C>(cx: &'a mut DOMContext<'a, C>, this: Window<'a, C>) -> Document<'a, C>;
+}
+
+static WINDOW_CLASS: JSClass = JSClass {
+    name: b"Window\0" as *const u8 as *const c_char,
+    flags: js::JSCLASS_IS_GLOBAL,
+    cOps: &JSClassOps {
+        addProperty: None,
+        call: None,
+        construct: None,
+        delProperty: None,
+        enumerate: None,
+        finalize: None,
+        getProperty: None,
+        hasInstance: None,
+        mayResolve: None,
+        resolve: None,
+        setProperty: None,
+        trace: None,
+    },
+    reserved: [0 as *mut _; 3],
+};
+
+const WINDOW_PROPERTIES: &[JSPropertySpec] = &[
+    JSPropertySpec {
+        name: b"document\0" as *const u8 as *const c_char,
+        flags: 0,
+        getter: JSNativeWrapper {
+            op: Some(window_document_getter),
+            info: ptr::null(),
+        },
+        setter: null_wrapper(),
+    },
+    null_property(),
+];
+
+#[allow(unsafe_code)]
+unsafe extern "C" fn window_document_getter(_cx: *mut jsapi::JSContext, _argc: c_uint, _vp: *mut Value) -> bool {
+    // let args = CallArgs::from_vp(vp, argc);
+    // let window = args.thisv();
+    // let ref mut cx = JSContext::from(cx);
+    // let result = WindowClass::Console(cx, window);
+    // args.rval().set(result);
+    true
+}
+
+// Stuff which could be produced by codegen
+
+struct WindowInitializer;
+
+impl JSInitializer for WindowInitializer {
+    #[allow(unsafe_code)]
+    unsafe fn js_init_class(cx: *mut jsapi::JSContext, obj: HandleObject) {
+        JS_InitStandardClasses(cx, obj);
+        JS_InitClass(
+            cx,
+            obj,
+            HandleObject::null(),
+            &WINDOW_CLASS,
+            None,
+            0,
+            &WINDOW_PROPERTIES[0],
+            ptr::null(),
+            ptr::null(),
+            ptr::null()
+        );
+    }
 }
 
 // -------------------------------------------------------------------
