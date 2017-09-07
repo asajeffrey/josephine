@@ -507,16 +507,12 @@ extern crate js;
 extern crate libc;
 
 use js::jsapi;
-use js::jsapi::CallArgs;
-use js::jsapi::Handle;
 use js::jsapi::HandleObject;
 use js::jsapi::JSClass;
 use js::jsapi::JSClassOps;
 use js::jsapi::JSNativeWrapper;
 use js::jsapi::JSPropertySpec;
 use js::jsapi::JS_InitClass;
-use js::jsapi::JS_InitStandardClasses;
-use js::jsapi::Value;
 
 pub use js::jsapi::JSTracer;
 
@@ -798,7 +794,7 @@ pub trait JSInitializer {
         JS_InitClass(cx, global, HandleObject::null(), &OBJECT_CLASS, None, 0, ptr::null(), ptr::null(), ptr::null(), ptr::null());
     }
 
-    unsafe fn js_init_object(cx: *mut jsapi::JSContext, obj: jsapi::HandleObject) {
+    unsafe fn js_init_object(_cx: *mut jsapi::JSContext, _obj: jsapi::HandleObject) {
     }
 }
 
