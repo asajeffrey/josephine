@@ -294,7 +294,11 @@
 //! # use linjs::*;
 //! #[derive(JSTraceable, JSManageable)]
 //! struct NativeMyGlobal { name: String }
-//! impl HasClass for NativeMyGlobal {}
+//! impl HasClass for NativeMyGlobal { type Class = MyGlobalClass; }
+//!
+//! struct MyGlobalClass;
+//! impl<'a, C> HasInstance<'a, C> for MyGlobalClass { type Instance = NativeMyGlobal; }
+//!
 //! type MyGlobal<'a, C> = JSManaged<'a, C, NativeMyGlobal>;
 //! type MyContext<'a, C> = JSContext<Initialized<MyGlobal<'a, C>>>;
 //!
@@ -316,9 +320,11 @@
 //! # use linjs::*;
 //! #[derive(JSTraceable, JSManageable)]
 //! # struct NativeMyGlobal { name: String }
-//! # impl HasClass for NativeMyGlobal {}
+//! # impl HasClass for NativeMyGlobal { type Class = MyGlobalClass; }
 //! # type MyGlobal<'a, C> = JSManaged<'a, C, NativeMyGlobal>;
 //! # type MyContext<'a, C> = JSContext<Initialized<MyGlobal<'a, C>>>;
+//! # struct MyGlobalClass;
+//! # impl<'a, C> HasInstance<'a, C> for MyGlobalClass { type Instance = NativeMyGlobal; }
 //! #
 //! fn example<'a, C, S>(cx: &JSContext<S>) where
 //!    S: HasGlobal<MyGlobal<'a, C>> + CanAccess + InCompartment<C>,
@@ -338,7 +344,11 @@
 //! # use linjs::*;
 //! #[derive(JSTraceable, JSManageable)]
 //! struct NativeMyGlobal<'a, C> { name: JSManaged<'a, C, String> }
-//! impl<'a, C> HasClass for NativeMyGlobal<'a, C> {}
+//! impl<'a, C> HasClass for NativeMyGlobal<'a, C> { type Class = MyGlobalClass; }
+//!
+//! struct MyGlobalClass;
+//! impl<'a, C> HasInstance<'a, C> for MyGlobalClass { type Instance = NativeMyGlobal<'a, C>; }
+//!
 //! type MyGlobal<'a, C> = JSManaged<'a, C, NativeMyGlobal<'a, C>>;
 //! type MyContext<'a, C> = JSContext<Initialized<MyGlobal<'a, C>>>;
 //!
@@ -404,7 +414,10 @@
 //! # use linjs::*;
 //! #[derive(JSTraceable, JSManageable)]
 //! struct NativeMyGlobal { name: String }
-//! impl HasClass for NativeMyGlobal {}
+//! impl HasClass for NativeMyGlobal { type Class = MyGlobalClass; }
+//!
+//! struct MyGlobalClass;
+//! impl<'a, C> HasInstance<'a, C> for MyGlobalClass { type Instance = NativeMyGlobal; }
 //!
 //! struct Example;
 //!
@@ -431,7 +444,7 @@
 //! #[macro_use] extern crate linjs;
 //! #[macro_use] extern crate linjs_derive;
 //! use linjs::{CanAlloc, CanAccess, CanExtend, CanInitialize, CanRoot};
-//! use linjs::{HasClass, InCompartment};
+//! use linjs::{HasClass, HasInstance, InCompartment};
 //! use linjs::{JSContext, JSManageable, JSManaged, JSRunnable, JSTraceable};
 //!
 //! // A graph type
@@ -440,7 +453,10 @@
 //! struct NativeGraph<'a, C> {
 //!     nodes: Vec<Node<'a, C>>,
 //! }
-//! impl<'a, C> HasClass for NativeGraph<'a, C> {}
+//! impl<'a, C> HasClass for NativeGraph<'a, C> { type Class = GraphClass; }
+//!
+//! struct GraphClass;
+//! impl<'a, C> HasInstance<'a, C> for GraphClass { type Instance = NativeGraph<'a, C>; }
 //!
 //! // A node type
 //! type Node<'a, C> = JSManaged<'a, C, NativeNode<'a, C>>;
@@ -792,7 +808,11 @@ unsafe impl<T> JSTraceable for Vec<T> where T: JSTraceable {
 /// A trait for Rust data which has a class.
 
 pub trait HasClass {
-    type Class = ObjectClass;
+    type Class;
+}
+
+pub trait HasInstance<'a, C>: Sized {
+    type Instance: HasClass<Class = Self>;
 }
 
 /// Initialize JS data
@@ -850,10 +870,6 @@ static OBJECT_CLASS: JSClass = JSClass {
     },
     reserved: [0 as *mut _; 3],
 };
-
-pub trait HasNativeClass {
-    type NativeClass: HasJSClass;
-}
 
 pub const fn null_wrapper() -> JSNativeWrapper {
     JSNativeWrapper {
