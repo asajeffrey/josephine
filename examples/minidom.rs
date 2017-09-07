@@ -23,8 +23,9 @@ use libc::c_uint;
 use linjs::CanAlloc;
 use linjs::CanInitialize;
 use linjs::CanRoot;
-use linjs::Initialized;
 use linjs::HasClass;
+use linjs::InCompartment;
+use linjs::Initialized;
 use linjs::JSContext;
 use linjs::JSDelegate;
 use linjs::JSInitializer;
@@ -53,7 +54,7 @@ impl<'a, C> HasClass for NativeWindow<'a, C> {
 
 fn init_window<'a, C, S>(cx: JSContext<S>) -> DOMContext<'a, C> where
     C: 'a,
-    S: CanInitialize<C>,
+    S: CanInitialize + InCompartment<C>,
 {
     let mut cx = cx.pre_init();
     rooted!(in(cx) let console = new_console(&mut cx));
@@ -163,7 +164,7 @@ struct NativeConsole();
 
 fn new_console<'a, C, S>(cx: &'a mut JSContext<S>) -> Console<'a, C> where
     C: 'a,
-    S: CanAlloc<C>,
+    S: CanAlloc + InCompartment<C>,
 {
     cx.manage(NativeConsole())
 }
@@ -179,7 +180,7 @@ struct NativeDocument<'a, C> {
 
 fn new_document<'a, C, S>(cx: &'a mut JSContext<S>) -> Document<'a, C> where
     C: 'a,
-    S: CanAlloc<C> + CanRoot,
+    S: CanAlloc + CanRoot + InCompartment<C>,
 {
     rooted!(in(cx) let body = new_element(cx));
     cx.manage(NativeDocument {
@@ -198,7 +199,7 @@ struct NativeElement<'a, C> {
 }
 
 fn new_element<'a, C, S>(cx: &'a mut JSContext<S>) -> Element<'a, C> where
-    S: CanAlloc<C>,
+    S: CanAlloc + InCompartment<C>,
     C: 'a,
 {
     cx.manage(NativeElement {
@@ -212,7 +213,9 @@ fn new_element<'a, C, S>(cx: &'a mut JSContext<S>) -> Element<'a, C> where
 struct Main;
 
 impl JSRunnable for Main {
-    fn run<C, S>(self, cx: JSContext<S>) where S: CanInitialize<C> {
+    fn run<C, S>(self, cx: JSContext<S>) where
+        S: CanInitialize + InCompartment<C>
+    {
         let ref mut _cx = init_window(cx);
     }
 }

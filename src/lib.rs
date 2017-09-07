@@ -20,7 +20,7 @@
 //! ```rust
 //! # use linjs::*;
 //! fn example<C, S>(cx: &mut JSContext<S>) where
-//!     S: CanAlloc<C>,
+//!     S: CanAlloc + InCompartment<C>,
 //! {
 //!     let x: JSManaged<C, String> = cx.manage(String::from("hello"));
 //! }
@@ -32,7 +32,7 @@
 //! ```rust
 //! # use linjs::*;
 //! fn example<C, S>(cx: &mut JSContext<S>, x: JSManaged<C, String>) where
-//!     S: CanAccess<C>,
+//!     S: CanAccess + InCompartment<C>,
 //! {
 //!     println!("{} world", x.get(cx));
 //! }
@@ -46,7 +46,7 @@
 //! ```rust,ignore
 //! # use linjs::*;
 //! fn unsafe_example<C, S>(cx: &mut JSContext<S>) where
-//!     S: CanAlloc<C> + CanAccess<C>,
+//!     S: CanAlloc + CanAccess + InCompartment<C>,
 //! {
 //!     let x: JSManaged<C, String> = cx.manage(String::from("hello"));
 //!     // Imagine something triggers GC here
@@ -78,7 +78,7 @@
 //! ```rust,ignore
 //! # use linjs::*;
 //! fn unsafe_example<'a, C, S>(cx: &'a mut JSContext<S>) where
-//!     S: CanAlloc<C> + CanAccess<C>,
+//!     S: CanAlloc + CanAccess + InCompartment<C>,
 //! {
 //!     // x has type JSManaged<'b, C, String>
 //!     let x = cx.manage(String::from("hello"));
@@ -102,7 +102,7 @@
 //! ```rust
 //! # use linjs::*;
 //! fn example<'a, C: 'a, S>(cx: &'a mut JSContext<S>) where
-//!     S: CanAlloc<C> + CanAccess<C> + CanRoot,
+//!     S: CanAlloc + CanAccess + CanRoot + InCompartment<C>,
 //! {
 //!     // Function body has lifetime 'b
 //!     // x has type JSManaged<'b, C, String>
@@ -163,7 +163,7 @@
 //! ```rust
 //! # use linjs::*;
 //! fn example<C, S>(cx: &mut JSContext<S>, x: JSManaged<C, String>) where
-//!     S: CanAccess<C>,
+//!     S: CanAccess + InCompartment<C>,
 //! {
 //!     println!("{} world", x.get(cx));
 //!     *x.get_mut(cx) = String::from("hi");
@@ -177,7 +177,7 @@
 //! ```rust,ignore
 //! # use linjs::*; use std::mem;
 //! fn unsafe_example<C, S>(cx: &mut JSContext<S>, x: JSManaged<C, String>, y: JSManaged<C, String>) where
-//!     S: CanAccess<C>,
+//!     S: CanAccess + InCompartment<C>,
 //! {
 //!     mem::swap(x.get_mut(cx), y.get_mut(cx));
 //! }
@@ -206,7 +206,7 @@
 //! }
 //! type Loop<'a, C> = JSManaged<'a, C, NativeLoop<'a, C>>;
 //! fn example<C, S>(cx: &mut JSContext<S>) where
-//!     S: CanAccess<C> + CanAlloc<C> + CanRoot,
+//!     S: CanAccess + CanAlloc + CanRoot + InCompartment<C>,
 //! {
 //!    rooted!(in(cx) let l = cx.manage(NativeLoop { next: None }));
 //!    l.get_mut(cx).next = Some(l);
@@ -234,7 +234,7 @@
 //! # }
 //! # type Loop<'a, C> = JSManaged<'a, C, NativeLoop<'a, C>>;
 //! fn example<C, S>(cx: &mut JSContext<S>) where
-//!     S: CanAccess<C> + CanAlloc<C>
+//!     S: CanAccess + CanAlloc + InCompartment<C>,
 //! {
 //!    let (ref mut cx, l) = cx.snapshot_manage(NativeLoop { next: None });
 //!    l.get_mut(cx).next = Some(l);
@@ -256,11 +256,11 @@
 //! # }
 //! # type Loop<'a, C> = JSManaged<'a, C, NativeLoop<'a, C>>;
 //! fn might_trigger_gc<C, S>(cx: &mut JSContext<S>) where
-//!     S: CanAccess<C> + CanAlloc<C>
+//!     S: CanAccess + CanAlloc + InCompartment<C>
 //! { }
 //!
 //! fn unsafe_example<C, S>(cx: &mut JSContext<S>) where
-//!     S: CanAccess<C> + CanAlloc<C>
+//!     S: CanAccess + CanAlloc + InCompartment<C>
 //! {
 //!    let (ref mut cx, l) = cx.snapshot_manage(NativeLoop { next: None });
 //!    might_trigger_gc(cx);
@@ -300,7 +300,7 @@
 //!
 //! fn example<'a, C, S>(cx: JSContext<S>) -> MyContext<'a, C> where
 //!    C: 'a,
-//!    S: CanInitialize<C>,
+//!    S: CanInitialize + InCompartment<C>,
 //! {
 //!    let name = String::from("Alice");
 //!    cx.init(NativeMyGlobal { name: name })
@@ -321,7 +321,7 @@
 //! # type MyContext<'a, C> = JSContext<Initialized<MyGlobal<'a, C>>>;
 //! #
 //! fn example<'a, C, S>(cx: &JSContext<S>) where
-//!    S: HasGlobal<MyGlobal<'a, C>> + CanAccess<C>,
+//!    S: HasGlobal<MyGlobal<'a, C>> + CanAccess + InCompartment<C>,
 //! {
 //!    println!("My global is named {}.", cx.global().get(cx).name);
 //! }
@@ -344,7 +344,7 @@
 //!
 //! fn example<'a, C, S>(cx: JSContext<S>) -> MyContext<'a, C> where
 //!    C: 'a,
-//!    S: CanInitialize<C>,
+//!    S: CanInitialize + InCompartment<C>,
 //! {
 //!    let mut cx = cx.pre_init();
 //!    rooted!(in(cx) let name = cx.manage(String::from("Alice")));
@@ -363,13 +363,13 @@
 //! # use linjs::*;
 //! # #[derive(JSTraceable, JSManageable)]
 //! # struct NativeMyGlobal<'a, C> { name: JSManaged<'a, C, String> }
-//! # impl HasClass for NativeMyGlobal {}
+//! # impl<'a,C> HasClass for NativeMyGlobal<'a,C> {}
 //! # type MyGlobal<'a, C> = JSManaged<'a, C, NativeMyGlobal<'a, C>>;
 //! # type MyContext<'a, C> = JSContext<Initialized<MyGlobal<'a, C>>>;
 //! #
 //! fn unsafe_example<'a, C, S>(cx: JSContext<S>) -> MyContext<'a, C> where
 //!    C: 'a,
-//!    S: CanInitialize<C>,
+//!    S: CanInitialize + InCompartment<C>,
 //! {
 //!    let mut cx = cx.pre_init();
 //!    let oops = cx.global().get(&cx).name.get(&cx);
@@ -410,7 +410,7 @@
 //!
 //! impl JSRunnable for Example {
 //!     fn run<C, S>(self, cx: JSContext<S>) where
-//!         S: CanInitialize<C>,
+//!         S: CanInitialize + InCompartment<C>,
 //!     {
 //!         let name = String::from("Alice"); println!("0");
 //!         let ref cx = cx.init(NativeMyGlobal { name: name }); println!("A");
@@ -430,7 +430,8 @@
 //! ```
 //! #[macro_use] extern crate linjs;
 //! #[macro_use] extern crate linjs_derive;
-//! use linjs::{CanAlloc, CanAccess, CanExtend, CanInitialize, CanRoot, HasClass};
+//! use linjs::{CanAlloc, CanAccess, CanExtend, CanInitialize, CanRoot};
+//! use linjs::{HasClass, InCompartment};
 //! use linjs::{JSContext, JSManageable, JSManaged, JSRunnable, JSTraceable};
 //!
 //! // A graph type
@@ -453,7 +454,7 @@
 //! struct Example;
 //! impl JSRunnable for Example {
 //!     fn run<C, S>(self, cx: JSContext<S>) where
-//!         S: CanInitialize<C>
+//!         S: CanInitialize + InCompartment<C>
 //!     {
 //!         let ref mut cx = cx.init(NativeGraph { nodes: vec![] });
 //!         let graph = cx.global();
@@ -470,7 +471,7 @@
 //!
 //! impl Example {
 //!     fn add_node1<S, C>(&self, cx: &mut JSContext<S>, graph: Graph<C>) where
-//!         S: CanAccess<C> + CanAlloc<C> + CanRoot
+//!         S: CanAccess + CanAlloc + CanRoot + InCompartment<C>
 //!     {
 //!         // Creating nodes does memory allocation, which may trigger GC,
 //!         // so we need to be careful about lifetimes while they are being added.
@@ -479,7 +480,7 @@
 //!         graph.get_mut(cx).nodes.push(node1);
 //!     }
 //!     fn add_node2<S, C>(&self, cx: &mut JSContext<S>, graph: Graph<C>) where
-//!         S: CanAccess<C> + CanAlloc<C>
+//!         S: CanAccess + CanAlloc + InCompartment<C>
 //!      {
 //!         // Approach 2 is to take a snapshot of the context right after allocation.
 //!         let (ref mut cx, node2) = cx.snapshot_manage(NativeNode { data: 2, edges: vec![] });
@@ -487,7 +488,7 @@
 //!     }
 //!     fn add_edges<'a, S, C>(&self, cx: &mut JSContext<S>, graph: Graph<C>) where
 //!         C: 'a,
-//!         S: CanAccess<C> + CanExtend<'a, C>
+//!         S: CanAccess + CanExtend<'a> + InCompartment<C>
 //!      {
 //!         // Note that there's no rooting here.
 //!         let node1 = graph.get(cx).nodes[0].extend_lifetime(cx);
@@ -546,14 +547,21 @@ pub struct Initializing<G> {
     roots: JSPinnedRoots,
 }
 
+/// A marker trait for JS contexts in compartment `C`
+pub trait InCompartment<C> {}
+impl<C> InCompartment<C> for Uninitialized<C> {}
+impl<'a, C, T> InCompartment<C> for Initializing<JSManaged<'a, C, T>> {}
+impl<'a, C, T> InCompartment<C> for Initialized<JSManaged<'a, C, T>> {}
+impl<'a, C, S> InCompartment<C> for Snapshotted<'a, S> where S: InCompartment<C> {}
+
 /// A marker trait for JS contexts that can access native state
-pub trait CanAccess<C> {}
-impl<'a, C, T> CanAccess<C> for Initialized<JSManaged<'a, C, T>> {}
-impl<'a, C, S> CanAccess<C> for Snapshotted<'a, S> where S: CanAccess<C> {}
+pub trait CanAccess {}
+impl<G> CanAccess for Initialized<G> {}
+impl<'a, S> CanAccess for Snapshotted<'a, S> where S: CanAccess {}
 
 /// A marker trait for JS contexts that can extend the lifetime of objects
-pub trait CanExtend<'a, C> {}
-impl<'a, C, S> CanExtend<'a, C> for Snapshotted<'a, S> where S: CanAccess<C> {}
+pub trait CanExtend<'a> {}
+impl<'a, S> CanExtend<'a> for Snapshotted<'a, S> {}
 
 /// A trait for JS contexts that can create roots
 pub trait CanRoot {
@@ -585,13 +593,13 @@ impl<G> CanRoot for Initializing<G> {
 }
 
 /// A marker trait for JS contexts that can allocate objects
-pub trait CanAlloc<C> {}
-impl<'a, C, T> CanAlloc<C> for Initialized<JSManaged<'a, C, T>> {}
-impl<'a, C, T> CanAlloc<C> for Initializing<JSManaged<'a, C, T>> {}
+pub trait CanAlloc {}
+impl<'a, C, T> CanAlloc for Initialized<JSManaged<'a, C, T>> {}
+impl<'a, C, T> CanAlloc for Initializing<JSManaged<'a, C, T>> {}
 
 /// A marker trait for JS contexts that can be initialized
-pub trait CanInitialize<C> {}
-impl<C> CanInitialize<C> for Uninitialized<C> {}
+pub trait CanInitialize {}
+impl<C> CanInitialize for Uninitialized<C> {}
 
 /// A marker trait for JS contexts that are in the middle of initializing
 pub trait IsInitializing<G>: CanRoot + HasGlobal<G> {}
@@ -636,7 +644,7 @@ impl<S> JSContext<S> {
     /// Give ownership of data to JS.
     /// This allocates JS heap, which may trigger GC.
     pub fn manage<'a, C, T>(&'a mut self, value: T) -> JSManaged<'a, C, T::Aged> where
-        S: CanAlloc<C>,
+        S: CanAlloc + InCompartment<C>,
         T: JSManageable<'a, C>
     {
         // The real thing would use a JS reflector to manage the space,
@@ -650,7 +658,7 @@ impl<S> JSContext<S> {
     /// Give ownership of data to JS.
     /// This allocates JS heap, which may trigger GC.
     pub fn snapshot_manage<'a, C, T>(&'a mut self, value: T) -> (JSContext<Snapshotted<'a, S>>, JSManaged<'a, C, T::Aged>) where
-        S: CanAlloc<C>,
+        S: CanAlloc + InCompartment<C>,
         T: JSManageable<'a, C>
     {
         // The real thing would use a JS reflector to manage the space,
@@ -667,7 +675,7 @@ impl<S> JSContext<S> {
 
     /// Initialize a JS Context
     pub fn init<'a, C, T>(self, value: T) -> JSContext<Initialized<JSManaged<'a, C, T::Aged>>> where
-        S: CanInitialize<C>,
+        S: CanInitialize + InCompartment<C>,
         T: JSManageable<'a, C>,
         T::Aged: HasClass,
     {
@@ -676,7 +684,7 @@ impl<S> JSContext<S> {
 
     /// Prepare a JS context for initialization
     pub fn pre_init<'a, C, T>(self) -> JSContext<Initializing<JSManaged<'a, C, T>>> where
-        S: CanInitialize<C>,
+        S: CanInitialize + InCompartment<C>,
         T: HasClass,
     {
         // This is dangerous!
@@ -929,7 +937,7 @@ unsafe impl<'a, C, T> JSManageable<'a, C> for Vec<T> where T: JSManageable<'a, C
 /// A user of a JS runtime implements `JSRunnable`.
 pub trait JSRunnable: Sized {
     /// This callback is called with a fresh JS compartment type `C`.
-    fn run<C, S>(self, cx: JSContext<S>) where S: CanInitialize<C>;
+    fn run<C, S>(self, cx: JSContext<S>) where S: CanInitialize + InCompartment<C>,;
 
     /// To trigger the callback, call `rt.start()`.
     fn start(self) {
@@ -982,7 +990,7 @@ unsafe impl<'a, 'b, C: 'b, T: ?Sized> JSManageable<'b, C> for JSManaged<'a, C, T
 impl<'a, C, T: ?Sized> JSManaged<'a, C, T> {
     /// Read-only access to JS-managed data.
     pub fn get<'b, S>(self, _: &'b JSContext<S>) -> &'b T::Aged where
-        S: CanAccess<C>,
+        S: CanAccess,
         T: JSManageable<'b, C>,
         'a: 'b,
     {
@@ -991,7 +999,7 @@ impl<'a, C, T: ?Sized> JSManaged<'a, C, T> {
 
     /// Read-write access to JS-managed data.
     pub fn get_mut<'b, S>(self, _: &'b mut JSContext<S>) -> &'b mut T::Aged where
-        S: CanAccess<C>,
+        S: CanAccess,
         T: JSManageable<'b, C>,
         'a: 'b,
     {
@@ -1019,7 +1027,7 @@ impl<'a, C, T: ?Sized> JSManaged<'a, C, T> {
     /// It's safe to extend the lifetime of JS-managed data if it has been snapshotted.
     pub fn extend_lifetime<'b, 'c, S>(self, _: &'c JSContext<S>) -> JSManaged<'b, C, T::Aged> where
         C: 'b,
-        S: CanExtend<'b, C>,
+        S: CanExtend<'b>,
         T: JSManageable<'b, C>,
         'b: 'a,
     {
