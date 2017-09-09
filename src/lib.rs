@@ -15,7 +15,7 @@
 //! where the type parameter `S` is used to track the state of the context.
 //!
 //! For example, we can give JS some Rust data to manage in compartment
-//! `C` when the context state implements the `CanAlloc<C>` trait:
+//! `C` when the context state implements the `CanAlloc` trait:
 //!
 //! ```rust
 //! # use linjs::*;
@@ -102,7 +102,7 @@
 //! ```rust
 //! # use linjs::*;
 //! fn example<'a, C: 'a, S>(cx: &'a mut JSContext<S>) where
-//!     S: CanAlloc + CanAccess + CanRoot + InCompartment<C>,
+//!     S: CanAlloc + CanAccess + InCompartment<C>,
 //! {
 //!     // Function body has lifetime 'b
 //!     // x has type JSManaged<'b, C, String>
@@ -120,38 +120,9 @@
 //! This use of lifetimes allows safe access to JS-managed data without a special
 //! rooting lint.
 //!
-//! # JS-manageable data
-//!
-//! JS-managed lifetimes are variant, so can be converted to a more constrained
-//! lifetime, for example if `'b` is a sublifetime of `'a`:
-//! 
-//! ```rust
-//! # use linjs::*;
-//! type JSHandle<'a, C, T> = JSManaged<'a, C, JSManaged<'a, C, T>>;
-//! fn example<'a, 'b, C>(handle: JSHandle<'a, C, String>) -> JSHandle<'b, C, String> where
-//!    'a: 'b,
-//! {
-//!    handle
-//! }
-//! ```
-//! This use of variance is fine for monomorphic code, but sometimes polymorphic code
-//! needs to change the lifetime of a type parameter. For this reason, we provide
-//! a `JSManageable` trait. If `T: JSManageable<'a, C>` then `T` is a type whose lifetime
-//! can be changed to `'a`. For example:
-//!
-//! ```rust
-//! # use linjs::*;
-//! type JSHandle<'a, C, T> = JSManaged<'a, C, JSManaged<'a, C, T>>;
-//! fn example<'a, 'b, C, T>(handle: JSHandle<'a, C, T>) -> JSHandle<'b, C, T::Aged> where
-//!    'a: 'b,
-//!    C: 'b,
-//!    T: JSManageable<'b, C>,
-//! {
-//!    handle.contract_lifetime()
-//! }
-//! ```
-//!
-//! This trait can be derived, using the `#[derive(JSManageable)]` type annotation.
+//! We can root any data which implements the `JSRootable` and `JSTraceable` traits,
+//! which includes JS-managed data. These traits can be derived,
+//! using the `#[derive(JSRootable, JSTraceable)]` type annotation.
 //!
 //! # Mutating JS-managed data
 //!
@@ -200,13 +171,16 @@
 //! # #[macro_use] extern crate linjs;
 //! # #[macro_use] extern crate linjs_derive;
 //! # use linjs::*;
-//! #[derive(JSTraceable, JSManageable)]
+//! #[derive(JSTraceable, JSRootable)]
 //! struct NativeLoop<'a, C> {
 //!    next: Option<Loop<'a, C>>,
 //! }
-//! type Loop<'a, C> = JSManaged<'a, C, NativeLoop<'a, C>>;
+//! impl<'a, C> HasClass for NativeLoop<'a, C> { type Class = LoopClass; }
+//! type Loop<'a, C> = JSManaged<'a, C, LoopClass>;
+//! struct LoopClass;
+//! impl<'a, C> HasInstance<'a, C> for LoopClass { type Instance = NativeLoop<'a, C>; }
 //! fn example<C, S>(cx: &mut JSContext<S>) where
-//!     S: CanAccess + CanAlloc + CanRoot + InCompartment<C>,
+//!     S: CanAccess + CanAlloc + InCompartment<C>,
 //! {
 //!    rooted!(in(cx) let l = cx.manage(NativeLoop { next: None }));
 //!    l.get_mut(cx).next = Some(l);
@@ -225,14 +199,17 @@
 //! the snapshot is also live at the end.
 //!
 //! ```rust
-//! # #[macro_use] extern crate linjs;
+//! # extern crate linjs;
 //! # #[macro_use] extern crate linjs_derive;
 //! # use linjs::*;
-//! # #[derive(JSTraceable, JSManageable)]
+//! # #[derive(JSTraceable, JSRootable)]
 //! # struct NativeLoop<'a, C> {
 //! #    next: Option<Loop<'a, C>>,
 //! # }
-//! # type Loop<'a, C> = JSManaged<'a, C, NativeLoop<'a, C>>;
+//! # impl<'a, C> HasClass for NativeLoop<'a, C> { type Class = LoopClass; }
+//! # type Loop<'a, C> = JSManaged<'a, C, LoopClass>;
+//! # struct LoopClass;
+//! # impl<'a, C> HasInstance<'a, C> for LoopClass { type Instance = NativeLoop<'a, C>; }
 //! fn example<C, S>(cx: &mut JSContext<S>) where
 //!     S: CanAccess + CanAlloc + InCompartment<C>,
 //! {
@@ -250,7 +227,7 @@
 //! # #[macro_use] extern crate linjs;
 //! # #[macro_use] extern crate linjs_derive;
 //! # use linjs::*;
-//! # #[derive(JSTraceable, JSManageable)]
+//! # #[derive(JSTraceable, JSRootable)]
 //! # struct NativeLoop<'a, C> {
 //! #    next: Option<Loop<'a, C>>,
 //! # }
@@ -289,10 +266,10 @@
 //! which updates the state of the context from uninitialized to initialized.
 //!
 //! ```rust
-//! # #[macro_use] extern crate linjs;
+//! # extern crate linjs;
 //! # #[macro_use] extern crate linjs_derive;
 //! # use linjs::*;
-//! #[derive(JSTraceable, JSManageable)]
+//! #[derive(JSTraceable, JSRootable)]
 //! struct NativeMyGlobal { name: String }
 //! impl HasClass for NativeMyGlobal { type Class = MyGlobalClass; }
 //!
@@ -300,14 +277,14 @@
 //! impl<'a, C> HasInstance<'a, C> for MyGlobalClass { type Instance = NativeMyGlobal; }
 //!
 //! type MyGlobal<'a, C> = JSManaged<'a, C, NativeMyGlobal>;
-//! type MyContext<'a, C> = JSContext<Initialized<MyGlobal<'a, C>>>;
 //!
-//! fn example<'a, C, S>(cx: JSContext<S>) -> MyContext<'a, C> where
-//!    C: 'a,
-//!    S: CanInitialize + InCompartment<C>,
+//! fn example<'a, C, S>(cx: JSContext<S>) -> JSContext<Initialized<C>> where
+//!    S: CanCreate<C>,
+//!    C: HasGlobal<MyGlobalClass>,
 //! {
+//!    let cx = cx.create_compartment();
 //!    let name = String::from("Alice");
-//!    cx.init(NativeMyGlobal { name: name })
+//!    cx.global_manage(NativeMyGlobal { name: name })
 //! }
 //! # fn main() {}
 //! ```
@@ -318,7 +295,7 @@
 //! # #[macro_use] extern crate linjs;
 //! # #[macro_use] extern crate linjs_derive;
 //! # use linjs::*;
-//! #[derive(JSTraceable, JSManageable)]
+//! #[derive(JSTraceable, JSRootable)]
 //! # struct NativeMyGlobal { name: String }
 //! # impl HasClass for NativeMyGlobal { type Class = MyGlobalClass; }
 //! # type MyGlobal<'a, C> = JSManaged<'a, C, NativeMyGlobal>;
@@ -327,38 +304,36 @@
 //! # impl<'a, C> HasInstance<'a, C> for MyGlobalClass { type Instance = NativeMyGlobal; }
 //! #
 //! fn example<'a, C, S>(cx: &JSContext<S>) where
-//!    S: HasGlobal<MyGlobal<'a, C>> + CanAccess + InCompartment<C>,
+//!    S: CanAccess + InCompartment<C>,
+//!    C: HasGlobal<MyGlobalClass>,
 //! {
 //!    println!("My global is named {}.", cx.global().get(cx).name);
 //! }
 //! # fn main() {}
 //! ```
 //!
-//! In some cases, the global contains some JS-managed data, in which case the initialization
-//! is split into two steps: pre-initialization creates the global, and post-initialization
-//! provides the JS-managed data for the global, for example:
+//! In some cases, the global contains some JS-managed data, which is why the initialization
+//! is split into two steps: creating the compartment, and
+//! providing the JS-managed data for the global, for example:
 //!
 //! ```rust
 //! # #[macro_use] extern crate linjs;
 //! # #[macro_use] extern crate linjs_derive;
 //! # use linjs::*;
-//! #[derive(JSTraceable, JSManageable)]
+//! #[derive(JSTraceable, JSRootable)]
 //! struct NativeMyGlobal<'a, C> { name: JSManaged<'a, C, String> }
 //! impl<'a, C> HasClass for NativeMyGlobal<'a, C> { type Class = MyGlobalClass; }
 //!
 //! struct MyGlobalClass;
 //! impl<'a, C> HasInstance<'a, C> for MyGlobalClass { type Instance = NativeMyGlobal<'a, C>; }
 //!
-//! type MyGlobal<'a, C> = JSManaged<'a, C, NativeMyGlobal<'a, C>>;
-//! type MyContext<'a, C> = JSContext<Initialized<MyGlobal<'a, C>>>;
-//!
-//! fn example<'a, C, S>(cx: JSContext<S>) -> MyContext<'a, C> where
-//!    C: 'a,
-//!    S: CanInitialize + InCompartment<C>,
+//! fn example<'a, C, S>(cx: JSContext<S>) -> JSContext<Initialized<C>> where
+//!    S: CanCreate<C>,
+//!    C: HasGlobal<MyGlobalClass>,
 //! {
-//!    let mut cx = cx.pre_init();
+//!    let mut cx = cx.create_compartment();
 //!    rooted!(in(cx) let name = cx.manage(String::from("Alice")));
-//!    cx.post_init(NativeMyGlobal { name: name })
+//!    cx.global_manage(NativeMyGlobal { name: name })
 //! }
 //! # fn main() {}
 //! ```
@@ -371,7 +346,7 @@
 //! # #[macro_use] extern crate linjs;
 //! # #[macro_use] extern crate linjs_derive;
 //! # use linjs::*;
-//! # #[derive(JSTraceable, JSManageable)]
+//! # #[derive(JSTraceable, JSRootable)]
 //! # struct NativeMyGlobal<'a, C> { name: JSManaged<'a, C, String> }
 //! # impl<'a,C> HasClass for NativeMyGlobal<'a,C> {}
 //! # type MyGlobal<'a, C> = JSManaged<'a, C, NativeMyGlobal<'a, C>>;
@@ -412,7 +387,7 @@
 //! # extern crate linjs;
 //! # #[macro_use] extern crate linjs_derive;
 //! # use linjs::*;
-//! #[derive(JSTraceable, JSManageable)]
+//! #[derive(JSTraceable, JSRootable)]
 //! struct NativeMyGlobal { name: String }
 //! impl HasClass for NativeMyGlobal { type Class = MyGlobalClass; }
 //!
@@ -421,12 +396,14 @@
 //!
 //! struct Example;
 //!
-//! impl JSRunnable for Example {
+//! impl JSRunnable<MyGlobalClass> for Example {
 //!     fn run<C, S>(self, cx: JSContext<S>) where
-//!         S: CanInitialize + InCompartment<C>,
+//!         S: CanCreate<C>,
+//!         C: HasGlobal<MyGlobalClass>,
 //!     {
-//!         let name = String::from("Alice"); println!("0");
-//!         let ref cx = cx.init(NativeMyGlobal { name: name }); println!("A");
+//!         let cx = cx.create_compartment();
+//!         let name = String::from("Alice");
+//!         let ref cx = cx.global_manage(NativeMyGlobal { name: name });
 //!         assert_eq!(cx.global().get(cx).name, "Alice");
 //!     }
 //! }
@@ -443,13 +420,13 @@
 //! ```
 //! #[macro_use] extern crate linjs;
 //! #[macro_use] extern crate linjs_derive;
-//! use linjs::{CanAlloc, CanAccess, CanExtend, CanInitialize, CanRoot};
-//! use linjs::{HasClass, HasInstance, InCompartment};
-//! use linjs::{JSContext, JSManageable, JSManaged, JSRunnable, JSTraceable};
+//! use linjs::{CanAlloc, CanAccess, CanCreate, CanExtend};
+//! use linjs::{HasClass, HasGlobal, HasInstance, InCompartment};
+//! use linjs::{JSContext, JSManaged, JSRunnable};
 //!
 //! // A graph type
-//! type Graph<'a, C> = JSManaged<'a, C, NativeGraph<'a, C>>;
-//! #[derive(JSTraceable, JSManageable)]
+//! type Graph<'a, C> = JSManaged<'a, C, GraphClass>;
+//! #[derive(JSTraceable, JSRootable)]
 //! struct NativeGraph<'a, C> {
 //!     nodes: Vec<Node<'a, C>>,
 //! }
@@ -459,20 +436,26 @@
 //! impl<'a, C> HasInstance<'a, C> for GraphClass { type Instance = NativeGraph<'a, C>; }
 //!
 //! // A node type
-//! type Node<'a, C> = JSManaged<'a, C, NativeNode<'a, C>>;
-//! #[derive(JSTraceable, JSManageable)]
+//! type Node<'a, C> = JSManaged<'a, C, NodeClass>;
+//! #[derive(JSTraceable, JSRootable)]
 //! struct NativeNode<'a, C> {
 //!     data: usize,
 //!     edges: Vec<Node<'a, C>>,
 //! }
+//! impl<'a, C> HasClass for NativeNode<'a, C> { type Class = NodeClass; }
+//!
+//! struct NodeClass;
+//! impl<'a, C> HasInstance<'a, C> for NodeClass { type Instance = NativeNode<'a, C>; }
 //!
 //! // Build a cyclic graph
 //! struct Example;
-//! impl JSRunnable for Example {
+//! impl JSRunnable<GraphClass> for Example {
 //!     fn run<C, S>(self, cx: JSContext<S>) where
-//!         S: CanInitialize + InCompartment<C>
+//!         S: CanCreate<C>,
+//!         C: HasGlobal<GraphClass>,
 //!     {
-//!         let ref mut cx = cx.init(NativeGraph { nodes: vec![] });
+//!         let cx = cx.create_compartment();
+//!         let ref mut cx = cx.global_manage(NativeGraph { nodes: vec![] });
 //!         let graph = cx.global();
 //!         self.add_node1(cx, graph);
 //!         self.add_node2(cx, graph);
@@ -487,7 +470,7 @@
 //!
 //! impl Example {
 //!     fn add_node1<S, C>(&self, cx: &mut JSContext<S>, graph: Graph<C>) where
-//!         S: CanAccess + CanAlloc + CanRoot + InCompartment<C>
+//!         S: CanAccess + CanAlloc + InCompartment<C>
 //!     {
 //!         // Creating nodes does memory allocation, which may trigger GC,
 //!         // so we need to be careful about lifetimes while they are being added.
@@ -500,7 +483,7 @@
 //!      {
 //!         // Approach 2 is to take a snapshot of the context right after allocation.
 //!         let (ref mut cx, node2) = cx.snapshot_manage(NativeNode { data: 2, edges: vec![] });
-//!         graph.get_mut(cx).nodes.push(node2.contract_lifetime());
+//!         graph.get_mut(cx).nodes.push(node2);
 //!     }
 //!     fn add_edges<'a, S, C>(&self, cx: &mut JSContext<S>, graph: Graph<C>) where
 //!         C: 'a,
@@ -509,8 +492,8 @@
 //!         // Note that there's no rooting here.
 //!         let node1 = graph.get(cx).nodes[0].extend_lifetime(cx);
 //!         let node2 = graph.get(cx).nodes[1].extend_lifetime(cx);
-//!         node1.get_mut(cx).edges.push(node2.contract_lifetime());
-//!         node2.get_mut(cx).edges.push(node1.contract_lifetime());
+//!         node1.get_mut(cx).edges.push(node2);
+//!         node2.get_mut(cx).edges.push(node1);
 //!     }
 //! }
 //!
@@ -535,117 +518,62 @@ pub use js::jsapi::JSTracer;
 
 use libc::c_char;
 
+use std::cell::UnsafeCell;
 use std::marker::PhantomData;
 use std::mem;
+use std::ops::Deref;
+use std::ops::DerefMut;
 use std::ptr;
 
 /// The type for JS contexts whose current state is `S`.
 pub struct JSContext<S> {
-    state: S,
+    global_raw: *mut (),
+    marker: PhantomData<S>,
 }
 
-/// A context state in an initialized compartment with global of type `G`.
-pub struct Initialized<G> {
-    global: G,
-    roots: JSPinnedRoots,
-}
+/// A context state in an initialized compartment `C`.
+pub struct Initialized<C> (PhantomData<C>);
+
+/// A context state which can initialize compartment `C`.
+pub struct Uninitialized<C> (PhantomData<C>);
+
+/// A context state in the middle of initializing a compartment `C`.
+pub struct Initializing<C> (PhantomData<C>);
 
 /// A context state in snapshotted compartment in underlying state `S`,
 /// which guarantees that no GC will happen during the lifetime `'a`.
-pub struct Snapshotted<'a, S: 'a> (&'a mut S);
-
-/// A context state in uninitialized compartment `C`.
-pub struct Uninitialized<C> (PhantomData<C>);
-
-/// A context state in the middle of initializing a compartment with global of type `G`.
-pub struct Initializing<G> {
-    global: G,
-    roots: JSPinnedRoots,
-}
+pub struct Snapshotted<'a, S> (PhantomData<(&'a(), S)>);
 
 /// A marker trait for JS contexts in compartment `C`
 pub trait InCompartment<C> {}
-impl<C> InCompartment<C> for Uninitialized<C> {}
-impl<'a, C, T> InCompartment<C> for Initializing<JSManaged<'a, C, T>> {}
-impl<'a, C, T> InCompartment<C> for Initialized<JSManaged<'a, C, T>> {}
+impl<C> InCompartment<C> for Initializing<C> {}
+impl<C> InCompartment<C> for Initialized<C> {}
 impl<'a, C, S> InCompartment<C> for Snapshotted<'a, S> where S: InCompartment<C> {}
 
 /// A marker trait for JS contexts that can access native state
 pub trait CanAccess {}
-impl<G> CanAccess for Initialized<G> {}
+impl<C> CanAccess for Initialized<C> {}
 impl<'a, S> CanAccess for Snapshotted<'a, S> where S: CanAccess {}
 
 /// A marker trait for JS contexts that can extend the lifetime of objects
 pub trait CanExtend<'a> {}
 impl<'a, S> CanExtend<'a> for Snapshotted<'a, S> {}
 
-/// A trait for JS contexts that can create roots
-pub trait CanRoot {
-    fn roots(self) -> JSPinnedRoots;
-    fn roots_ref(&self) -> &JSPinnedRoots;
-    fn roots_mut(&mut self) -> &mut JSPinnedRoots;
-}
-impl<G> CanRoot for Initialized<G> {
-    fn roots(self) -> JSPinnedRoots {
-        self.roots
-    }
-    fn roots_ref(&self) -> &JSPinnedRoots {
-        &self.roots
-    }
-    fn roots_mut(&mut self) -> &mut JSPinnedRoots {
-        &mut self.roots
-    }
-}
-impl<G> CanRoot for Initializing<G> {
-    fn roots(self) -> JSPinnedRoots {
-        self.roots
-    }
-    fn roots_ref(&self) -> &JSPinnedRoots {
-        &self.roots
-    }
-    fn roots_mut(&mut self) -> &mut JSPinnedRoots {
-        &mut self.roots
-    }
-}
-
 /// A marker trait for JS contexts that can allocate objects
 pub trait CanAlloc {}
-impl<'a, C, T> CanAlloc for Initialized<JSManaged<'a, C, T>> {}
-impl<'a, C, T> CanAlloc for Initializing<JSManaged<'a, C, T>> {}
+impl<G> CanAlloc for Initialized<G> {}
+impl<G> CanAlloc for Initializing<G> {}
 
-/// A marker trait for JS contexts that can be initialized
-pub trait CanInitialize {}
-impl<C> CanInitialize for Uninitialized<C> {}
+/// A marker trait for JS contexts that can create compartment `C`.
+pub trait CanCreate<C> {}
+impl<C> CanCreate<C> for Uninitialized<C> {}
 
 /// A marker trait for JS contexts that are in the middle of initializing
-pub trait IsInitializing<G>: CanRoot + HasGlobal<G> {}
-impl<G: Clone> IsInitializing<G> for Initializing<G> {}
+pub trait IsInitializing {}
+impl<C> IsInitializing for Initializing<C> {}
 
-/// A trait for JS contexts that have a global
-pub trait HasGlobal<G> {
-    fn global(&self) -> G;
-}
-impl<G> HasGlobal<G> for Initialized<G> where
-    G: Clone,
-{
-    fn global(&self) -> G {
-        self.global.clone()
-    }
-}
-impl<G> HasGlobal<G> for Initializing<G> where
-    G: Clone,
-{
-    fn global(&self) -> G {
-        self.global.clone()
-    }
-}
-impl<'a, G, S> HasGlobal<G> for Snapshotted<'a, S> where
-    S: HasGlobal<G>,
-{
-    fn global(&self) -> G {
-        self.0.global()
-    }
-}
+/// A marker trait for JS compartments that have a global of class `K`.
+pub trait HasGlobal<K> {}
 
 impl<S> JSContext<S> {
     /// Get a snapshot of the JS state.
@@ -653,15 +581,17 @@ impl<S> JSContext<S> {
     /// so we don't need to root JS-managed pointers during the lifetime of a snapshot.
     pub fn snapshot<'a>(&'a mut self) -> JSContext<Snapshotted<'a, S>> {
         JSContext {
-            state: Snapshotted(&mut self.state),
+            global_raw: self.global_raw,
+            marker: PhantomData,
         }
     }
 
     /// Give ownership of data to JS.
     /// This allocates JS heap, which may trigger GC.
-    pub fn manage<'a, C, T>(&'a mut self, value: T) -> JSManaged<'a, C, T::Aged> where
+    pub fn manage<'a, 'b, C, K, T>(&'a mut self, value: T) -> JSManaged<'a, C, K> where
         S: CanAlloc + InCompartment<C>,
-        T: JSManageable<'a, C>
+        T: HasClass<Class = K>,
+        K: HasInstance<'b, C, Instance = T>,
     {
         // The real thing would use a JS reflector to manage the space,
         // this just space-leaks
@@ -673,9 +603,10 @@ impl<S> JSContext<S> {
 
     /// Give ownership of data to JS.
     /// This allocates JS heap, which may trigger GC.
-    pub fn snapshot_manage<'a, C, T>(&'a mut self, value: T) -> (JSContext<Snapshotted<'a, S>>, JSManaged<'a, C, T::Aged>) where
+    pub fn snapshot_manage<'a, 'b, C, K, T>(&'a mut self, value: T) -> (JSContext<Snapshotted<'a, S>>, JSManaged<'a, C, K>) where
         S: CanAlloc + InCompartment<C>,
-        T: JSManageable<'a, C>
+        T: HasClass<Class = K>,
+        K: HasInstance<'b, C, Instance = T>,
     {
         // The real thing would use a JS reflector to manage the space,
         // this just space-leaks
@@ -684,74 +615,62 @@ impl<S> JSContext<S> {
             marker: PhantomData,
         };
         let snapshot = JSContext {
-            state: Snapshotted(&mut self.state),
+            global_raw: self.global_raw,
+            marker: PhantomData,
         };
         (snapshot, managed)
     }
 
-    /// Initialize a JS Context
-    pub fn init<'a, C, T>(self, value: T) -> JSContext<Initialized<JSManaged<'a, C, T::Aged>>> where
-        S: CanInitialize + InCompartment<C>,
-        T: JSManageable<'a, C>,
-        T::Aged: HasClass,
-    {
-        self.pre_init().post_init(value)
-    }
-
-    /// Prepare a JS context for initialization
-    pub fn pre_init<'a, C, T>(self) -> JSContext<Initializing<JSManaged<'a, C, T>>> where
-        S: CanInitialize + InCompartment<C>,
-        T: HasClass,
+    /// Create a compartment
+    pub fn create_compartment<'a, C, K>(self) -> JSContext<Initializing<C>> where
+        S: CanCreate<C>,
+        C: HasGlobal<K>,
+        K: HasInstance<'a, C>,
     {
         // This is dangerous!
         // This is only safe because dereferencing this pointer is only done by user code
-        // in posession of a context whose state is `CanAccess<C>`. The only way a user can
+        // in posession of a context whose state is `CanAccess`. The only way a user can
         // access such a context is by calling `post_init`, which initializes the raw pointer.
         // TODO: check that `Drop` and GC tracing are safe.
         // TODO: check the performance of the safer version of this code, which stores an `Option<T>` rather than a `T`.
-        let boxed: Box<T> = unsafe { Box::new(mem::uninitialized()) };
+        // TODO: hook into jsapi compartment creation
+        let boxed: Box<K::Instance> = unsafe { Box::new(mem::uninitialized()) };
         let raw = Box::into_raw(boxed) as *mut ();
-        let global = JSManaged {
-            raw: raw,
-            marker: PhantomData,
-        };
         JSContext {
-            state: Initializing {
-                global: global,
-                roots: JSPinnedRoots(ptr::null_mut()),
-            }
+            global_raw: raw,
+            marker: PhantomData,
         }
     }
 
     /// Finish initializing a JS Context
-    pub fn post_init<'a, C, T>(self, value: T) -> JSContext<Initialized<JSManaged<'a, C, T::Aged>>> where
-        S: IsInitializing<JSManaged<'a, C, T::Aged>>,
-        T: JSManageable<'a, C>,
+    pub fn global_manage<'a, 'b, C, K, T>(self, value: T) -> JSContext<Initialized<C>> where
+        S: IsInitializing + InCompartment<C>,
+        C: HasGlobal<K>,
+        K: HasInstance<'b, C, Instance = T>,
+        T: HasClass<Class = K>,
     {
-        let global = self.state.global();
-        let raw = global.raw as *mut T;
+        let raw = self.global_raw as *mut T;
         let uninitialized = unsafe { mem::replace(&mut *raw, value) };
         mem::forget(uninitialized);
         JSContext {
-            state: Initialized {
-                global: global,
-                roots: self.state.roots(),
-            }
+            global_raw: self.global_raw,
+            marker: PhantomData,
         }
     }
 
     /// Get the global of an initialized context.
-    pub fn global<G>(&self) -> G where
-        S: HasGlobal<G>,
-        G: Clone,
+    pub fn global<'a, 'b, C, G>(&'a self) -> JSManaged<'b, C, G> where
+        S: InCompartment<C>,
+        C: HasGlobal<G>,
     {
-        self.state.global()
+        JSManaged {
+            raw: self.global_raw,
+            marker: PhantomData,
+        }
     }
 
     /// Create a new root.
-    pub fn new_root<T>(&mut self) -> JSRoot<T> where
-        S: CanRoot,
-    {
+    pub fn new_root<T>(&mut self) -> JSRoot<T> {
         JSRoot {
             value: None,
             pin: JSUntypedPinnedRoot {
@@ -759,7 +678,6 @@ impl<S> JSContext<S> {
                 next: ptr::null_mut(),
                 prev: ptr::null_mut(),
             },
-            roots: self.state.roots_mut(),
         }
     }
 
@@ -814,6 +732,10 @@ pub trait HasClass {
 pub trait HasInstance<'a, C>: Sized {
     type Instance: HasClass<Class = Self>;
 }
+
+/// Basic types
+impl HasClass for String { type Class = String; }
+impl<'a, C> HasInstance<'a, C> for String { type Instance = String; }
 
 /// Initialize JS data
 
@@ -893,13 +815,128 @@ pub trait HasJSClass {
     fn js_class() -> &'static JSClass;
 }
 
-/// Change the JS-managed lifetime of a type.
-pub unsafe trait JSManageable<'a, C> : JSTraceable {
-    /// This type should have the same memory represention as `Self`.
-    /// The only difference between `Self` and `Self::Aged`
-    /// is that any `JSManaged<'b, C, T>` should be replaced by
-    /// `JSManaged<'a, C, T::Aged>`.
-    type Aged: 'a + JSManageable<'a, C, Aged=Self::Aged>;
+/// A user of a JS runtime implements `JSRunnable`.
+pub trait JSRunnable<K>: Sized {
+    /// This callback is called with a fresh JS compartment type `C`.
+    fn run<C, S>(self, cx: JSContext<S>) where
+        S: CanCreate<C>,
+        C: HasGlobal<K>;
+
+    /// To trigger the callback, call `rt.start()`.
+    fn start(self) {
+        struct JSCompartmentImpl;
+        impl<K> HasGlobal<K> for JSCompartmentImpl {}
+        let cx = JSContext {
+            global_raw: ptr::null_mut(),
+            marker: PhantomData,
+        };
+        self.run::<JSCompartmentImpl, Uninitialized<JSCompartmentImpl>>(cx);
+    }
+}
+
+
+
+/// The type of JS-managed data in a JS compartment `C`, with lifetime `'a` and class `K`.
+///
+/// If the user has access to a `JSManaged`, then the JS-managed
+/// data is live for the given lifetime.
+pub struct JSManaged<'a, C, K> {
+    // JS reflector goes here
+    raw: *mut (),
+    marker: PhantomData<(&'a(), C, K)>
+}
+
+impl<'a, C, K> Clone for JSManaged<'a, C, K> where
+    K: HasInstance<'a, C>,    
+{
+    fn clone(&self) -> Self {
+        JSManaged {
+            raw: self.raw,
+            marker: PhantomData,
+        }
+    }
+}
+
+impl<'a, C, K> Copy for JSManaged<'a, C, K> where
+    K: HasInstance<'a, C>,
+{
+}
+
+unsafe impl<'a, C, K> JSTraceable for JSManaged<'a, C, K> where
+    K: HasInstance<'a, C>,
+    K::Instance: JSTraceable,
+{
+    unsafe fn trace(&self, _trc: *mut JSTracer) {
+        // Trace the reflector.
+    }
+}
+
+impl<'a, C, K> JSManaged<'a, C, K> {
+    /// Read-only access to JS-managed data.
+    pub fn get<'b, S>(self, _: &'b JSContext<S>) -> &'b K::Instance where
+        S: CanAccess,
+        K: HasInstance<'b, C>,
+        'a: 'b,
+    {
+        unsafe { &*(self.raw as *mut K::Instance) }
+    }
+
+    /// Read-write access to JS-managed data.
+    pub fn get_mut<'b, S>(self, _: &'b mut JSContext<S>) -> &'b mut K::Instance where
+        S: CanAccess,
+        K: HasInstance<'b, C>,
+        'a: 'b,
+    {
+        unsafe { &mut *(self.raw as *mut K::Instance) }
+    }
+
+    /// Change the lifetime of JS-managed data.
+    pub unsafe fn change_lifetime<'b>(self) -> JSManaged<'b, C, K> {
+        JSManaged {
+            raw: self.raw,
+            marker: PhantomData,
+        }
+    }
+
+    /// It's safe to extend the lifetime of JS-managed data if it has been snapshotted.
+    pub fn extend_lifetime<'b, 'c, S>(self, _: &'c JSContext<S>) -> JSManaged<'b, C, K> where
+        S: CanExtend<'b>,
+    {
+        unsafe { self.change_lifetime() }
+    }
+}
+
+/// A stack allocated root containing data of type `T`.`
+pub struct JSRoot<T> {
+    value: Option<T>,
+    pin: JSUntypedPinnedRoot,
+}
+
+/// A stack allocated root that has been pinned, so the backing store can't move.
+pub struct JSPinnedRoot<'a, T: 'a> (&'a mut JSRoot<T>);
+
+/// A doubly linked list with all the pinned roots.
+#[derive(Eq, PartialEq)]
+pub struct JSPinnedRoots(*mut JSUntypedPinnedRoot);
+
+/// The thread-local list of all roots
+thread_local! { static ROOTS: UnsafeCell<JSPinnedRoots> = UnsafeCell::new(JSPinnedRoots(ptr::null_mut())); }
+
+unsafe fn thread_local_roots() -> *mut JSPinnedRoots {
+    ROOTS.with(UnsafeCell::get)
+}
+
+/// A stack allocated root that has been pinned, but we don't have a type for the contents
+struct JSUntypedPinnedRoot {
+    value: *mut JSTraceable,
+    next: *mut JSUntypedPinnedRoot,
+    prev: *mut JSUntypedPinnedRoot,
+}
+
+/// Data which can be rooted.
+
+pub unsafe trait JSRootable<'a> {
+    type Aged;
 
     unsafe fn change_lifetime(self) -> Self::Aged where Self: Sized {
         let result = mem::transmute_copy(&self);
@@ -907,169 +944,14 @@ pub unsafe trait JSManageable<'a, C> : JSTraceable {
         result
     }
 
-    unsafe fn change_lifetime_ref(&'a self) -> &'a Self::Aged {
-        &*(self as *const Self as *const Self::Aged)
-    }
-
-    unsafe fn change_lifetime_mut(&'a mut self) -> &'a mut Self::Aged {
-        &mut *(self as *mut Self as *mut Self::Aged)
-    }
-
     fn contract_lifetime(self) -> Self::Aged where Self: 'a + Sized {
         unsafe { self.change_lifetime() }
     }
-
-    fn contract_lifetime_ref(&'a self) -> &'a Self::Aged where Self: 'a {
-        unsafe { self.change_lifetime_ref() }
-    }
-
-    fn contract_lifetime_mut(&'a mut self) -> &'a mut Self::Aged where Self: 'a {
-        unsafe { self.change_lifetime_mut() }
-    }
 }
 
-unsafe impl<'a, C> JSManageable<'a, C> for String {
-    type Aged = String;
-    unsafe fn change_lifetime(self) -> Self::Aged where Self: Sized {
-        self
-    }
-}
-
-unsafe impl<'a, C> JSManageable<'a, C> for usize {
-    type Aged = usize;
-    unsafe fn change_lifetime(self) -> Self::Aged where Self: Sized {
-        self
-    }
-}
-
-unsafe impl<'a, C, T> JSManageable<'a, C> for Vec<T> where T: JSManageable<'a, C> {
-    type Aged = Vec<T::Aged>;
-    unsafe fn change_lifetime(self) -> Self::Aged where Self: Sized {
-        mem::transmute(self)
-    }
-}
-// etc.
-
-/// A user of a JS runtime implements `JSRunnable`.
-pub trait JSRunnable: Sized {
-    /// This callback is called with a fresh JS compartment type `C`.
-    fn run<C, S>(self, cx: JSContext<S>) where S: CanInitialize + InCompartment<C>,;
-
-    /// To trigger the callback, call `rt.start()`.
-    fn start(self) {
-        struct JSCompartmentImpl;
-        let cx = JSContext {
-            state: Uninitialized(PhantomData),
-        };
-        self.run::<JSCompartmentImpl, Uninitialized<JSCompartmentImpl>>(cx);
-    }
-}
-
-/// The type of JS-managed data in a JS compartment `C`, with lifetime `'a`.
-///
-/// If the user has access to a `JSManaged`, then the JS-managed
-/// data is live for the given lifetime.
-pub struct JSManaged<'a, C, T: ?Sized> {
-    // JS reflector goes here
-    // This raw pointer should really be of type `*mut T`, but that is invariant in T.
-    // To make the type variant in T, we use a `*mut ()` instead.
-    raw: *mut (),
-    marker: PhantomData<(&'a(), C, T)>,
-}
-
-impl<'a, C, T: ?Sized> Clone for JSManaged<'a, C, T> {
-    fn clone(&self) -> Self {
-        JSManaged {
-            raw: self.raw,
-            marker: self.marker,
-        }
-    }
-}
-
-impl<'a, C, T: ?Sized> Copy for JSManaged<'a, C, T> {
-}
-
-unsafe impl<'a, C, T: ?Sized> JSTraceable for JSManaged<'a, C, T> where
-    T: JSTraceable
+unsafe impl<'a, 'b, C, K> JSRootable<'a> for JSManaged<'b, C, K>
 {
-    unsafe fn trace(&self, _trc: *mut JSTracer) {
-        // Trace the reflector.
-    }
-}
-
-unsafe impl<'a, 'b, C: 'b, T: ?Sized> JSManageable<'b, C> for JSManaged<'a, C, T> where
-    T: JSManageable<'b, C>,
-{
-    type Aged = JSManaged<'b, C, T::Aged>;
-}
-
-impl<'a, C, T: ?Sized> JSManaged<'a, C, T> {
-    /// Read-only access to JS-managed data.
-    pub fn get<'b, S>(self, _: &'b JSContext<S>) -> &'b T::Aged where
-        S: CanAccess,
-        T: JSManageable<'b, C>,
-        'a: 'b,
-    {
-        unsafe { &*(self.raw as *mut T::Aged) }
-    }
-
-    /// Read-write access to JS-managed data.
-    pub fn get_mut<'b, S>(self, _: &'b mut JSContext<S>) -> &'b mut T::Aged where
-        S: CanAccess,
-        T: JSManageable<'b, C>,
-        'a: 'b,
-    {
-        unsafe { &mut *(self.raw as *mut T::Aged) }
-    }
-
-    /// Change the lifetime of JS-managed data.
-    pub unsafe fn change_lifetime<'b>(self) -> JSManaged<'b, C, T::Aged> where
-        T: JSManageable<'b, C>,
-    {
-        JSManaged {
-            raw: self.raw,
-            marker: PhantomData,
-        }
-    }
-
-    /// It's safe to contract the lifetime of JS-managed data.
-    pub fn contract_lifetime<'b>(self) -> JSManaged<'b, C, T::Aged> where
-        T: JSManageable<'b, C>,
-        'a: 'b,
-    {
-        unsafe { self.change_lifetime() }
-    }
-
-    /// It's safe to extend the lifetime of JS-managed data if it has been snapshotted.
-    pub fn extend_lifetime<'b, 'c, S>(self, _: &'c JSContext<S>) -> JSManaged<'b, C, T::Aged> where
-        C: 'b,
-        S: CanExtend<'b>,
-        T: JSManageable<'b, C>,
-        'b: 'a,
-    {
-        unsafe { self.change_lifetime() }
-    }
-}
-
-/// A stack allocated root
-pub struct JSRoot<T> {
-    value: Option<T>,
-    pin: JSUntypedPinnedRoot,
-    roots: *mut JSPinnedRoots,
-}
-
-/// A stack allocated root that haz been pinned, so the backing store can't move.
-pub struct JSPinnedRoot<'a, T:'a> (&'a mut JSRoot<T>);
-
-/// A doubly linked list with all the pinned roots.
-#[derive(Eq, PartialEq)]
-pub struct JSPinnedRoots(*mut JSUntypedPinnedRoot);
-
-/// A stack allocated root that has been pinned, but we don't have a type for the contents
-struct JSUntypedPinnedRoot {
-    value: *mut JSTraceable,
-    next: *mut JSUntypedPinnedRoot,
-    prev: *mut JSUntypedPinnedRoot,
+    type Aged = JSManaged<'a, C, K>;
 }
 
 impl<T> JSRoot<T> {
@@ -1079,18 +961,19 @@ impl<T> JSRoot<T> {
     // https://github.com/rust-lang/rfcs/pull/1066.
     // This is safe as long as it is unpinned before the memory
     // is reclaimed, but Rust does not enforce that.
-    pub unsafe fn pin<'a, C, U>(&'a mut self, value: U) -> JSPinnedRoot<'a, T> where
-        T: JSManageable<'a, C, Aged=T>,
-        U: JSManageable<'a, C, Aged=T>,
+    pub unsafe fn pin<'a, U>(&'a mut self, value: U) -> JSPinnedRoot<'a, T> where
+        T: JSTraceable,
+        U: JSRootable<'a, Aged=T>,
     {
+        let roots = thread_local_roots();
         self.value = Some(value.change_lifetime());
         self.pin.value = self.value.as_mut_ptr();
-        self.pin.next = (*self.roots).0;
+        self.pin.next = (*roots).0;
         self.pin.prev = ptr::null_mut();
         if let Some(next) = self.pin.next.as_mut() {
             next.prev = &mut self.pin;
         }
-        *self.roots = JSPinnedRoots(&mut self.pin);
+        *roots = JSPinnedRoots(&mut self.pin);
         JSPinnedRoot(self)
     }
 
@@ -1100,9 +983,9 @@ impl<T> JSRoot<T> {
         }
         if let Some(prev) = self.pin.prev.as_mut() {
             prev.next = self.pin.next;
-        }
-        if *self.roots == JSPinnedRoots(&mut self.pin) {
-            *self.roots = JSPinnedRoots(self.pin.next);
+        } else {
+            let roots = thread_local_roots();
+            *roots = JSPinnedRoots(self.pin.next);
         }
         self.value = None;
         self.pin.value = mem::zeroed();
@@ -1111,24 +994,16 @@ impl<T> JSRoot<T> {
     }
 }
 
-impl<'a, T> JSPinnedRoot<'a, T> {
-    pub fn get<'b, C>(&'b self) -> T::Aged where
-        T: JSManageable<'b, C>,
-        T::Aged: Copy,
-    {
-        *self.get_ref()
+impl<'a, T> Deref for JSPinnedRoot<'a, T> {
+    type Target = T;
+    fn deref(&self) -> &T {
+        self.0.value.as_ref().unwrap()
     }
+}
 
-    pub fn get_ref<'b, C>(&'b self) -> &'b T::Aged where
-        T: JSManageable<'b, C>,
-    {
-        self.0.value.as_ref().unwrap().contract_lifetime_ref()
-    }
-
-    pub fn get_mut<'b, C>(&'b mut self) -> &'b mut T::Aged where
-        T: JSManageable<'b, C>,
-    {
-        self.0.value.as_mut().unwrap().contract_lifetime_mut()
+impl<'a, T> DerefMut for JSPinnedRoot<'a, T> {
+    fn deref_mut(&mut self) -> &mut T {
+        self.0.value.as_mut().unwrap()
     }
 }
 
@@ -1143,25 +1018,25 @@ macro_rules! rooted {
     (in($cx:expr) let $name:ident = $init:expr) => (
         let mut __root = $cx.new_root();
         #[allow(unsafe_code)]
-        let ref __pinned = unsafe { __root.pin($init) };
-        let $name = __pinned.get();
+        let __pinned = unsafe { __root.pin($init) };
+        let $name = *__pinned;
     );
     (in($cx:expr) let mut $name:ident = $init:expr) => (
         let mut __root = $cx.new_root();
         #[allow(unsafe_code)]
-        let ref __pinned = unsafe { __root.pin($init) };
-        let mut $name = __pinned.get();
+        let __pinned = unsafe { __root.pin($init) };
+        let mut $name = *__pinned;
     );
     (in($cx:expr) let ref $name:ident = $init:expr) => (
         let mut __root = $cx.new_root();
         #[allow(unsafe_code)]
-        let ref __pinned = unsafe { __root.pin($init) };
-        let $name = __pinned.get_ref();
+        let __pinned = unsafe { __root.pin($init) };
+        let $name = &*__pinned;
     );
     (in($cx:expr) let ref mut $name:ident = $init:expr) => (
         let mut __root = $cx.new_root();
         #[allow(unsafe_code)]
-        let ref __pinned = unsafe { __root.pin($init) };
-        let mut $name = __pinned.get_mut();
+        let __pinned = unsafe { __root.pin($init) };
+        let mut $name = &mut*__pinned;
     )
 }

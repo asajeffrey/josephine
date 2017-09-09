@@ -13,15 +13,15 @@ use proc_macro::TokenStream;
 
 //  -------------------------------------------------------------------------------------------------------
 
-#[proc_macro_derive(JSManageable)]
-pub fn derive_js_manageable(input: TokenStream) -> TokenStream {
+#[proc_macro_derive(JSRootable)]
+pub fn derive_js_rootable(input: TokenStream) -> TokenStream {
     let s = input.to_string();
     let ast = syn::parse_derive_input(&s).unwrap();
-    let gen = impl_js_manageable(&ast);
+    let gen = impl_js_rootable(&ast);
     gen.parse().unwrap()
 }
 
-fn impl_js_manageable(ast: &syn::DeriveInput) -> quote::Tokens {
+fn impl_js_rootable(ast: &syn::DeriveInput) -> quote::Tokens {
     let name = &ast.ident;
     let (_, ty_generics, _) = ast.generics.split_for_impl();
 
@@ -43,25 +43,21 @@ fn impl_js_manageable(ast: &syn::DeriveInput) -> quote::Tokens {
     };
 
     // For types without any liftime parameters, we provide a trivial
-    // implementation of `JSManageable`.
+    // implementation of `JSRootable`.
     if ast.generics.lifetimes.is_empty() {
         return quote! {
             #[allow(unsafe_code)]
-            unsafe impl<'a, C, #impl_generics> ::linjs::JSManageable<'a, C> for #name #ty_generics #where_clause {
+            unsafe impl<'a, #impl_generics> ::linjs::JSRootable<'a> for #name #ty_generics #where_clause {
                 type Aged = #name #ty_generics;
             }
         }
     }
 
     // we assume there's only one lifetime param, not named 'b
-    assert!(ast.generics.lifetimes.len() == 1, "deriving JSManageable requires a single lifetime");
+    assert!(ast.generics.lifetimes.len() == 1, "deriving JSRootable requires a single lifetime");
 
     let impl_lifetime = &ast.generics.lifetimes[0].lifetime.ident;
-    assert!(impl_lifetime != "'b", "deriving JSManageable requires the lifetime to not be named 'b");
-
-    // we assume there's at least 1 generic type param: the JSCompartment
-    assert!(ast.generics.ty_params.len() >= 1);
-    let compartment = &ast.generics.ty_params[0].ident;
+    assert!(impl_lifetime != "'b", "deriving JSRootable requires the lifetime to not be named 'b");
 
     // the `Aged` associated type params are the ty_params without their bounds
     let aged_ty_params = ast.generics.ty_params.iter().map(|ty| {
@@ -72,7 +68,7 @@ fn impl_js_manageable(ast: &syn::DeriveInput) -> quote::Tokens {
 
     quote! {
         #[allow(unsafe_code)]
-        unsafe impl<#impl_lifetime, 'b, #impl_generics> ::linjs::JSManageable<'b, #compartment> for #name #ty_generics #where_clause {
+        unsafe impl<#impl_lifetime, 'b, #impl_generics> ::linjs::JSRootable<'b> for #name #ty_generics #where_clause {
             type Aged = #name<'b, #aged_ty_params>;
         }
     }
