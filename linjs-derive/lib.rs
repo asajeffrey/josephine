@@ -76,6 +76,57 @@ fn impl_js_rootable(ast: &syn::DeriveInput) -> quote::Tokens {
 
 //  -------------------------------------------------------------------------------------------------------
 
+#[proc_macro_derive(HasClass)]
+pub fn derive_has_class(input: TokenStream) -> TokenStream {
+    let s = input.to_string();
+    let ast = syn::parse_derive_input(&s).unwrap();
+    let gen = impl_has_class(&ast);
+    gen.parse().unwrap()
+}
+
+fn impl_has_class(ast: &syn::DeriveInput) -> quote::Tokens {
+    let name = &ast.ident;
+    let (impl_generics, ty_generics, where_clause) = ast.generics.split_for_impl();
+
+    let class_name = syn::Ident::new(format!("{}Class", name));
+
+    let default_lifetimes = [ syn::LifetimeDef::new("'a") ];    
+    let instance_lifetimes = if ast.generics.lifetimes.is_empty() {
+        &default_lifetimes[..]
+    } else {
+        &*ast.generics.lifetimes
+    };
+    let instance_lifetime = &instance_lifetimes[0];
+    let class_lifetimes = &instance_lifetimes[1..];
+
+    let default_ty_params = [ syn::TyParam::from(syn::Ident::new("C")) ];
+    let instance_ty_params = if ast.generics.ty_params.is_empty() {
+        &default_ty_params[..]
+    } else {
+        &*ast.generics.ty_params
+    };
+    let instance_ty_param = &instance_ty_params[0];
+    let class_ty_params = &instance_ty_params[1..];
+
+    let class_generics = if class_lifetimes.is_empty() && class_ty_params.is_empty() {
+        quote! {}
+    } else {
+        quote! { <#(#class_lifetimes),* , #(class_ty_params),*> }
+    };
+
+    quote! {
+        struct #class_name;
+        impl #impl_generics ::linjs::HasClass for #name #ty_generics #where_clause {
+            type Class = #class_name #class_generics;
+        }
+        impl <#(#instance_lifetimes),* , #(#instance_ty_params),*> ::linjs::HasInstance<#instance_lifetime, #instance_ty_param> for #class_name #class_generics #where_clause {
+            type Instance = #name #ty_generics;
+        }
+    }
+}
+
+//  -------------------------------------------------------------------------------------------------------
+
 #[proc_macro_derive(JSTraceable)]
 pub fn expand_token_stream(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
     expand_string(&input.to_string()).parse().unwrap()

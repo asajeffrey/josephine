@@ -171,14 +171,11 @@
 //! # #[macro_use] extern crate linjs;
 //! # #[macro_use] extern crate linjs_derive;
 //! # use linjs::*;
-//! #[derive(JSTraceable, JSRootable)]
+//! #[derive(HasClass, JSTraceable, JSRootable)]
 //! struct NativeLoop<'a, C> {
 //!    next: Option<Loop<'a, C>>,
 //! }
-//! impl<'a, C> HasClass for NativeLoop<'a, C> { type Class = LoopClass; }
-//! type Loop<'a, C> = JSManaged<'a, C, LoopClass>;
-//! struct LoopClass;
-//! impl<'a, C> HasInstance<'a, C> for LoopClass { type Instance = NativeLoop<'a, C>; }
+//! type Loop<'a, C> = JSManaged<'a, C, NativeLoopClass>;
 //! fn example<C, S>(cx: &mut JSContext<S>) where
 //!     S: CanAccess + CanAlloc + InCompartment<C>,
 //! {
@@ -202,14 +199,11 @@
 //! # extern crate linjs;
 //! # #[macro_use] extern crate linjs_derive;
 //! # use linjs::*;
-//! # #[derive(JSTraceable, JSRootable)]
+//! # #[derive(HasClass, JSTraceable, JSRootable)]
 //! # struct NativeLoop<'a, C> {
 //! #    next: Option<Loop<'a, C>>,
 //! # }
-//! # impl<'a, C> HasClass for NativeLoop<'a, C> { type Class = LoopClass; }
-//! # type Loop<'a, C> = JSManaged<'a, C, LoopClass>;
-//! # struct LoopClass;
-//! # impl<'a, C> HasInstance<'a, C> for LoopClass { type Instance = NativeLoop<'a, C>; }
+//! # type Loop<'a, C> = JSManaged<'a, C, NativeLoopClass>;
 //! fn example<C, S>(cx: &mut JSContext<S>) where
 //!     S: CanAccess + CanAlloc + InCompartment<C>,
 //! {
@@ -224,14 +218,14 @@
 //! the appropriate traits. For example:
 //!
 //! ```rust,ignore
-//! # #[macro_use] extern crate linjs;
+//! # extern crate linjs;
 //! # #[macro_use] extern crate linjs_derive;
 //! # use linjs::*;
-//! # #[derive(JSTraceable, JSRootable)]
+//! # #[derive(HasClass, JSTraceable, JSRootable)]
 //! # struct NativeLoop<'a, C> {
 //! #    next: Option<Loop<'a, C>>,
 //! # }
-//! # type Loop<'a, C> = JSManaged<'a, C, NativeLoop<'a, C>>;
+//! # type Loop<'a, C> = JSManaged<'a, C, NativeLoopClass>;
 //! fn might_trigger_gc<C, S>(cx: &mut JSContext<S>) where
 //!     S: CanAccess + CanAlloc + InCompartment<C>
 //! { }
@@ -269,18 +263,13 @@
 //! # extern crate linjs;
 //! # #[macro_use] extern crate linjs_derive;
 //! # use linjs::*;
-//! #[derive(JSTraceable, JSRootable)]
+//! #[derive(HasClass, JSTraceable, JSRootable)]
 //! struct NativeMyGlobal { name: String }
-//! impl HasClass for NativeMyGlobal { type Class = MyGlobalClass; }
-//!
-//! struct MyGlobalClass;
-//! impl<'a, C> HasInstance<'a, C> for MyGlobalClass { type Instance = NativeMyGlobal; }
-//!
-//! type MyGlobal<'a, C> = JSManaged<'a, C, NativeMyGlobal>;
+//! type MyGlobal<'a, C> = JSManaged<'a, C, NativeMyGlobalClass>;
 //!
 //! fn example<'a, C, S>(cx: JSContext<S>) -> JSContext<Initialized<C>> where
 //!    S: CanCreate<C>,
-//!    C: HasGlobal<MyGlobalClass>,
+//!    C: HasGlobal<NativeMyGlobalClass>,
 //! {
 //!    let cx = cx.create_compartment();
 //!    let name = String::from("Alice");
@@ -295,17 +284,13 @@
 //! # #[macro_use] extern crate linjs;
 //! # #[macro_use] extern crate linjs_derive;
 //! # use linjs::*;
-//! #[derive(JSTraceable, JSRootable)]
+//! #[derive(HasClass, JSTraceable, JSRootable)]
 //! # struct NativeMyGlobal { name: String }
-//! # impl HasClass for NativeMyGlobal { type Class = MyGlobalClass; }
-//! # type MyGlobal<'a, C> = JSManaged<'a, C, NativeMyGlobal>;
-//! # type MyContext<'a, C> = JSContext<Initialized<MyGlobal<'a, C>>>;
-//! # struct MyGlobalClass;
-//! # impl<'a, C> HasInstance<'a, C> for MyGlobalClass { type Instance = NativeMyGlobal; }
+//! # type MyGlobal<'a, C> = JSManaged<'a, C, NativeMyGlobalClass>;
 //! #
 //! fn example<'a, C, S>(cx: &JSContext<S>) where
 //!    S: CanAccess + InCompartment<C>,
-//!    C: HasGlobal<MyGlobalClass>,
+//!    C: HasGlobal<NativeMyGlobalClass>,
 //! {
 //!    println!("My global is named {}.", cx.global().get(cx).name);
 //! }
@@ -346,20 +331,18 @@
 //! # #[macro_use] extern crate linjs;
 //! # #[macro_use] extern crate linjs_derive;
 //! # use linjs::*;
-//! # #[derive(JSTraceable, JSRootable)]
+//! # #[derive(HasClass, JSTraceable, JSRootable)]
 //! # struct NativeMyGlobal<'a, C> { name: JSManaged<'a, C, String> }
-//! # impl<'a,C> HasClass for NativeMyGlobal<'a,C> {}
-//! # type MyGlobal<'a, C> = JSManaged<'a, C, NativeMyGlobal<'a, C>>;
-//! # type MyContext<'a, C> = JSContext<Initialized<MyGlobal<'a, C>>>;
+//! # type MyGlobal<'a, C> = JSManaged<'a, C, NativeMyGlobalClass>;
 //! #
-//! fn unsafe_example<'a, C, S>(cx: JSContext<S>) -> MyContext<'a, C> where
-//!    C: 'a,
-//!    S: CanInitialize + InCompartment<C>,
+//! fn unsafe_example<'a, C, S>(cx: JSContext<S>) -> JSContext<Initialized<C>> where
+//!    S: CanCreate<C>,
+//!    C: HasGlobal<NativeMyGlobalClass>,
 //! {
-//!    let mut cx = cx.pre_init();
+//!    let mut cx = cx.create_compartment();
 //!    let oops = cx.global().get(&cx).name.get(&cx);
 //!    rooted!(in(cx) let name = cx.manage(String::from("Alice")));
-//!    cx.post_init(NativeMyGlobal { name: name })
+//!    cx.global_manage(NativeMyGlobal { name: name })
 //! }
 //! # fn main() {}
 //! ```
@@ -387,19 +370,15 @@
 //! # extern crate linjs;
 //! # #[macro_use] extern crate linjs_derive;
 //! # use linjs::*;
-//! #[derive(JSTraceable, JSRootable)]
+//! #[derive(HasClass, JSTraceable, JSRootable)]
 //! struct NativeMyGlobal { name: String }
-//! impl HasClass for NativeMyGlobal { type Class = MyGlobalClass; }
-//!
-//! struct MyGlobalClass;
-//! impl<'a, C> HasInstance<'a, C> for MyGlobalClass { type Instance = NativeMyGlobal; }
 //!
 //! struct Example;
 //!
-//! impl JSRunnable<MyGlobalClass> for Example {
+//! impl JSRunnable<NativeMyGlobalClass> for Example {
 //!     fn run<C, S>(self, cx: JSContext<S>) where
 //!         S: CanCreate<C>,
-//!         C: HasGlobal<MyGlobalClass>,
+//!         C: HasGlobal<NativeMyGlobalClass>,
 //!     {
 //!         let cx = cx.create_compartment();
 //!         let name = String::from("Alice");

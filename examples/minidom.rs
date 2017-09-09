@@ -86,9 +86,9 @@ impl WindowMethods for WindowClass {
 
 // -------------------------------------------------------------------
 
-type Console<'a, C> = JSManaged<'a, C, ConsoleClass>;
+type Console<'a, C> = JSManaged<'a, C, NativeConsoleClass>;
 
-#[derive(JSTraceable, JSRootable)]
+#[derive(HasClass, JSTraceable, JSRootable)]
 struct NativeConsole();
 
 fn new_console<'a, C, S>(cx: &'a mut JSContext<S>) -> Console<'a, C> where
@@ -98,21 +98,11 @@ fn new_console<'a, C, S>(cx: &'a mut JSContext<S>) -> Console<'a, C> where
     cx.manage(NativeConsole())
 }
 
-struct ConsoleClass;
-
-impl HasClass for NativeConsole {
-    type Class = ConsoleClass;
-}
-
-impl<'a, C> HasInstance<'a, C> for ConsoleClass {
-    type Instance = NativeConsole;
-}
-
 // -------------------------------------------------------------------
 
-type Document<'a, C> = JSManaged<'a, C, DocumentClass>;
+type Document<'a, C> = JSManaged<'a, C, NativeDocumentClass>;
 
-#[derive(JSTraceable, JSRootable)]
+#[derive(HasClass, JSTraceable, JSRootable)]
 struct NativeDocument<'a, C> {
     body: Element<'a, C>,
 }
@@ -127,21 +117,11 @@ fn new_document<'a, C, S>(cx: &'a mut JSContext<S>) -> Document<'a, C> where
     })
 }
 
-struct DocumentClass;
-
-impl<'a, C> HasClass for NativeDocument<'a, C> {
-    type Class = DocumentClass;
-}
-
-impl<'a, C> HasInstance<'a, C> for DocumentClass {
-    type Instance = NativeDocument<'a, C>;
-}
-
 // -------------------------------------------------------------------
 
-type Element<'a, C> = JSManaged<'a, C, ElementClass>;
+type Element<'a, C> = JSManaged<'a, C, NativeElementClass>;
 
-#[derive(JSTraceable, JSRootable)]
+#[derive(HasClass, JSTraceable, JSRootable)]
 struct NativeElement<'a, C> {
     parent: Option<Element<'a, C>>,
     children: Vec<Element<'a, C>>,
@@ -155,16 +135,6 @@ fn new_element<'a, C, S>(cx: &'a mut JSContext<S>) -> Element<'a, C> where
         parent: None,
         children: Vec::new(),
     })
-}
-
-struct ElementClass;
-
-impl<'a, C> HasClass for NativeElement<'a, C> {
-    type Class = ElementClass;
-}
-
-impl<'a, C> HasInstance<'a, C> for ElementClass {
-    type Instance = NativeElement<'a, C>;
 }
 
 // -------------------------------------------------------------------
