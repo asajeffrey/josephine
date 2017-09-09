@@ -8,13 +8,10 @@ extern crate libc;
 #[macro_use] extern crate linjs_derive;
 
 use js::jsapi;
-use js::jsapi::HandleObject;
 use js::jsapi::JSClass;
 use js::jsapi::JSClassOps;
 use js::jsapi::JSNativeWrapper;
 use js::jsapi::JSPropertySpec;
-use js::jsapi::JS_InitClass;
-use js::jsapi::JS_InitStandardClasses;
 use js::jsapi::Value;
 
 use libc::c_char;
@@ -29,7 +26,6 @@ use linjs::HasGlobal;
 use linjs::InCompartment;
 use linjs::Initialized;
 use linjs::JSContext;
-use linjs::JSDelegate;
 use linjs::JSInitializer;
 use linjs::JSManaged;
 use linjs::JSRunnable;
@@ -65,6 +61,7 @@ struct WindowClass;
 
 impl<'a, C> HasClass for NativeWindow<'a, C> {
     type Class = WindowClass;
+    type Init = WindowInitializer;
 }
 
 impl<'a, C> HasInstance<'a, C> for WindowClass {
@@ -85,10 +82,6 @@ impl WindowMethods for WindowClass {
     {
         this.get(cx).document
     }
-}
-
-impl JSDelegate for WindowClass {
-    type Target = WindowInitializer;
 }
 
 // -------------------------------------------------------------------
@@ -254,19 +247,12 @@ struct WindowInitializer;
 
 impl JSInitializer for WindowInitializer {
     #[allow(unsafe_code)]
-    unsafe fn js_init_class(cx: *mut jsapi::JSContext, obj: HandleObject) {
-        JS_InitStandardClasses(cx, obj);
-        JS_InitClass(
-            cx,
-            obj,
-            HandleObject::null(),
-            &WINDOW_CLASS,
-            None,
-            0,
-            &WINDOW_PROPERTIES[0],
-            ptr::null(),
-            ptr::null(),
-            ptr::null()
-        );
+    unsafe fn classp() -> *const JSClass {
+        &WINDOW_CLASS
+    }
+
+    #[allow(unsafe_code)]
+    unsafe fn properties() -> *const JSPropertySpec {
+        &WINDOW_PROPERTIES[0]
     }
 }

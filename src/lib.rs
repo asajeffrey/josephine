@@ -510,13 +510,17 @@ use js::jsapi;
 use js::jsapi::HandleObject;
 use js::jsapi::JSClass;
 use js::jsapi::JSClassOps;
+use js::jsapi::JSNative;
 use js::jsapi::JSNativeWrapper;
+use js::jsapi::JSFunctionSpec;
 use js::jsapi::JSPropertySpec;
 use js::jsapi::JS_InitClass;
+use js::jsapi::JS_InitStandardClasses;
 
 pub use js::jsapi::JSTracer;
 
 use libc::c_char;
+use libc::c_uint;
 
 use std::cell::UnsafeCell;
 use std::marker::PhantomData;
@@ -723,10 +727,11 @@ unsafe impl<T> JSTraceable for Vec<T> where T: JSTraceable {
 
 // etc.
 
-/// A trait for Rust data which has a class.
+/// A trait for Rust data which can be reflected
 
 pub trait HasClass {
     type Class;
+    type Init: JSInitializer = DefaultInitializer;
 }
 
 pub trait HasInstance<'a, C>: Sized {
@@ -740,40 +745,60 @@ impl<'a, C> HasInstance<'a, C> for String { type Instance = String; }
 /// Initialize JS data
 
 pub trait JSInitializer {
+    unsafe fn parent_prototype() -> HandleObject {
+        HandleObject::null()
+    }
+    
+    unsafe fn classp() -> *const JSClass {
+        &DEFAULT_CLASS
+    }
+
+    unsafe fn constructor() -> (JSNative, c_uint) {
+        (None, 0)
+    }
+
+    unsafe fn properties() -> *const JSPropertySpec {
+        ptr::null()
+    }
+
+    unsafe fn functions() -> *const JSFunctionSpec {
+        ptr::null()
+    }
+
+    unsafe fn static_properties() -> *const JSPropertySpec {
+        ptr::null()
+    }
+
+    unsafe fn static_functions() -> *const JSFunctionSpec {
+        ptr::null()
+    }
+
     unsafe fn js_init_class(cx: *mut jsapi::JSContext, global: jsapi::HandleObject) {
-        JS_InitClass(cx, global, HandleObject::null(), &OBJECT_CLASS, None, 0, ptr::null(), ptr::null(), ptr::null(), ptr::null());
+        let parent_proto = Self::parent_prototype();
+        let classp = Self::classp();
+        let (constructor, nargs) = Self::constructor();
+        let ps = Self::properties();
+        let fs = Self::functions();
+        let static_ps = Self::static_properties();
+        let static_fs = Self::static_functions();
+        JS_InitClass(cx, global, parent_proto, classp, constructor, nargs, ps, fs, static_ps, static_fs);
     }
 
     unsafe fn js_init_object(_cx: *mut jsapi::JSContext, _obj: jsapi::HandleObject) {
     }
-}
 
-/// Delegate JS initialization
-
-pub trait JSDelegate {
-    type Target;
-}
-
-impl<T> JSInitializer for T where
-    T: JSDelegate,
-    T::Target: JSInitializer,
-{
-    unsafe fn js_init_class(cx: *mut jsapi::JSContext, global: HandleObject) {
-        T::Target::js_init_class(cx, global);
-    }
-
-    unsafe fn js_init_object(cx: *mut jsapi::JSContext, obj: HandleObject) {
-        T::Target::js_init_object(cx, obj);
+    unsafe fn js_init_global(cx: *mut jsapi::JSContext, global: jsapi::HandleObject) {
+        JS_InitStandardClasses(cx, global);
     }
 }
 
 /// A default class.
 
-pub struct ObjectClass;
+pub struct DefaultInitializer;
 
-impl JSInitializer for ObjectClass {}
+impl JSInitializer for DefaultInitializer {}
 
-static OBJECT_CLASS: JSClass = JSClass {
+static DEFAULT_CLASS: JSClass = JSClass {
     name: b"[Object]\0" as *const u8 as *const c_char,
     flags: 0,
     cOps: &JSClassOps {
@@ -806,6 +831,16 @@ pub const fn null_property() -> JSPropertySpec {
         flags: 0,
         getter: null_wrapper(),
         setter: null_wrapper(),
+    }
+}
+
+pub const fn null_function() -> JSFunctionSpec {
+    JSFunctionSpec {
+        name: ptr::null(),
+        flags: 0,
+        call: null_wrapper(),
+        nargs: 0,
+        selfHostedName: ptr::null(),
     }
 }
 
