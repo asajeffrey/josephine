@@ -495,6 +495,7 @@ use js::jsapi::JSFunctionSpec;
 use js::jsapi::JSPropertySpec;
 use js::jsapi::JS_InitClass;
 use js::jsapi::JS_InitStandardClasses;
+use js::rust::Runtime;
 
 pub use js::jsapi::JSTracer;
 
@@ -510,6 +511,7 @@ use std::ptr;
 
 /// The type for JS contexts whose current state is `S`.
 pub struct JSContext<S> {
+    jsapi_context: *mut jsapi::JSContext,
     global_raw: *mut (),
     marker: PhantomData<S>,
 }
@@ -564,6 +566,7 @@ impl<S> JSContext<S> {
     /// so we don't need to root JS-managed pointers during the lifetime of a snapshot.
     pub fn snapshot<'a>(&'a mut self) -> JSContext<Snapshotted<'a, S>> {
         JSContext {
+            jsapi_context: self.jsapi_context,
             global_raw: self.global_raw,
             marker: PhantomData,
         }
@@ -598,6 +601,7 @@ impl<S> JSContext<S> {
             marker: PhantomData,
         };
         let snapshot = JSContext {
+            jsapi_context: self.jsapi_context,
             global_raw: self.global_raw,
             marker: PhantomData,
         };
@@ -620,6 +624,7 @@ impl<S> JSContext<S> {
         let boxed: Box<K::Instance> = unsafe { Box::new(mem::uninitialized()) };
         let raw = Box::into_raw(boxed) as *mut ();
         JSContext {
+            jsapi_context: self.jsapi_context,
             global_raw: raw,
             marker: PhantomData,
         }
@@ -636,6 +641,7 @@ impl<S> JSContext<S> {
         let uninitialized = unsafe { mem::replace(&mut *raw, value) };
         mem::forget(uninitialized);
         JSContext {
+            jsapi_context: self.jsapi_context,
             global_raw: self.global_raw,
             marker: PhantomData,
         }
@@ -829,6 +835,9 @@ pub trait HasJSClass {
     fn js_class() -> &'static JSClass;
 }
 
+/// The thread-local JS runtime
+thread_local! { static RUNTIME: Runtime = Runtime::new().unwrap(); }
+
 /// A user of a JS runtime implements `JSRunnable`.
 pub trait JSRunnable<K>: Sized {
     /// This callback is called with a fresh JS compartment type `C`.
@@ -841,6 +850,7 @@ pub trait JSRunnable<K>: Sized {
         struct JSCompartmentImpl;
         impl<K> HasGlobal<K> for JSCompartmentImpl {}
         let cx = JSContext {
+            jsapi_context: RUNTIME.with(|rt| rt.cx()),
             global_raw: ptr::null_mut(),
             marker: PhantomData,
         };
