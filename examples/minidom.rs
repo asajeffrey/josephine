@@ -164,9 +164,10 @@ trait WindowMethods {
         S: 'a + CanAccess + CanAlloc + InCompartment<C>,
         C: 'a + HasGlobal<WindowClass>;
     
-    fn Document<'a, C, S>(cx: &'a mut JSContext<S>, this: Window<'a,
-        C>) -> Document<'a, C> where S: 'a + CanAccess + CanAlloc +
-        InCompartment<C>, C: 'a + HasGlobal<WindowClass>; }
+    fn Document<'a, C, S>(cx: &'a mut JSContext<S>, this: Window<'a, C>) -> Document<'a, C> where
+        S: 'a + CanAccess + CanAlloc + InCompartment<C>,
+        C: 'a + HasGlobal<WindowClass>;
+}
 
 static WINDOW_CLASS: JSClass = JSClass {
     name: b"Window\0" as *const u8 as *const c_char,
