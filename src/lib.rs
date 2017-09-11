@@ -34,7 +34,7 @@
 //! fn example<C, S>(cx: &mut JSContext<S>, x: JSManaged<C, String>) where
 //!     S: CanAccess + InCompartment<C>,
 //! {
-//!     println!("{} world", x.get(cx));
+//!     println!("{} world", x.borrow(cx));
 //! }
 //! ```
 //!
@@ -50,13 +50,13 @@
 //! {
 //!     let x: JSManaged<C, String> = cx.manage(String::from("hello"));
 //!     // Imagine something triggers GC here
-//!     println!("{} world", x.get(cx));
+//!     println!("{} world", x.borrow(cx));
 //! }
 //! ```
 //!
 //! This example is not safe, as there is nothing keeping `x` alive in JS,
 //! so if garbage collection is triggered, then `x` will be reclaimed
-//! which will drop the Rust data, and so the call to `x.get(cx)` will be a use-after-free.
+//! which will drop the Rust data, and so the call to `x.borrow(cx)` will be a use-after-free.
 //!
 //! This example is not memory-safe, and fortunately fails to typecheck:
 //!
@@ -67,7 +67,7 @@
 //! 5 |     let x: JSManaged<C, String> = cx.manage(String::from("hello"));
 //!   |                                   -- mutable borrow occurs here
 //! 6 |     // Imagine something triggers GC here
-//! 7 |     println!("{} world", x.get(cx));
+//! 7 |     println!("{} world", x.borrow(cx));
 //!   |                                ^^ immutable borrow occurs here
 //! 8 | }
 //!   | - mutable borrow ends here
@@ -84,14 +84,14 @@
 //!     let x = cx.manage(String::from("hello"));
 //!     // Imagine something triggers GC here
 //!     // x_ref has type &'c String
-//!     let x_ref = x.get(cx);
+//!     let x_ref = x.borrow(cx);
 //!     println!("{} world", x_ref);
 //! }
 //! ```
 //!
 //! We can now see why this fails to typecheck: since `cx` is borrowed mutably at type
 //! `&'b mut JSContext<S>`, then immutably at type `&'c mut JSContext<S>` these lifetimes
-//! cannot overlap, but the call to `x.get(cx)` requires them to overlap. These contradicting
+//! cannot overlap, but the call to `x.borrow(cx)` requires them to overlap. These contradicting
 //! constraints cause the example to fail to compile.
 //!
 //! # Rooting
@@ -109,7 +109,7 @@
 //!     rooted!(in(cx) let x = cx.manage(String::from("hello")));
 //!     // Imagine something triggers GC here
 //!     // x_ref has type &'c String
-//!     let x_ref = x.get(cx);
+//!     let x_ref = x.borrow(cx);
 //!     println!("{} world", x_ref);
 //! }
 //! ```
@@ -136,9 +136,9 @@
 //! fn example<C, S>(cx: &mut JSContext<S>, x: JSManaged<C, String>) where
 //!     S: CanAccess + InCompartment<C>,
 //! {
-//!     println!("{} world", x.get(cx));
-//!     *x.get_mut(cx) = String::from("hi");
-//!     println!("{} world", x.get(cx));
+//!     println!("{} world", x.borrow(cx));
+//!     *x.borrow_mut(cx) = String::from("hi");
+//!     println!("{} world", x.borrow(cx));
 //! }
 //! ```
 //!
@@ -150,7 +150,7 @@
 //! fn unsafe_example<C, S>(cx: &mut JSContext<S>, x: JSManaged<C, String>, y: JSManaged<C, String>) where
 //!     S: CanAccess + InCompartment<C>,
 //! {
-//!     mem::swap(x.get_mut(cx), y.get_mut(cx));
+//!     mem::swap(x.borrow_mut(cx), y.borrow_mut(cx));
 //! }
 //! ```
 //!
@@ -158,7 +158,7 @@
 //!         error[E0499]: cannot borrow `*cx` as mutable more than once at a time
 //!  --> <anon>:7:40
 //!   |
-//! 7 |     mem::swap(x.get_mut(cx), y.get_mut(cx));
+//! 7 |     mem::swap(x.borrow_mut(cx), y.borrow_mut(cx));
 //!   |                         --             ^^ - first borrow ends here
 //!   |                         |              |
 //!   |                         |              second mutable borrow occurs here
@@ -180,7 +180,7 @@
 //!     S: CanAccess + CanAlloc + InCompartment<C>,
 //! {
 //!    rooted!(in(cx) let l = cx.manage(NativeLoop { next: None }));
-//!    l.get_mut(cx).next = Some(l);
+//!    l.borrow_mut(cx).next = Some(l);
 //! }
 //! # fn main() {}
 //! ```
@@ -208,7 +208,7 @@
 //!     S: CanAccess + CanAlloc + InCompartment<C>,
 //! {
 //!    let (ref mut cx, l) = cx.snapshot_manage(NativeLoop { next: None });
-//!    l.get_mut(cx).next = Some(l);
+//!    l.borrow_mut(cx).next = Some(l);
 //! }
 //! # fn main() {}
 //! ```
@@ -235,7 +235,7 @@
 //! {
 //!    let (ref mut cx, l) = cx.snapshot_manage(NativeLoop { next: None });
 //!    might_trigger_gc(cx);
-//!    l.get_mut(cx).next = Some(l);
+//!    l.borrow_mut(cx).next = Some(l);
 //! }
 //! # fn main() {}
 //! ```
@@ -292,7 +292,7 @@
 //!    S: CanAccess + InCompartment<C>,
 //!    C: HasGlobal<NativeMyGlobalClass>,
 //! {
-//!    println!("My global is named {}.", cx.global().get(cx).name);
+//!    println!("My global is named {}.", cx.global().borrow(cx).name);
 //! }
 //! # fn main() {}
 //! ```
@@ -340,7 +340,7 @@
 //!    C: HasGlobal<NativeMyGlobalClass>,
 //! {
 //!    let mut cx = cx.create_compartment();
-//!    let oops = cx.global().get(&cx).name.get(&cx);
+//!    let oops = cx.global().borrow(&cx).name.borrow(&cx);
 //!    rooted!(in(cx) let name = cx.manage(String::from("Alice")));
 //!    cx.global_manage(NativeMyGlobal { name: name })
 //! }
@@ -355,7 +355,7 @@
 //! 	error[E0277]: the trait bound `linjs::Initializing<linjs::JSManaged<'_, C, _>>: linjs::CanAccess<C>` is not satisfied
 //!   --> <anon>:14:27
 //!    |
-//! 14 |    let oops = cx.global().get(&cx).name.get(&cx);
+//! 14 |    let oops = cx.global().borrow(&cx).name.borrow(&cx);
 //!    |                           ^^^ the trait `linjs::CanAccess<C>` is not implemented for `linjs::Initializing<linjs::JSManaged<'_, C, _>>`
 //! ```
 //!
@@ -383,7 +383,7 @@
 //!         let cx = cx.create_compartment();
 //!         let name = String::from("Alice");
 //!         let ref cx = cx.global_manage(NativeMyGlobal { name: name });
-//!         assert_eq!(cx.global().get(cx).name, "Alice");
+//!         assert_eq!(cx.global().borrow(cx).name, "Alice");
 //!     }
 //! }
 //!
@@ -438,12 +438,12 @@
 //!         let graph = cx.global();
 //!         self.add_node1(cx, graph);
 //!         self.add_node2(cx, graph);
-//!         assert_eq!(graph.get(cx).nodes[0].get(cx).data, 1);
-//!         assert_eq!(graph.get(cx).nodes[1].get(cx).data, 2);
+//!         assert_eq!(graph.borrow(cx).nodes[0].borrow(cx).data, 1);
+//!         assert_eq!(graph.borrow(cx).nodes[1].borrow(cx).data, 2);
 //!         let ref mut cx = cx.snapshot();
 //!         self.add_edges(cx, graph);
-//!         assert_eq!(graph.get(cx).nodes[0].get(cx).edges[0].get(cx).data, 2);
-//!         assert_eq!(graph.get(cx).nodes[1].get(cx).edges[0].get(cx).data, 1);
+//!         assert_eq!(graph.borrow(cx).nodes[0].borrow(cx).edges[0].borrow(cx).data, 2);
+//!         assert_eq!(graph.borrow(cx).nodes[1].borrow(cx).edges[0].borrow(cx).data, 1);
 //!     }
 //! }
 //!
@@ -455,24 +455,24 @@
 //!         // so we need to be careful about lifetimes while they are being added.
 //!         // Approach 1 is to root the node.
 //!         rooted!(in(cx) let node1 = cx.manage(NativeNode { data: 1, edges: vec![] }));
-//!         graph.get_mut(cx).nodes.push(node1);
+//!         graph.borrow_mut(cx).nodes.push(node1);
 //!     }
 //!     fn add_node2<S, C>(&self, cx: &mut JSContext<S>, graph: Graph<C>) where
 //!         S: CanAccess + CanAlloc + InCompartment<C>
 //!      {
 //!         // Approach 2 is to take a snapshot of the context right after allocation.
 //!         let (ref mut cx, node2) = cx.snapshot_manage(NativeNode { data: 2, edges: vec![] });
-//!         graph.get_mut(cx).nodes.push(node2);
+//!         graph.borrow_mut(cx).nodes.push(node2);
 //!     }
 //!     fn add_edges<'a, S, C>(&self, cx: &mut JSContext<S>, graph: Graph<C>) where
 //!         C: 'a,
 //!         S: CanAccess + CanExtend<'a> + InCompartment<C>
 //!      {
 //!         // Note that there's no rooting here.
-//!         let node1 = graph.get(cx).nodes[0].extend_lifetime(cx);
-//!         let node2 = graph.get(cx).nodes[1].extend_lifetime(cx);
-//!         node1.get_mut(cx).edges.push(node2);
-//!         node2.get_mut(cx).edges.push(node1);
+//!         let node1 = graph.borrow(cx).nodes[0].extend_lifetime(cx);
+//!         let node2 = graph.borrow(cx).nodes[1].extend_lifetime(cx);
+//!         node1.borrow_mut(cx).edges.push(node2);
+//!         node2.borrow_mut(cx).edges.push(node1);
 //!     }
 //! }
 //!
@@ -887,7 +887,16 @@ unsafe impl<'a, C, K> JSTraceable for JSManaged<'a, C, K> where
 
 impl<'a, C, K> JSManaged<'a, C, K> {
     /// Read-only access to JS-managed data.
-    pub fn get<'b, S>(self, _: &'b JSContext<S>) -> &'b K::Instance where
+    pub fn get<'b, S>(self, _: &'b JSContext<S>) -> K::Instance where
+        S: CanAccess,
+        K: HasInstance<'b, C>,
+        K::Instance: Copy,
+        'a: 'b,
+    {
+        unsafe { *(self.raw as *mut K::Instance) }
+    }
+
+    pub fn borrow<'b, S>(self, _: &'b JSContext<S>) -> &'b K::Instance where
         S: CanAccess,
         K: HasInstance<'b, C>,
         'a: 'b,
@@ -896,7 +905,7 @@ impl<'a, C, K> JSManaged<'a, C, K> {
     }
 
     /// Read-write access to JS-managed data.
-    pub fn get_mut<'b, S>(self, _: &'b mut JSContext<S>) -> &'b mut K::Instance where
+    pub fn borrow_mut<'b, S>(self, _: &'b mut JSContext<S>) -> &'b mut K::Instance where
         S: CanAccess,
         K: HasInstance<'b, C>,
         'a: 'b,

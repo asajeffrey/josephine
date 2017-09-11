@@ -73,14 +73,14 @@ impl WindowMethods for WindowClass {
         S: CanAccess + InCompartment<C>,
         C: 'a,
     {
-        this.get(cx).console
+        this.borrow(cx).console
     }
 
     fn Document<'a, C, S>(cx: &'a mut JSContext<S>, this: Window<'a, C>) -> Document<'a, C> where
         S: CanAccess + InCompartment<C>,
         C: 'a,
     {
-        this.get(cx).document
+        this.borrow(cx).document
     }
 }
 
