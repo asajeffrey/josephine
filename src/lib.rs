@@ -534,7 +534,6 @@ pub struct JSContext<S> {
     jsapi_context: *mut jsapi::JSContext,
     global_js_object: *mut Heap<*mut JSObject>,
     global_raw: *mut (),
-    global_root: Option<Box<JSUntypedPinnedRoot>>,
     auto_compartment: Option<JSAutoCompartment>,
     marker: PhantomData<S>,
 }
@@ -593,7 +592,6 @@ impl<S> JSContext<S> {
             jsapi_context: self.jsapi_context,
             global_js_object: self.global_js_object,
             global_raw: self.global_raw,
-            global_root: None,
             auto_compartment: None,
             marker: PhantomData,
         }
@@ -642,7 +640,6 @@ impl<S> JSContext<S> {
             jsapi_context: jsapi_context,
             global_js_object: global_js_object,
             global_raw: global_raw,
-            global_root: None,
             auto_compartment: None,
             marker: PhantomData,
         };
@@ -671,15 +668,12 @@ impl<S> JSContext<S> {
         let hook_options = unsafe { T::Init::global_hook_option() };
         let options = unsafe { T::Init::global_options() };
 
-        let mut boxed = Box::new(Heap::default());
+        let boxed = Box::new(Heap::default());
         debug!("Boxed global {:p}", boxed);
         let unboxed = unsafe { JS_NewGlobalObject(self.jsapi_context, classp, principals, hook_options, &options) };
         debug!("Unboxed global {:p}", unboxed);
         assert!(!unboxed.is_null());
         boxed.set(unboxed);
-
-        let mut root = Box::new(JSUntypedPinnedRoot::new(&mut *boxed));
-        unsafe { (&mut *thread_local_roots()).insert(&mut *root); }
 
         // TODO: can we be sure that this won't trigger GC? Or do we need to root the boxed object?
         debug!("Entering compartment.");
@@ -694,7 +688,6 @@ impl<S> JSContext<S> {
             jsapi_context: self.jsapi_context,
             global_js_object: Box::into_raw(boxed),
             global_raw: raw,
-            global_root: Some(root),
             auto_compartment: Some(ac),
             marker: PhantomData,
         }
@@ -719,7 +712,6 @@ impl<S> JSContext<S> {
             jsapi_context: self.jsapi_context,
             global_js_object: self.global_js_object,
             global_raw: self.global_raw,
-            global_root: self.global_root,
             auto_compartment: self.auto_compartment,
             marker: PhantomData,
         }
@@ -1008,7 +1000,6 @@ pub trait JSRunnable<K>: Sized {
             jsapi_context: RUNTIME.with(|rt| rt.cx()),
             global_js_object: ptr::null_mut(),
             global_raw: ptr::null_mut(),
-            global_root: None,
             auto_compartment: None,
             marker: PhantomData,
         };
@@ -1166,16 +1157,6 @@ struct JSUntypedPinnedRoot {
     value: *mut JSTraceable,
     next: *mut JSUntypedPinnedRoot,
     prev: *mut JSUntypedPinnedRoot,
-}
-
-impl JSUntypedPinnedRoot {
-    fn new(value: *mut JSTraceable) -> JSUntypedPinnedRoot {
-        JSUntypedPinnedRoot {
-            value: value,
-            next: ptr::null_mut(),
-            prev: ptr::null_mut(),
-        }
-    }
 }
 
 impl Drop for JSUntypedPinnedRoot {
