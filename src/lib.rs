@@ -671,15 +671,14 @@ impl<S> JSContext<S> {
         let options = unsafe { T::Init::global_options() };
 
         let mut boxed = Box::new(Heap::default());
-        debug!("Boxed global {:p} -> {:p}", boxed, boxed.get());
+        debug!("Boxed global {:p}", boxed);
         let unboxed = unsafe { JS_NewGlobalObject(self.jsapi_context, classp, principals, hook_options, &options) };
         debug!("Unboxed global {:p}", unboxed);
         assert!(!unboxed.is_null());
         boxed.set(unboxed);
 
         let mut root = Box::new(JSUntypedPinnedRoot::new(&mut *boxed));
-        let roots = unsafe { &mut *thread_local_roots() };
-        unsafe { roots.insert(&mut *root); }
+        unsafe { (&mut *thread_local_roots()).insert(&mut *root); }
 
         // TODO: can we be sure that this won't trigger GC? Or do we need to root the boxed object?
         debug!("Entering compartment.");
@@ -1116,13 +1115,15 @@ impl JSPinnedRoots {
     }
 
     unsafe fn remove(&mut self, root: &mut JSUntypedPinnedRoot) {
-        debug!("Removing root {:p}.", root);
         if let Some(next) = root.next.as_mut() {
+            debug!("Removing root.next.prev for {:p}.", root);
             next.prev = root.prev;
         }
         if let Some(prev) = root.prev.as_mut() {
+            debug!("Removing root.prev.next for {:p}.", root);
             prev.next = root.next;
-        } else {
+        } else if self.0 == root {
+            debug!("Removing root {:p} from rootset.", root);
             self.0 = root.next;
         }
         root.value = mem::zeroed();
@@ -1167,6 +1168,12 @@ impl JSUntypedPinnedRoot {
             next: ptr::null_mut(),
             prev: ptr::null_mut(),
         }
+    }
+}
+
+impl Drop for JSUntypedPinnedRoot {
+    fn drop(&mut self) {
+        unsafe { (&mut *thread_local_roots()).remove(self); }
     }
 }
 
