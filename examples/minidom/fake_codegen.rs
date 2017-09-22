@@ -30,11 +30,11 @@ use std::ptr;
 
 #[allow(non_snake_case)]
 pub trait WindowMethods {
-    fn Console<'a, C, S>(cx: &'a mut JSContext<S>, this: Window<'a, C>) -> Console<'a, C> where
+    fn Console<'a, C, S>(cx: &'a JSContext<S>, this: Window<'a, C>) -> Console<'a, C> where
         S: 'a + CanAccess + CanAlloc + InCompartment<C>,
         C: 'a + HasGlobal<WindowClass>;
 
-    fn Document<'a, C, S>(cx: &'a mut JSContext<S>, this: Window<'a, C>) -> Document<'a, C> where
+    fn Document<'a, C, S>(cx: &'a JSContext<S>, this: Window<'a, C>) -> Document<'a, C> where
         S: 'a + CanAccess + CanAlloc + InCompartment<C>,
         C: 'a + HasGlobal<WindowClass>;
 }

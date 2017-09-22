@@ -47,14 +47,14 @@ impl<'a, C> HasInstance<'a, C> for WindowClass {
 }
 
 impl WindowMethods for WindowClass {
-    fn Console<'a, C, S>(cx: &'a mut JSContext<S>, this: Window<'a, C>) -> Console<'a, C> where
+    fn Console<'a, C, S>(cx: &'a JSContext<S>, this: Window<'a, C>) -> Console<'a, C> where
         S: CanAccess + InCompartment<C>,
         C: 'a,
     {
         this.borrow(cx).console
     }
 
-    fn Document<'a, C, S>(cx: &'a mut JSContext<S>, this: Window<'a, C>) -> Document<'a, C> where
+    fn Document<'a, C, S>(cx: &'a JSContext<S>, this: Window<'a, C>) -> Document<'a, C> where
         S: CanAccess + InCompartment<C>,
         C: 'a,
     {
