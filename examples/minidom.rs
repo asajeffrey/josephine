@@ -1,11 +1,14 @@
 #![feature(const_fn)]
+#![feature(const_ptr_null)]
 #![allow(dead_code)]
 #![deny(unsafe_code)]
 
+extern crate env_logger;
 extern crate js;
 extern crate libc;
 #[macro_use] extern crate linjs;
 #[macro_use] extern crate linjs_derive;
+#[macro_use] extern crate log;
 
 use js::jsapi;
 use js::jsapi::JSClass;
@@ -31,6 +34,7 @@ use linjs::JSManaged;
 use linjs::JSRunnable;
 use linjs::null_property;
 use linjs::null_wrapper;
+use linjs::jsclass_global_flags_with_slots;
 
 use std::ptr;
 
@@ -151,7 +155,11 @@ impl JSRunnable<WindowClass> for Main {
 }
 
 fn main() {
+    env_logger::init().unwrap();
+
+    debug!("Running main");
     Main.start();
+    debug!("Done running main");
 }
 
 // -------------------------------------------------------------------
@@ -163,7 +171,7 @@ trait WindowMethods {
     fn Console<'a, C, S>(cx: &'a mut JSContext<S>, this: Window<'a, C>) -> Console<'a, C> where
         S: 'a + CanAccess + CanAlloc + InCompartment<C>,
         C: 'a + HasGlobal<WindowClass>;
-    
+
     fn Document<'a, C, S>(cx: &'a mut JSContext<S>, this: Window<'a, C>) -> Document<'a, C> where
         S: 'a + CanAccess + CanAlloc + InCompartment<C>,
         C: 'a + HasGlobal<WindowClass>;
@@ -171,7 +179,7 @@ trait WindowMethods {
 
 static WINDOW_CLASS: JSClass = JSClass {
     name: b"Window\0" as *const u8 as *const c_char,
-    flags: js::JSCLASS_IS_GLOBAL,
+    flags: jsclass_global_flags_with_slots(1),
     cOps: &JSClassOps {
         addProperty: None,
         call: None,
@@ -218,7 +226,7 @@ struct WindowInitializer;
 
 impl JSInitializer for WindowInitializer {
     #[allow(unsafe_code)]
-    unsafe fn classp() -> *const JSClass {
+    unsafe fn global_classp() -> *const JSClass {
         &WINDOW_CLASS
     }
 

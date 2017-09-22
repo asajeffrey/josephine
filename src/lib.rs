@@ -1,7 +1,7 @@
 //! An outline of how Rust's ownership, borrowing and lifetimes could be combined with JS-managed data
 //!
 //! The goals are:
-//! 
+//!
 //! 1. Ensure that JS objects are only accessed in the right JS compartment.
 //! 2. Support stack-allocated roots.
 //! 3. Remove the need for the rooting lint.
@@ -97,7 +97,7 @@
 //! # Rooting
 //!
 //! To fix this example, we need to make sure that `x` lives long enough. One way to do this is
-//! to root `x`, so that it will not be garbage collected. 
+//! to root `x`, so that it will not be garbage collected.
 //!
 //! ```rust
 //! # use linjs::*;
@@ -242,7 +242,7 @@
 //!
 //! In this program, the function `might_trigger_gc` requires the state
 //! to support `CanAlloc<C>`, which is not allowed by the snapshotted state.
-//! 
+//!
 //! ```text
 //! 	error[E0277]: the trait bound `linjs::Snapshotted<'_, S>: linjs::CanAlloc<C>` is not satisfied
 //!   --> <anon>:16:4
@@ -481,20 +481,38 @@
 
 #![feature(associated_type_defaults)]
 #![feature(const_fn)]
-    
+#![feature(const_ptr_null)]
+
 extern crate js;
 extern crate libc;
+#[macro_use] extern crate log;
+
+use js::JSCLASS_GLOBAL_SLOT_COUNT;
+use js::JSCLASS_IS_GLOBAL;
+use js::JSCLASS_RESERVED_SLOTS_MASK;
 
 use js::jsapi;
+use js::jsapi::CompartmentOptions;
 use js::jsapi::HandleObject;
+use js::jsapi::Heap;
+use js::jsapi::JSAutoCompartment;
+use js::jsapi::JSCLASS_RESERVED_SLOTS_SHIFT;
 use js::jsapi::JSClass;
 use js::jsapi::JSClassOps;
+use js::jsapi::JSFunctionSpec;
 use js::jsapi::JSNative;
 use js::jsapi::JSNativeWrapper;
-use js::jsapi::JSFunctionSpec;
+use js::jsapi::JSObject;
+use js::jsapi::JSPrincipals;
 use js::jsapi::JSPropertySpec;
+use js::jsapi::JSVersion;
+use js::jsapi::JS_AddExtraGCRootsTracer;
 use js::jsapi::JS_InitClass;
 use js::jsapi::JS_InitStandardClasses;
+use js::jsapi::JS_NewGlobalObject;
+use js::jsapi::JS_NewObject;
+use js::jsapi::OnNewGlobalHookOption;
+
 use js::rust::Runtime;
 
 pub use js::jsapi::JSTracer;
@@ -507,12 +525,16 @@ use std::marker::PhantomData;
 use std::mem;
 use std::ops::Deref;
 use std::ops::DerefMut;
+use std::os::raw::c_void;
 use std::ptr;
 
 /// The type for JS contexts whose current state is `S`.
 pub struct JSContext<S> {
     jsapi_context: *mut jsapi::JSContext,
+    global_js_object: *mut Heap<*mut JSObject>,
     global_raw: *mut (),
+    global_root: Option<Box<JSUntypedPinnedRoot>>,
+    auto_compartment: Option<JSAutoCompartment>,
     marker: PhantomData<S>,
 }
 
@@ -565,9 +587,13 @@ impl<S> JSContext<S> {
     /// The snapshot only allows access to the methods that are guaranteed not to call GC,
     /// so we don't need to root JS-managed pointers during the lifetime of a snapshot.
     pub fn snapshot<'a>(&'a mut self) -> JSContext<Snapshotted<'a, S>> {
+        debug!("Creating snapshot.");
         JSContext {
             jsapi_context: self.jsapi_context,
+            global_js_object: self.global_js_object,
             global_raw: self.global_raw,
+            global_root: None,
+            auto_compartment: None,
             marker: PhantomData,
         }
     }
@@ -579,9 +605,20 @@ impl<S> JSContext<S> {
         T: HasClass<Class = K>,
         K: HasInstance<'b, C, Instance = T>,
     {
-        // The real thing would use a JS reflector to manage the space,
-        // this just space-leaks
+        debug!("Managing native data.");
+        // TODO: set a private field to the native data
+        // TODO: use the private field to free up the native space when the JS object is GCd
+        let boxed = Box::new(Heap::default());
+        let unboxed = unsafe { JS_NewObject(self.jsapi_context, T::Init::classp()) };
+        boxed.set(unboxed);
+
+        // TODO: can we be sure that this won't trigger GC? Or do we need to root the boxed object?
+        debug!("Initializing JS object.");
+        unsafe { T::Init::js_init_object(self.jsapi_context, boxed.handle()) };
+
+        debug!("Managed native data.");
         JSManaged {
+            js_object: Box::into_raw(boxed),
             raw: Box::into_raw(Box::new(value)) as *mut (),
             marker: PhantomData,
         }
@@ -594,26 +631,31 @@ impl<S> JSContext<S> {
         T: HasClass<Class = K>,
         K: HasInstance<'b, C, Instance = T>,
     {
-        // The real thing would use a JS reflector to manage the space,
-        // this just space-leaks
-        let managed = JSManaged {
-            raw: Box::into_raw(Box::new(value)) as *mut (),
-            marker: PhantomData,
-        };
+        let jsapi_context = self.jsapi_context;
+        let global_js_object = self.global_js_object;
+        let global_raw =  self.global_raw;
+        let managed = self.manage(value);
+
+        debug!("Creating snapshot while managing.");
         let snapshot = JSContext {
-            jsapi_context: self.jsapi_context,
-            global_raw: self.global_raw,
+            jsapi_context: jsapi_context,
+            global_js_object: global_js_object,
+            global_raw: global_raw,
+            global_root: None,
+            auto_compartment: None,
             marker: PhantomData,
         };
         (snapshot, managed)
     }
 
     /// Create a compartment
-    pub fn create_compartment<'a, C, K>(self) -> JSContext<Initializing<C>> where
+    pub fn create_compartment<'a, C, K, T>(self) -> JSContext<Initializing<C>> where
         S: CanCreate<C>,
         C: HasGlobal<K>,
-        K: HasInstance<'a, C>,
+        T: HasClass<Class = K>,
+        K: HasInstance<'a, C, Instance = T>,
     {
+        debug!("Creating compartment.");
         // This is dangerous!
         // This is only safe because dereferencing this pointer is only done by user code
         // in posession of a context whose state is `CanAccess`. The only way a user can
@@ -623,9 +665,37 @@ impl<S> JSContext<S> {
         // TODO: hook into jsapi compartment creation
         let boxed: Box<K::Instance> = unsafe { Box::new(mem::uninitialized()) };
         let raw = Box::into_raw(boxed) as *mut ();
+        let classp = unsafe { T::Init::global_classp() };
+        let principals = unsafe { T::Init::global_principals() };
+        let hook_options = unsafe { T::Init::global_hook_option() };
+        let options = unsafe { T::Init::global_options() };
+
+        let mut boxed = Box::new(Heap::default());
+        debug!("Boxed global {:p} -> {:p}", boxed, boxed.get());
+        let unboxed = unsafe { JS_NewGlobalObject(self.jsapi_context, classp, principals, hook_options, &options) };
+        debug!("Unboxed global {:p}", unboxed);
+        assert!(!unboxed.is_null());
+        boxed.set(unboxed);
+
+        let mut root = Box::new(JSUntypedPinnedRoot::new(&mut *boxed));
+        let roots = unsafe { &mut *thread_local_roots() };
+        unsafe { roots.insert(&mut *root); }
+
+        // TODO: can we be sure that this won't trigger GC? Or do we need to root the boxed object?
+        debug!("Entering compartment.");
+        let ac = JSAutoCompartment::new(self.jsapi_context, boxed.get());
+
+        // TODO: can we be sure that this won't trigger GC? Or do we need to root the boxed object?
+        debug!("Initializing compartment.");
+        unsafe { T::Init::js_init_global(self.jsapi_context, boxed.handle()) };
+
+        debug!("Created compartment.");
         JSContext {
             jsapi_context: self.jsapi_context,
+            global_js_object: Box::into_raw(boxed),
             global_raw: raw,
+            global_root: Some(root),
+            auto_compartment: Some(ac),
             marker: PhantomData,
         }
     }
@@ -637,12 +707,20 @@ impl<S> JSContext<S> {
         K: HasInstance<'b, C, Instance = T>,
         T: HasClass<Class = K>,
     {
+        debug!("Managing native global.");
+        // TODO: set a private field to the native data
+        // TODO: use the private field to free up the native space when the JS object is GCd
         let raw = self.global_raw as *mut T;
         let uninitialized = unsafe { mem::replace(&mut *raw, value) };
         mem::forget(uninitialized);
+
+        debug!("Initialized compartment.");
         JSContext {
             jsapi_context: self.jsapi_context,
+            global_js_object: self.global_js_object,
             global_raw: self.global_raw,
+            global_root: self.global_root,
+            auto_compartment: self.auto_compartment,
             marker: PhantomData,
         }
     }
@@ -653,6 +731,7 @@ impl<S> JSContext<S> {
         C: HasGlobal<G>,
     {
         JSManaged {
+            js_object: self.global_js_object,
             raw: self.global_raw,
             marker: PhantomData,
         }
@@ -668,6 +747,14 @@ impl<S> JSContext<S> {
                 prev: ptr::null_mut(),
             },
         }
+    }
+
+    pub fn cx(&self) -> *mut jsapi::JSContext {
+        self.jsapi_context
+    }
+
+    pub fn rt(&self) -> *mut jsapi::JSRuntime {
+        RUNTIME.with(|runtime| runtime.rt())
     }
 
     // A real implementation would also have JS methods such as those in jsapi.
@@ -692,6 +779,12 @@ unsafe impl JSTraceable for String {
 
 unsafe impl JSTraceable for usize {
     unsafe fn trace(&self, _trc: *mut JSTracer) {}
+}
+
+unsafe impl JSTraceable for Heap<*mut JSObject> {
+    unsafe fn trace(&self, _trc: *mut JSTracer) {
+        // Trace the object
+    }
 }
 
 unsafe impl<T> JSTraceable for Option<T> where T: JSTraceable {
@@ -733,9 +826,28 @@ pub trait JSInitializer {
     unsafe fn parent_prototype() -> HandleObject {
         HandleObject::null()
     }
-    
+
     unsafe fn classp() -> *const JSClass {
         &DEFAULT_CLASS
+    }
+
+    unsafe fn global_classp() -> *const JSClass {
+        &DEFAULT_GLOBAL_CLASS
+    }
+
+    unsafe fn global_principals() -> *mut JSPrincipals {
+        ptr::null_mut()
+    }
+
+    unsafe fn global_hook_option() -> OnNewGlobalHookOption {
+         OnNewGlobalHookOption::DontFireOnNewGlobalHook
+    }
+
+    unsafe fn global_options() -> CompartmentOptions {
+        let mut options = CompartmentOptions::default();
+        options.behaviors_.version_ = JSVersion::JSVERSION_ECMA_5;
+        options.creationOptions_.sharedMemoryAndAtomics_ = true;
+        options
     }
 
     unsafe fn constructor() -> (JSNative, c_uint) {
@@ -777,6 +889,17 @@ pub trait JSInitializer {
     }
 }
 
+// Repating stuff from https://dxr.mozilla.org/mozilla-central/source/js/public/Class.h
+// (it uses #defines which are not available in Rust)
+
+pub const fn jsclass_has_reserved_slots(n: c_uint) -> c_uint {
+    (n & JSCLASS_RESERVED_SLOTS_MASK) << JSCLASS_RESERVED_SLOTS_SHIFT
+}
+
+pub const fn jsclass_global_flags_with_slots(n: c_uint) -> c_uint {
+    JSCLASS_IS_GLOBAL | jsclass_has_reserved_slots(JSCLASS_GLOBAL_SLOT_COUNT + n)
+}
+
 /// A default class.
 
 pub struct DefaultInitializer;
@@ -785,7 +908,27 @@ impl JSInitializer for DefaultInitializer {}
 
 static DEFAULT_CLASS: JSClass = JSClass {
     name: b"[Object]\0" as *const u8 as *const c_char,
-    flags: 0,
+    flags: jsclass_has_reserved_slots(1),
+    cOps: &JSClassOps {
+        addProperty: None,
+        call: None,
+        construct: None,
+        delProperty: None,
+        enumerate: None,
+        finalize: None,
+        getProperty: None,
+        hasInstance: None,
+        mayResolve: None,
+        resolve: None,
+        setProperty: None,
+        trace: None,
+    },
+    reserved: [0 as *mut _; 3],
+};
+
+static DEFAULT_GLOBAL_CLASS: JSClass = JSClass {
+    name: b"[Global]\0" as *const u8 as *const c_char,
+    flags: jsclass_global_flags_with_slots(1),
     cOps: &JSClassOps {
         addProperty: None,
         call: None,
@@ -836,7 +979,13 @@ pub trait HasJSClass {
 }
 
 /// The thread-local JS runtime
-thread_local! { static RUNTIME: Runtime = Runtime::new().unwrap(); }
+thread_local! {
+    static RUNTIME: Runtime = {
+        let rt = Runtime::new().unwrap();
+        unsafe { JS_AddExtraGCRootsTracer(rt.rt(), Some(trace_thread_local_roots), ptr::null_mut()); }
+        rt
+    };
+}
 
 /// A user of a JS runtime implements `JSRunnable`.
 pub trait JSRunnable<K>: Sized {
@@ -851,30 +1000,32 @@ pub trait JSRunnable<K>: Sized {
         impl<K> HasGlobal<K> for JSCompartmentImpl {}
         let cx = JSContext {
             jsapi_context: RUNTIME.with(|rt| rt.cx()),
+            global_js_object: ptr::null_mut(),
             global_raw: ptr::null_mut(),
+            global_root: None,
+            auto_compartment: None,
             marker: PhantomData,
         };
         self.run::<JSCompartmentImpl, Uninitialized<JSCompartmentImpl>>(cx);
     }
 }
 
-
-
 /// The type of JS-managed data in a JS compartment `C`, with lifetime `'a` and class `K`.
 ///
 /// If the user has access to a `JSManaged`, then the JS-managed
 /// data is live for the given lifetime.
 pub struct JSManaged<'a, C, K> {
-    // JS reflector goes here
+    js_object: *mut Heap<*mut JSObject>,
     raw: *mut (),
     marker: PhantomData<(&'a(), C, K)>
 }
 
 impl<'a, C, K> Clone for JSManaged<'a, C, K> where
-    K: HasInstance<'a, C>,    
+    K: HasInstance<'a, C>,
 {
     fn clone(&self) -> Self {
         JSManaged {
+            js_object: self.js_object,
             raw: self.raw,
             marker: PhantomData,
         }
@@ -926,6 +1077,7 @@ impl<'a, C, K> JSManaged<'a, C, K> {
     /// Change the lifetime of JS-managed data.
     pub unsafe fn change_lifetime<'b>(self) -> JSManaged<'b, C, K> {
         JSManaged {
+            js_object: self.js_object,
             raw: self.raw,
             marker: PhantomData,
         }
@@ -952,6 +1104,33 @@ pub struct JSPinnedRoot<'a, T: 'a> (&'a mut JSRoot<T>);
 #[derive(Eq, PartialEq)]
 pub struct JSPinnedRoots(*mut JSUntypedPinnedRoot);
 
+impl JSPinnedRoots {
+    unsafe fn insert(&mut self, root: &mut JSUntypedPinnedRoot) {
+        debug!("Adding root {:p}.", root);
+        root.next = self.0;
+        root.prev = ptr::null_mut();
+        if let Some(next) = root.next.as_mut() {
+            next.prev = root;
+        }
+        self.0 = root;
+    }
+
+    unsafe fn remove(&mut self, root: &mut JSUntypedPinnedRoot) {
+        debug!("Removing root {:p}.", root);
+        if let Some(next) = root.next.as_mut() {
+            next.prev = root.prev;
+        }
+        if let Some(prev) = root.prev.as_mut() {
+            prev.next = root.next;
+        } else {
+            self.0 = root.next;
+        }
+        root.value = mem::zeroed();
+        root.next = ptr::null_mut();
+        root.prev = ptr::null_mut();
+    }
+}
+
 /// The thread-local list of all roots
 thread_local! { static ROOTS: UnsafeCell<JSPinnedRoots> = UnsafeCell::new(JSPinnedRoots(ptr::null_mut())); }
 
@@ -959,11 +1138,36 @@ unsafe fn thread_local_roots() -> *mut JSPinnedRoots {
     ROOTS.with(UnsafeCell::get)
 }
 
+unsafe extern "C" fn trace_thread_local_roots(trc: *mut JSTracer, _: *mut c_void) {
+    debug!("Tracing roots.");
+
+    if let Some(roots) = thread_local_roots().as_mut() {
+        let mut curr = roots.0;
+        while let Some(root) = curr.as_ref() {
+            debug!("Tracing root.");
+            (&*root.value).trace(trc);
+            curr = root.next;
+        }
+    }
+
+    debug!("Done tracing roots.");
+}
+
 /// A stack allocated root that has been pinned, but we don't have a type for the contents
 struct JSUntypedPinnedRoot {
     value: *mut JSTraceable,
     next: *mut JSUntypedPinnedRoot,
     prev: *mut JSUntypedPinnedRoot,
+}
+
+impl JSUntypedPinnedRoot {
+    fn new(value: *mut JSTraceable) -> JSUntypedPinnedRoot {
+        JSUntypedPinnedRoot {
+            value: value,
+            next: ptr::null_mut(),
+            prev: ptr::null_mut(),
+        }
+    }
 }
 
 /// Data which can be rooted.
@@ -998,32 +1202,16 @@ impl<T> JSRoot<T> {
         T: JSTraceable,
         U: JSRootable<'a, Aged=T>,
     {
-        let roots = thread_local_roots();
+        let roots = &mut *thread_local_roots();
         self.value = Some(value.change_lifetime());
         self.pin.value = self.value.as_mut_ptr();
-        self.pin.next = (*roots).0;
-        self.pin.prev = ptr::null_mut();
-        if let Some(next) = self.pin.next.as_mut() {
-            next.prev = &mut self.pin;
-        }
-        *roots = JSPinnedRoots(&mut self.pin);
+        roots.insert(&mut self.pin);
         JSPinnedRoot(self)
     }
 
     pub unsafe fn unpin(&mut self) {
-        if let Some(next) = self.pin.next.as_mut() {
-            next.prev = self.pin.prev;
-        }
-        if let Some(prev) = self.pin.prev.as_mut() {
-            prev.next = self.pin.next;
-        } else {
-            let roots = thread_local_roots();
-            *roots = JSPinnedRoots(self.pin.next);
-        }
-        self.value = None;
-        self.pin.value = mem::zeroed();
-        self.pin.next = ptr::null_mut();
-        self.pin.prev = ptr::null_mut();
+        let roots = &mut *thread_local_roots();
+        roots.remove(&mut self.pin);
     }
 }
 
