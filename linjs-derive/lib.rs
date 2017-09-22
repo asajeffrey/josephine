@@ -115,7 +115,7 @@ fn impl_has_class(ast: &syn::DeriveInput) -> quote::Tokens {
     };
 
     quote! {
-        struct #class_name;
+        pub struct #class_name;
         impl #impl_generics ::linjs::HasClass for #name #ty_generics #where_clause {
             type Class = #class_name #class_generics;
         }
