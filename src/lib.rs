@@ -749,7 +749,7 @@ impl<S> JSContext<S> {
         RUNTIME.with(|runtime| runtime.rt())
     }
 
-    pub fn gc(&self) where
+    pub fn gc(&mut self) where
         S: CanAlloc,
     {
         unsafe { JS_GC(self.rt()); }
