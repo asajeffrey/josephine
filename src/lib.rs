@@ -172,7 +172,7 @@
 //! # #[macro_use] extern crate linjs_derive;
 //! # use linjs::*;
 //! #[derive(HasClass, JSTraceable, JSRootable)]
-//! struct NativeLoop<'a, C> {
+//! pub struct NativeLoop<'a, C> {
 //!    next: Option<Loop<'a, C>>,
 //! }
 //! type Loop<'a, C> = JSManaged<'a, C, NativeLoopClass>;
@@ -200,7 +200,7 @@
 //! # #[macro_use] extern crate linjs_derive;
 //! # use linjs::*;
 //! # #[derive(HasClass, JSTraceable, JSRootable)]
-//! # struct NativeLoop<'a, C> {
+//! # pub struct NativeLoop<'a, C> {
 //! #    next: Option<Loop<'a, C>>,
 //! # }
 //! # type Loop<'a, C> = JSManaged<'a, C, NativeLoopClass>;
@@ -222,7 +222,7 @@
 //! # #[macro_use] extern crate linjs_derive;
 //! # use linjs::*;
 //! # #[derive(HasClass, JSTraceable, JSRootable)]
-//! # struct NativeLoop<'a, C> {
+//! # pub struct NativeLoop<'a, C> {
 //! #    next: Option<Loop<'a, C>>,
 //! # }
 //! # type Loop<'a, C> = JSManaged<'a, C, NativeLoopClass>;
@@ -264,7 +264,7 @@
 //! # #[macro_use] extern crate linjs_derive;
 //! # use linjs::*;
 //! #[derive(HasClass, JSTraceable, JSRootable)]
-//! struct NativeMyGlobal { name: String }
+//! pub struct NativeMyGlobal { name: String }
 //! type MyGlobal<'a, C> = JSManaged<'a, C, NativeMyGlobalClass>;
 //!
 //! fn example<'a, C, S>(cx: JSContext<S>) -> JSContext<Initialized<C>> where
@@ -285,7 +285,7 @@
 //! # #[macro_use] extern crate linjs_derive;
 //! # use linjs::*;
 //! #[derive(HasClass, JSTraceable, JSRootable)]
-//! # struct NativeMyGlobal { name: String }
+//! # pub struct NativeMyGlobal { name: String }
 //! # type MyGlobal<'a, C> = JSManaged<'a, C, NativeMyGlobalClass>;
 //! #
 //! fn example<'a, C, S>(cx: &JSContext<S>) where
@@ -332,7 +332,7 @@
 //! # #[macro_use] extern crate linjs_derive;
 //! # use linjs::*;
 //! # #[derive(HasClass, JSTraceable, JSRootable)]
-//! # struct NativeMyGlobal<'a, C> { name: JSManaged<'a, C, String> }
+//! # pub struct NativeMyGlobal<'a, C> { name: JSManaged<'a, C, String> }
 //! # type MyGlobal<'a, C> = JSManaged<'a, C, NativeMyGlobalClass>;
 //! #
 //! fn unsafe_example<'a, C, S>(cx: JSContext<S>) -> JSContext<Initialized<C>> where
@@ -371,7 +371,7 @@
 //! # #[macro_use] extern crate linjs_derive;
 //! # use linjs::*;
 //! #[derive(HasClass, JSTraceable, JSRootable)]
-//! struct NativeMyGlobal { name: String }
+//! pub struct NativeMyGlobal { name: String }
 //!
 //! struct Example;
 //!
