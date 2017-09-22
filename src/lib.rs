@@ -491,8 +491,11 @@ use js::JSCLASS_GLOBAL_SLOT_COUNT;
 use js::JSCLASS_IS_GLOBAL;
 use js::JSCLASS_RESERVED_SLOTS_MASK;
 
+use js::glue::CallObjectTracer;
+
 use js::jsapi;
 use js::jsapi::CompartmentOptions;
+use js::jsapi::GCTraceKindToAscii;
 use js::jsapi::HandleObject;
 use js::jsapi::Heap;
 use js::jsapi::JSAutoCompartment;
@@ -513,6 +516,7 @@ use js::jsapi::JS_GC;
 use js::jsapi::JS_NewGlobalObject;
 use js::jsapi::JS_NewObject;
 use js::jsapi::OnNewGlobalHookOption;
+use js::jsapi::TraceKind;
 
 use js::rust::Runtime;
 
@@ -608,7 +612,10 @@ impl<S> JSContext<S> {
         // TODO: set a private field to the native data
         // TODO: use the private field to free up the native space when the JS object is GCd
         let boxed = Box::new(Heap::default());
+        debug!("Boxed object {:p}", boxed);
         let unboxed = unsafe { JS_NewObject(self.jsapi_context, T::Init::classp()) };
+        debug!("Unboxed object {:p}", unboxed);
+        assert!(!unboxed.is_null());
         boxed.set(unboxed);
 
         // TODO: can we be sure that this won't trigger GC? Or do we need to root the boxed object?
@@ -777,12 +784,6 @@ unsafe impl JSTraceable for String {
 
 unsafe impl JSTraceable for usize {
     unsafe fn trace(&self, _trc: *mut JSTracer) {}
-}
-
-unsafe impl JSTraceable for Heap<*mut JSObject> {
-    unsafe fn trace(&self, _trc: *mut JSTracer) {
-        // Trace the object
-    }
 }
 
 unsafe impl<T> JSTraceable for Option<T> where T: JSTraceable {
@@ -1038,8 +1039,9 @@ unsafe impl<'a, C, K> JSTraceable for JSManaged<'a, C, K> where
     K: HasInstance<'a, C>,
     K::Instance: JSTraceable,
 {
-    unsafe fn trace(&self, _trc: *mut JSTracer) {
-        // Trace the reflector.
+    unsafe fn trace(&self, trc: *mut JSTracer) {
+        debug!("Tracing JSManaged {:p}.", self.js_object);
+        CallObjectTracer(trc, self.js_object, GCTraceKindToAscii(TraceKind::Object));
     }
 }
 
