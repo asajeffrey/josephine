@@ -28,7 +28,10 @@ impl JSRunnable<WindowClass> for Main {
         S: CanCreate<C>,
         C: HasGlobal<WindowClass>,
     {
-        let ref mut _cx = init_window(cx);
+        let ref mut cx = init_window(cx);
+
+        // Just GCing for testing purposes
+        cx.gc();
     }
 }
 

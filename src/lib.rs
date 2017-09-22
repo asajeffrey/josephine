@@ -509,6 +509,7 @@ use js::jsapi::JSVersion;
 use js::jsapi::JS_AddExtraGCRootsTracer;
 use js::jsapi::JS_InitClass;
 use js::jsapi::JS_InitStandardClasses;
+use js::jsapi::JS_GC;
 use js::jsapi::JS_NewGlobalObject;
 use js::jsapi::JS_NewObject;
 use js::jsapi::OnNewGlobalHookOption;
@@ -566,7 +567,7 @@ impl<'a, S> CanAccess for Snapshotted<'a, S> where S: CanAccess {}
 pub trait CanExtend<'a> {}
 impl<'a, S> CanExtend<'a> for Snapshotted<'a, S> {}
 
-/// A marker trait for JS contexts that can allocate objects
+/// A marker trait for JS contexts that can (de)allocate objects
 pub trait CanAlloc {}
 impl<G> CanAlloc for Initialized<G> {}
 impl<G> CanAlloc for Initializing<G> {}
@@ -754,6 +755,12 @@ impl<S> JSContext<S> {
 
     pub fn rt(&self) -> *mut jsapi::JSRuntime {
         RUNTIME.with(|runtime| runtime.rt())
+    }
+
+    pub fn gc(&self) where
+        S: CanAlloc,
+    {
+        unsafe { JS_GC(self.rt()); }
     }
 
     // A real implementation would also have JS methods such as those in jsapi.
@@ -1145,7 +1152,7 @@ unsafe extern "C" fn trace_thread_local_roots(trc: *mut JSTracer, _: *mut c_void
     if let Some(roots) = thread_local_roots().as_mut() {
         let mut curr = roots.0;
         while let Some(root) = curr.as_ref() {
-            debug!("Tracing root.");
+            debug!("Tracing root {:p}.", root);
             (&*root.value).trace(trc);
             curr = root.next;
         }
