@@ -515,8 +515,11 @@ use js::jsapi::JS_InitStandardClasses;
 use js::jsapi::JS_GC;
 use js::jsapi::JS_NewGlobalObject;
 use js::jsapi::JS_NewObject;
+use js::jsapi::JS_SetReservedSlot;
 use js::jsapi::OnNewGlobalHookOption;
 use js::jsapi::TraceKind;
+
+use js::jsval::PrivateValue;
 
 use js::rust::Runtime;
 
@@ -609,23 +612,27 @@ impl<S> JSContext<S> {
         K: HasInstance<'b, C, Instance = T>,
     {
         debug!("Managing native data.");
-        // TODO: set a private field to the native data
         // TODO: use the private field to free up the native space when the JS object is GCd
-        let boxed = Box::new(Heap::default());
-        debug!("Boxed object {:p}", boxed);
-        let unboxed = unsafe { JS_NewObject(self.jsapi_context, T::Init::classp()) };
-        debug!("Unboxed object {:p}", unboxed);
-        assert!(!unboxed.is_null());
-        boxed.set(unboxed);
+        let boxed_jsobject = Box::new(Heap::default());
+        debug!("Boxed object {:p}", boxed_jsobject);
+        let unboxed_jsobject = unsafe { JS_NewObject(self.jsapi_context, T::Init::classp()) };
+        debug!("Unboxed object {:p}", unboxed_jsobject);
+        assert!(!unboxed_jsobject.is_null());
+        boxed_jsobject.set(unboxed_jsobject);
+
+        // Save a pointer to the native value in a private slot
+        let boxed_value = Box::new(Some(value));
+        let raw_value = Box::into_raw(boxed_value);
+        unsafe { JS_SetReservedSlot(boxed_jsobject.get(), 0, PrivateValue(raw_value as *const libc::c_void)) };
 
         // TODO: can we be sure that this won't trigger GC? Or do we need to root the boxed object?
         debug!("Initializing JS object.");
-        unsafe { T::Init::js_init_object(self.jsapi_context, boxed.handle()) };
+        unsafe { T::Init::js_init_object(self.jsapi_context, boxed_jsobject.handle()) };
 
         debug!("Managed native data.");
         JSManaged {
-            js_object: Box::into_raw(boxed),
-            raw: Box::into_raw(Box::new(value)) as *mut (),
+            js_object: Box::into_raw(boxed_jsobject),
+            raw: raw_value as *mut (),
             marker: PhantomData,
         }
     }
@@ -668,33 +675,37 @@ impl<S> JSContext<S> {
         // TODO: check that `Drop` and GC tracing are safe.
         // TODO: check the performance of the safer version of this code, which stores an `Option<T>` rather than a `T`.
         // TODO: hook into jsapi compartment creation
-        let boxed: Box<K::Instance> = unsafe { Box::new(mem::uninitialized()) };
-        let raw = Box::into_raw(boxed) as *mut ();
+        let boxed_value: Box<Option<K::Instance>> = Box::new(None);
+        let raw_value = Box::into_raw(boxed_value);
+
         let classp = unsafe { T::Init::global_classp() };
         let principals = unsafe { T::Init::global_principals() };
         let hook_options = unsafe { T::Init::global_hook_option() };
         let options = unsafe { T::Init::global_options() };
 
-        let boxed = Box::new(Heap::default());
-        debug!("Boxed global {:p}", boxed);
-        let unboxed = unsafe { JS_NewGlobalObject(self.jsapi_context, classp, principals, hook_options, &options) };
-        debug!("Unboxed global {:p}", unboxed);
-        assert!(!unboxed.is_null());
-        boxed.set(unboxed);
+        let boxed_jsobject = Box::new(Heap::default());
+        debug!("Boxed global {:p}", boxed_jsobject);
+        let unboxed_jsobject = unsafe { JS_NewGlobalObject(self.jsapi_context, classp, principals, hook_options, &options) };
+        debug!("Unboxed global {:p}", unboxed_jsobject);
+        assert!(!unboxed_jsobject.is_null());
+        boxed_jsobject.set(unboxed_jsobject);
 
         // TODO: can we be sure that this won't trigger GC? Or do we need to root the boxed object?
         debug!("Entering compartment.");
-        let ac = JSAutoCompartment::new(self.jsapi_context, boxed.get());
+        let ac = JSAutoCompartment::new(self.jsapi_context, boxed_jsobject.get());
+
+        // Save a pointer to the native value in a private slot
+        unsafe { JS_SetReservedSlot(boxed_jsobject.get(), 0, PrivateValue(raw_value as *const libc::c_void)) };
 
         // TODO: can we be sure that this won't trigger GC? Or do we need to root the boxed object?
         debug!("Initializing compartment.");
-        unsafe { T::Init::js_init_global(self.jsapi_context, boxed.handle()) };
+        unsafe { T::Init::js_init_global(self.jsapi_context, boxed_jsobject.handle()) };
 
         debug!("Created compartment.");
         JSContext {
             jsapi_context: self.jsapi_context,
-            global_js_object: Box::into_raw(boxed),
-            global_raw: raw,
+            global_js_object: Box::into_raw(boxed_jsobject),
+            global_raw: raw_value as *mut (),
             auto_compartment: Some(ac),
             marker: PhantomData,
         }
@@ -1053,7 +1064,8 @@ impl<'a, C, K> JSManaged<'a, C, K> {
         K::Instance: Copy,
         'a: 'b,
     {
-        unsafe { *(self.raw as *mut K::Instance) }
+        let result = unsafe { *(self.raw as *mut Option<K::Instance>) };
+        result.unwrap()
     }
 
     pub fn borrow<'b, S>(self, _: &'b JSContext<S>) -> &'b K::Instance where
@@ -1061,7 +1073,8 @@ impl<'a, C, K> JSManaged<'a, C, K> {
         K: HasInstance<'b, C>,
         'a: 'b,
     {
-        unsafe { &*(self.raw as *mut K::Instance) }
+        let result = unsafe { &*(self.raw as *mut Option<K::Instance>) };
+        result.as_ref().unwrap()
     }
 
     /// Read-write access to JS-managed data.
@@ -1070,7 +1083,8 @@ impl<'a, C, K> JSManaged<'a, C, K> {
         K: HasInstance<'b, C>,
         'a: 'b,
     {
-        unsafe { &mut *(self.raw as *mut K::Instance) }
+        let result = unsafe { &mut *(self.raw as *mut Option<K::Instance>) };
+        result.as_mut().unwrap()
     }
 
     /// Change the lifetime of JS-managed data.
