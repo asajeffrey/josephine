@@ -14,9 +14,11 @@ use linjs::HasGlobal;
 use linjs::InCompartment;
 use linjs::JSContext;
 use linjs::JSInitializer;
+use linjs::finalize_jsobject_with_native_data;
+use linjs::jsclass_global_flags_with_slots;
 use linjs::null_property;
 use linjs::null_wrapper;
-use linjs::jsclass_global_flags_with_slots;
+use linjs::trace_jsobject_with_native_data;
 
 use minidom::Console;
 use minidom::Document;
@@ -48,13 +50,13 @@ static WINDOW_CLASS: JSClass = JSClass {
         construct: None,
         delProperty: None,
         enumerate: None,
-        finalize: None,
+        finalize: Some(finalize_jsobject_with_native_data),
         getProperty: None,
         hasInstance: None,
         mayResolve: None,
         resolve: None,
         setProperty: None,
-        trace: None,
+        trace: Some(trace_jsobject_with_native_data),
     },
     reserved: [0 as *mut _; 3],
 };

@@ -622,9 +622,8 @@ impl<S> JSContext<S> {
         boxed_jsobject.set(unboxed_jsobject);
 
         // Save a pointer to the native value in a private slot
-        let boxed_value = Box::new(Some(value));
-        let fat_value: [*const libc::c_void; 2] = unsafe { mem::transmute(&*boxed_value as &JSTraceable) };
-        let raw_value = Box::into_raw(boxed_value);
+        let boxed_value: Box<JSTraceable> = Box::new(Some(value));
+        let fat_value: [*const libc::c_void; 2] = unsafe { mem::transmute(boxed_value) };
         unsafe { JS_SetReservedSlot(boxed_jsobject.get(), 0, PrivateValue(fat_value[0])) };
         unsafe { JS_SetReservedSlot(boxed_jsobject.get(), 1, PrivateValue(fat_value[1])) };
 
@@ -635,7 +634,7 @@ impl<S> JSContext<S> {
         debug!("Managed native data.");
         JSManaged {
             js_object: Box::into_raw(boxed_jsobject),
-            raw: raw_value as *mut (),
+            raw: fat_value[0] as *mut (),
             marker: PhantomData,
         }
     }
@@ -671,16 +670,9 @@ impl<S> JSContext<S> {
         K: HasInstance<'a, C, Instance = T>,
     {
         debug!("Creating compartment.");
-        // This is dangerous!
-        // This is only safe because dereferencing this pointer is only done by user code
-        // in posession of a context whose state is `CanAccess`. The only way a user can
-        // access such a context is by calling `post_init`, which initializes the raw pointer.
-        // TODO: check that `Drop` and GC tracing are safe.
-        // TODO: check the performance of the safer version of this code, which stores an `Option<T>` rather than a `T`.
-        // TODO: hook into jsapi compartment creation
-        let boxed_value: Box<Option<K::Instance>> = Box::new(None);
-        let fat_value: [*const libc::c_void; 2] = unsafe { mem::transmute(&*boxed_value as &JSTraceable) };
-        let raw_value = Box::into_raw(boxed_value);
+        let value: Option<T> = None;
+        let boxed_value: Box<JSTraceable> = Box::new(value);
+        let fat_value: [*const libc::c_void; 2] = unsafe { mem::transmute(boxed_value) };
 
         let classp = unsafe { T::Init::global_classp() };
         let principals = unsafe { T::Init::global_principals() };
@@ -710,7 +702,7 @@ impl<S> JSContext<S> {
         JSContext {
             jsapi_context: self.jsapi_context,
             global_js_object: Box::into_raw(boxed_jsobject),
-            global_raw: raw_value as *mut (),
+            global_raw: fat_value[0] as *mut (),
             auto_compartment: Some(ac),
             marker: PhantomData,
         }
@@ -724,10 +716,8 @@ impl<S> JSContext<S> {
         T: JSTraceable + HasClass<Class = K>,
     {
         debug!("Managing native global.");
-        // TODO: set a private field to the native data
-        // TODO: use the private field to free up the native space when the JS object is GCd
-        let raw = self.global_raw as *mut T;
-        let uninitialized = unsafe { mem::replace(&mut *raw, value) };
+        let raw = self.global_raw as *mut Option<T>;
+        let uninitialized = unsafe { mem::replace(&mut *raw, Some(value)) };
         mem::forget(uninitialized);
 
         debug!("Initialized compartment.");
@@ -930,7 +920,7 @@ static DEFAULT_CLASS: JSClass = JSClass {
         construct: None,
         delProperty: None,
         enumerate: None,
-        finalize: None,
+        finalize: Some(finalize_jsobject_with_native_data),
         getProperty: None,
         hasInstance: None,
         mayResolve: None,
@@ -950,7 +940,7 @@ static DEFAULT_GLOBAL_CLASS: JSClass = JSClass {
         construct: None,
         delProperty: None,
         enumerate: None,
-        finalize: None,
+        finalize: Some(finalize_jsobject_with_native_data),
         getProperty: None,
         hasInstance: None,
         mayResolve: None,
@@ -996,6 +986,17 @@ pub unsafe extern "C" fn trace_jsobject_with_native_data(trc: *mut JSTracer, obj
     let traceable: &JSTraceable = mem::transmute(fat_value);
     debug!("Tracing native {:p}.", traceable);
     traceable.trace(trc);
+}
+
+pub unsafe extern "C" fn finalize_jsobject_with_native_data(_op: *mut js::jsapi::JSFreeOp, obj: *mut JSObject) {
+    debug!("Finalizing {:p}.", obj);
+    let fat_value = [
+        JS_GetReservedSlot(obj, 0).to_private(),
+        JS_GetReservedSlot(obj, 1).to_private(),
+    ];
+    let traceable: *mut JSTraceable = mem::transmute(fat_value);
+    debug!("Finalizing native {:p}.", traceable);
+    Box::from_raw(traceable);
 }
 
 /// A trait for a Rust class.
