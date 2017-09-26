@@ -510,6 +510,7 @@ use js::jsapi::JSPrincipals;
 use js::jsapi::JSPropertySpec;
 use js::jsapi::JSVersion;
 use js::jsapi::JS_AddExtraGCRootsTracer;
+use js::jsapi::JS_GetReservedSlot;
 use js::jsapi::JS_InitClass;
 use js::jsapi::JS_InitStandardClasses;
 use js::jsapi::JS_GC;
@@ -608,7 +609,7 @@ impl<S> JSContext<S> {
     /// This allocates JS heap, which may trigger GC.
     pub fn manage<'a, 'b, C, K, T>(&'a mut self, value: T) -> JSManaged<'a, C, K> where
         S: CanAlloc + InCompartment<C>,
-        T: HasClass<Class = K>,
+        T: JSTraceable + HasClass<Class = K>,
         K: HasInstance<'b, C, Instance = T>,
     {
         debug!("Managing native data.");
@@ -622,8 +623,10 @@ impl<S> JSContext<S> {
 
         // Save a pointer to the native value in a private slot
         let boxed_value = Box::new(Some(value));
+        let fat_value: [*const libc::c_void; 2] = unsafe { mem::transmute(&*boxed_value as &JSTraceable) };
         let raw_value = Box::into_raw(boxed_value);
-        unsafe { JS_SetReservedSlot(boxed_jsobject.get(), 0, PrivateValue(raw_value as *const libc::c_void)) };
+        unsafe { JS_SetReservedSlot(boxed_jsobject.get(), 0, PrivateValue(fat_value[0])) };
+        unsafe { JS_SetReservedSlot(boxed_jsobject.get(), 1, PrivateValue(fat_value[1])) };
 
         // TODO: can we be sure that this won't trigger GC? Or do we need to root the boxed object?
         debug!("Initializing JS object.");
@@ -641,7 +644,7 @@ impl<S> JSContext<S> {
     /// This allocates JS heap, which may trigger GC.
     pub fn snapshot_manage<'a, 'b, C, K, T>(&'a mut self, value: T) -> (JSContext<Snapshotted<'a, S>>, JSManaged<'a, C, K>) where
         S: CanAlloc + InCompartment<C>,
-        T: HasClass<Class = K>,
+        T: JSTraceable + HasClass<Class = K>,
         K: HasInstance<'b, C, Instance = T>,
     {
         let jsapi_context = self.jsapi_context;
@@ -664,7 +667,7 @@ impl<S> JSContext<S> {
     pub fn create_compartment<'a, C, K, T>(self) -> JSContext<Initializing<C>> where
         S: CanCreate<C>,
         C: HasGlobal<K>,
-        T: HasClass<Class = K>,
+        T: JSTraceable + HasClass<Class = K>,
         K: HasInstance<'a, C, Instance = T>,
     {
         debug!("Creating compartment.");
@@ -676,6 +679,7 @@ impl<S> JSContext<S> {
         // TODO: check the performance of the safer version of this code, which stores an `Option<T>` rather than a `T`.
         // TODO: hook into jsapi compartment creation
         let boxed_value: Box<Option<K::Instance>> = Box::new(None);
+        let fat_value: [*const libc::c_void; 2] = unsafe { mem::transmute(&*boxed_value as &JSTraceable) };
         let raw_value = Box::into_raw(boxed_value);
 
         let classp = unsafe { T::Init::global_classp() };
@@ -695,7 +699,8 @@ impl<S> JSContext<S> {
         let ac = JSAutoCompartment::new(self.jsapi_context, boxed_jsobject.get());
 
         // Save a pointer to the native value in a private slot
-        unsafe { JS_SetReservedSlot(boxed_jsobject.get(), 0, PrivateValue(raw_value as *const libc::c_void)) };
+        unsafe { JS_SetReservedSlot(boxed_jsobject.get(), 0, PrivateValue(fat_value[0])) };
+        unsafe { JS_SetReservedSlot(boxed_jsobject.get(), 1, PrivateValue(fat_value[1])) };
 
         // TODO: can we be sure that this won't trigger GC? Or do we need to root the boxed object?
         debug!("Initializing compartment.");
@@ -716,7 +721,7 @@ impl<S> JSContext<S> {
         S: IsInitializing + InCompartment<C>,
         C: HasGlobal<K>,
         K: HasInstance<'b, C, Instance = T>,
-        T: HasClass<Class = K>,
+        T: JSTraceable + HasClass<Class = K>,
     {
         debug!("Managing native global.");
         // TODO: set a private field to the native data
@@ -918,7 +923,7 @@ impl JSInitializer for DefaultInitializer {}
 
 static DEFAULT_CLASS: JSClass = JSClass {
     name: b"[Object]\0" as *const u8 as *const c_char,
-    flags: jsclass_has_reserved_slots(1),
+    flags: jsclass_has_reserved_slots(2),
     cOps: &JSClassOps {
         addProperty: None,
         call: None,
@@ -931,14 +936,14 @@ static DEFAULT_CLASS: JSClass = JSClass {
         mayResolve: None,
         resolve: None,
         setProperty: None,
-        trace: None,
+        trace: Some(trace_jsobject_with_native_data),
     },
     reserved: [0 as *mut _; 3],
 };
 
 static DEFAULT_GLOBAL_CLASS: JSClass = JSClass {
     name: b"[Global]\0" as *const u8 as *const c_char,
-    flags: jsclass_global_flags_with_slots(1),
+    flags: jsclass_global_flags_with_slots(2),
     cOps: &JSClassOps {
         addProperty: None,
         call: None,
@@ -951,7 +956,7 @@ static DEFAULT_GLOBAL_CLASS: JSClass = JSClass {
         mayResolve: None,
         resolve: None,
         setProperty: None,
-        trace: None,
+        trace: Some(trace_jsobject_with_native_data),
     },
     reserved: [0 as *mut _; 3],
 };
@@ -980,6 +985,17 @@ pub const fn null_function() -> JSFunctionSpec {
         nargs: 0,
         selfHostedName: ptr::null(),
     }
+}
+
+pub unsafe extern "C" fn trace_jsobject_with_native_data(trc: *mut JSTracer, obj: *mut JSObject) {
+    debug!("Tracing {:p}.", obj);
+    let fat_value = [
+        JS_GetReservedSlot(obj, 0).to_private(),
+        JS_GetReservedSlot(obj, 1).to_private(),
+    ];
+    let traceable: &JSTraceable = mem::transmute(fat_value);
+    debug!("Tracing native {:p}.", traceable);
+    traceable.trace(trc);
 }
 
 /// A trait for a Rust class.

@@ -41,7 +41,7 @@ pub trait WindowMethods {
 
 static WINDOW_CLASS: JSClass = JSClass {
     name: b"Window\0" as *const u8 as *const c_char,
-    flags: jsclass_global_flags_with_slots(1),
+    flags: jsclass_global_flags_with_slots(2),
     cOps: &JSClassOps {
         addProperty: None,
         call: None,
