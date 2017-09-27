@@ -541,6 +541,7 @@ use libc::c_char;
 use libc::c_uint;
 
 use std::cell::UnsafeCell;
+use std::fmt::Debug;
 use std::marker::PhantomData;
 use std::mem;
 use std::ops::Deref;
@@ -1100,16 +1101,13 @@ pub trait JSRunnable<K>: Sized {
 ///
 /// If the user has access to a `JSManaged`, then the JS-managed
 /// data is live for the given lifetime.
-#[derive(Eq, PartialEq, Hash, Debug)]
 pub struct JSManaged<'a, C, K> {
     js_object: *mut Heap<*mut JSObject>,
     raw: *mut (),
     marker: PhantomData<(&'a(), C, K)>
 }
 
-impl<'a, C, K> Clone for JSManaged<'a, C, K> where
-    K: HasInstance<'a, C>,
-{
+impl<'a, C, K> Clone for JSManaged<'a, C, K> {
     fn clone(&self) -> Self {
         JSManaged {
             js_object: self.js_object,
@@ -1119,9 +1117,25 @@ impl<'a, C, K> Clone for JSManaged<'a, C, K> where
     }
 }
 
-impl<'a, C, K> Copy for JSManaged<'a, C, K> where
-    K: HasInstance<'a, C>,
-{
+impl<'a, C, K> Copy for JSManaged<'a, C, K> {
+}
+
+impl<'a, C, K> Debug for JSManaged<'a, C, K> {
+    fn fmt(&self, fmt: &mut std::fmt::Formatter) -> Result<(), std::fmt::Error> {
+        fmt.debug_struct("JSManaged")
+            .field("js_object", &self.js_object)
+            .field("raw", &self.raw)
+            .finish()
+    }
+}
+
+impl<'a, C, K> PartialEq for JSManaged<'a, C, K> {
+    fn eq(&self, other: &Self) -> bool {
+        self.js_object == other.js_object
+    }
+}
+
+impl<'a, C, K> Eq for JSManaged<'a, C, K> {
 }
 
 unsafe impl<'a, C, K> JSTraceable for JSManaged<'a, C, K> where
