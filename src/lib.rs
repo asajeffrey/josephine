@@ -491,10 +491,16 @@ use js::JSCLASS_GLOBAL_SLOT_COUNT;
 use js::JSCLASS_IS_GLOBAL;
 use js::JSCLASS_RESERVED_SLOTS_MASK;
 
+use js::conversions::ConversionResult::Failure;
+use js::conversions::ConversionResult::Success;
+use js::conversions::FromJSValConvertible;
+
 use js::glue::CallObjectTracer;
+use js::glue::NewCompileOptions;
 
 use js::jsapi;
 use js::jsapi::CompartmentOptions;
+use js::jsapi::Evaluate2;
 use js::jsapi::GCTraceKindToAscii;
 use js::jsapi::HandleObject;
 use js::jsapi::Heap;
@@ -503,6 +509,7 @@ use js::jsapi::JSCLASS_RESERVED_SLOTS_SHIFT;
 use js::jsapi::JSClass;
 use js::jsapi::JSClassOps;
 use js::jsapi::JSFunctionSpec;
+use js::jsapi::MutableHandle;
 use js::jsapi::JSNative;
 use js::jsapi::JSNativeWrapper;
 use js::jsapi::JSObject;
@@ -510,9 +517,12 @@ use js::jsapi::JSPrincipals;
 use js::jsapi::JSPropertySpec;
 use js::jsapi::JSVersion;
 use js::jsapi::JS_AddExtraGCRootsTracer;
+use js::jsapi::JS_ClearPendingException;
+use js::jsapi::JS_GetPendingException;
 use js::jsapi::JS_GetReservedSlot;
 use js::jsapi::JS_InitClass;
 use js::jsapi::JS_InitStandardClasses;
+use js::jsapi::JS_IsExceptionPending;
 use js::jsapi::JS_GC;
 use js::jsapi::JS_NewGlobalObject;
 use js::jsapi::JS_NewObject;
@@ -521,6 +531,7 @@ use js::jsapi::OnNewGlobalHookOption;
 use js::jsapi::TraceKind;
 
 use js::jsval::PrivateValue;
+use js::jsval::UndefinedValue;
 
 use js::rust::Runtime;
 
@@ -768,7 +779,56 @@ impl<S> JSContext<S> {
         unsafe { JS_GC(self.rt()); }
     }
 
-    // A real implementation would also have JS methods such as those in jsapi.
+    pub fn evaluate<C, T, E>(&mut self, code: &str, config: T::Config) -> Result<T, E> where
+        S: InCompartment<C> + CanAlloc,
+        T: FromJSValConvertible,
+        E: FromJSValConvertible + From<String> + Default,
+        E::Config: Default,
+    {
+        let cx = self.jsapi_context;
+
+        let options = unsafe { NewCompileOptions(cx, &[0][0], 0) };
+
+        let code_utf16: Vec<u16> = code.encode_utf16().collect();
+        let code_ptr = &code_utf16[0] as *const u16;
+        let code_len = code_utf16.len() as usize;
+
+        let ref mut result_ref = UndefinedValue();
+        let result_mut = unsafe { MutableHandle::from_marked_location(result_ref) };
+        let result_handle = result_mut.handle();
+
+        unsafe { Evaluate2(cx, options, code_ptr, code_len, result_mut) };
+        self.take_pending_exception()?;
+
+        // TODO: safety here relies on from_jsval not triggering GC
+        match unsafe { T::from_jsval(cx, result_handle, config) } {
+            Ok(Success(result)) => Ok(result),
+            Ok(Failure(reason)) => Err(E::from(String::from(reason))),
+            Err(()) => Err(E::default()),
+        }
+    }
+
+    pub fn take_pending_exception<E>(&mut self) -> Result<(), E> where
+        E: FromJSValConvertible + From<String> + Default,
+        E::Config: Default,
+    {
+        let cx = self.jsapi_context;
+        if !unsafe { JS_IsExceptionPending(cx) } { return Ok(()); }
+
+        let ref mut exn_ref = UndefinedValue();
+        let exn_mut = unsafe { MutableHandle::from_marked_location(exn_ref) };
+        let exn_handle = exn_mut.handle();
+
+        unsafe { JS_GetPendingException(cx, exn_mut) };
+        let exn = match unsafe { E::from_jsval(cx, exn_handle, E::Config::default()) } {
+            Ok(Success(result)) => result,
+            Ok(Failure(reason)) => E::from(String::from(reason)),
+            Err(()) => E::default(),
+        };
+        unsafe { JS_ClearPendingException(cx) };
+
+        Err(exn)
+    }
 }
 
 /// A trait for Rust data that can be traced.

@@ -18,6 +18,8 @@ use linjs::HasGlobal;
 use linjs::JSContext;
 use linjs::JSRunnable;
 
+use js::conversions::ConversionBehavior;
+
 use minidom::init_window;
 use minidom::WindowClass;
 
@@ -29,6 +31,8 @@ impl JSRunnable<WindowClass> for Main {
         C: HasGlobal<WindowClass>,
     {
         let ref mut cx = init_window(cx);
+        let two: Result<u32, String> = cx.evaluate("1 + 1", ConversionBehavior::Default);
+        println!("1 + 1 === {}.", two.unwrap());
 
         // Just GCing for testing purposes
         cx.gc();
