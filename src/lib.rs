@@ -1100,6 +1100,7 @@ pub trait JSRunnable<K>: Sized {
 ///
 /// If the user has access to a `JSManaged`, then the JS-managed
 /// data is live for the given lifetime.
+#[derive(Eq, PartialEq, Hash, Debug)]
 pub struct JSManaged<'a, C, K> {
     js_object: *mut Heap<*mut JSObject>,
     raw: *mut (),
