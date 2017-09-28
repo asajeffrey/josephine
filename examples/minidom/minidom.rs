@@ -12,9 +12,12 @@ use linjs::JSManaged;
 use fake_codegen::WindowInitializer;
 use fake_codegen::WindowMethods;
 
+use std::ops::Deref;
+
 // -------------------------------------------------------------------
 
-pub type Window<'a, C> = JSManaged<'a, C, WindowClass>;
+#[derive(Debug, Eq, PartialEq, JSTraceable, JSRootable)]
+pub struct Window<'a, C> (JSManaged<'a, C, WindowClass>);
 
 #[derive(JSTraceable, JSRootable)]
 pub struct NativeWindow<'a, C> {
@@ -27,8 +30,8 @@ pub fn init_window<'a, C, S>(cx: JSContext<S>) -> JSContext<Initialized<C>> wher
     C: HasGlobal<WindowClass>,
 {
     let mut cx = cx.create_compartment();
-    rooted!(in(cx) let console = new_console(&mut cx));
-    rooted!(in(cx) let document = new_document(&mut cx));
+    rooted!(in(cx) let console = Console::new(&mut cx));
+    rooted!(in(cx) let document = Document::new(&mut cx));
     cx.global_manage(NativeWindow {
         console: console,
         document: document,
@@ -46,58 +49,63 @@ impl<'a, C> HasInstance<'a, C> for WindowClass {
     type Instance = NativeWindow<'a, C>;
 }
 
-impl WindowMethods for WindowClass {
-    fn Console<'a, C, S>(cx: &'a JSContext<S>, this: Window<'a, C>) -> Console<'a, C> where
+impl<'a, C> WindowMethods<'a, C> for Window<'a, C> {
+    fn Console<S>(self, cx: &'a JSContext<S>) -> Console<'a, C> where
         S: CanAccess + InCompartment<C>,
         C: 'a,
     {
-        this.borrow(cx).console
+        self.borrow(cx).console
     }
 
-    fn Document<'a, C, S>(cx: &'a JSContext<S>, this: Window<'a, C>) -> Document<'a, C> where
+    fn Document<S>(self, cx: &'a JSContext<S>) -> Document<'a, C> where
         S: CanAccess + InCompartment<C>,
         C: 'a,
     {
-        this.borrow(cx).document
+        self.borrow(cx).document
     }
 }
 
 // -------------------------------------------------------------------
 
-pub type Console<'a, C> = JSManaged<'a, C, NativeConsoleClass>;
+#[derive(Debug, JSTraceable, JSRootable)]
+pub struct Console<'a, C> (JSManaged<'a, C, NativeConsoleClass>);
 
 #[derive(HasClass, JSTraceable, JSRootable)]
 pub struct NativeConsole();
 
-pub fn new_console<'a, C, S>(cx: &'a mut JSContext<S>) -> Console<'a, C> where
-    C: 'a,
-    S: CanAlloc + InCompartment<C>,
-{
-    cx.manage(NativeConsole())
+impl<'a, C> Console<'a, C> {
+    fn new<S>(cx: &'a mut JSContext<S>) -> Console<'a, C> where
+        S: CanAlloc + InCompartment<C>,
+    {
+        Console(cx.manage(NativeConsole()))
+    }
 }
 
 // -------------------------------------------------------------------
 
-pub type Document<'a, C> = JSManaged<'a, C, NativeDocumentClass>;
+#[derive(Debug, Eq, PartialEq, JSTraceable, JSRootable)]
+pub struct Document<'a, C> (JSManaged<'a, C, NativeDocumentClass>);
 
 #[derive(HasClass, JSTraceable, JSRootable)]
 pub struct NativeDocument<'a, C> {
     body: Element<'a, C>,
 }
 
-pub fn new_document<'a, C, S>(cx: &'a mut JSContext<S>) -> Document<'a, C> where
-    C: 'a,
-    S: CanAlloc + InCompartment<C>,
-{
-    rooted!(in(cx) let body = new_element(cx));
-    cx.manage(NativeDocument {
-        body: body,
-    })
+impl<'a, C> Document<'a, C> {
+    pub fn new<S>(cx: &'a mut JSContext<S>) -> Document<'a, C> where
+        S: CanAlloc + InCompartment<C>,
+    {
+        rooted!(in(cx) let body = Element::new(cx));
+        Document(cx.manage(NativeDocument {
+            body: body,
+        }))
+    }
 }
 
 // -------------------------------------------------------------------
 
-pub type Element<'a, C> = JSManaged<'a, C, NativeElementClass>;
+#[derive(Debug, Eq, PartialEq, JSTraceable, JSRootable)]
+pub struct Element<'a, C> (JSManaged<'a, C, NativeElementClass>);
 
 #[derive(HasClass, JSTraceable, JSRootable)]
 pub struct NativeElement<'a, C> {
@@ -105,14 +113,81 @@ pub struct NativeElement<'a, C> {
     children: Vec<Element<'a, C>>,
 }
 
-pub fn new_element<'a, C, S>(cx: &'a mut JSContext<S>) -> Element<'a, C> where
-    S: CanAlloc + InCompartment<C>,
-    C: 'a,
-{
-    cx.manage(NativeElement {
-        parent: None,
-        children: Vec::new(),
-    })
+impl<'a, C> Element<'a, C> {
+    pub fn new<S>(cx: &'a mut JSContext<S>) -> Element<'a, C> where
+        S: CanAlloc + InCompartment<C>,
+    {
+        Element(cx.manage(NativeElement {
+            parent: None,
+            children: Vec::new(),
+        }))
+    }
 }
 
 // -------------------------------------------------------------------
+
+// The rest of the file is stuff which we should be able to write a #derive for
+
+impl<'a, C> Copy for Window<'a, C> {
+}
+
+impl<'a, C> Clone for Window<'a, C> {
+    fn clone(&self) -> Self {
+        Window(self.0)
+    }
+}
+
+impl<'a, C> Deref for Window<'a, C> {
+    type Target = JSManaged<'a, C, WindowClass>;
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl<'a, C> Copy for Console<'a, C> {
+}
+
+impl<'a, C> Clone for Console<'a, C> {
+    fn clone(&self) -> Self {
+        Console(self.0)
+    }
+}
+
+impl<'a, C> Deref for Console<'a, C> {
+    type Target = JSManaged<'a, C, NativeConsoleClass>;
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl<'a, C> Copy for Document<'a, C> {
+}
+
+impl<'a, C> Clone for Document<'a, C> {
+    fn clone(&self) -> Self {
+        Document(self.0)
+    }
+}
+
+impl<'a, C> Deref for Document<'a, C> {
+    type Target = JSManaged<'a, C, NativeDocumentClass>;
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl<'a, C> Copy for Element<'a, C> {
+}
+
+impl<'a, C> Clone for Element<'a, C> {
+    fn clone(&self) -> Self {
+        Element(self.0)
+    }
+}
+
+impl<'a, C> Deref for Element<'a, C> {
+    type Target = JSManaged<'a, C, NativeElementClass>;
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}

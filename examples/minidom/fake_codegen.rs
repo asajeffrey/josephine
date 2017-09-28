@@ -22,7 +22,6 @@ use linjs::trace_jsobject_with_native_data;
 
 use minidom::Console;
 use minidom::Document;
-use minidom::Window;
 use minidom::WindowClass;
 
 use std::ptr;
@@ -31,12 +30,12 @@ use std::ptr;
 // from webidl. For the moment, we do it by hand.
 
 #[allow(non_snake_case)]
-pub trait WindowMethods {
-    fn Console<'a, C, S>(cx: &'a JSContext<S>, this: Window<'a, C>) -> Console<'a, C> where
+pub trait WindowMethods<'a, C> {
+    fn Console<S>(self, cx: &'a JSContext<S>) -> Console<'a, C> where
         S: 'a + CanAccess + CanAlloc + InCompartment<C>,
         C: 'a + HasGlobal<WindowClass>;
 
-    fn Document<'a, C, S>(cx: &'a JSContext<S>, this: Window<'a, C>) -> Document<'a, C> where
+    fn Document<S>(self, cx: &'a JSContext<S>) -> Document<'a, C> where
         S: 'a + CanAccess + CanAlloc + InCompartment<C>,
         C: 'a + HasGlobal<WindowClass>;
 }
