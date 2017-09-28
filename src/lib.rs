@@ -491,10 +491,6 @@ use js::JSCLASS_GLOBAL_SLOT_COUNT;
 use js::JSCLASS_IS_GLOBAL;
 use js::JSCLASS_RESERVED_SLOTS_MASK;
 
-use js::conversions::ConversionResult::Failure;
-use js::conversions::ConversionResult::Success;
-use js::conversions::FromJSValConvertible;
-
 use js::glue::CallObjectTracer;
 use js::glue::NewCompileOptions;
 
@@ -540,6 +536,7 @@ pub use js::jsapi::JSTracer;
 use libc::c_char;
 use libc::c_uint;
 
+use std::any::TypeId;
 use std::cell::UnsafeCell;
 use std::fmt::Debug;
 use std::marker::PhantomData;
@@ -634,7 +631,7 @@ impl<S> JSContext<S> {
         boxed_jsobject.set(unboxed_jsobject);
 
         // Save a pointer to the native value in a private slot
-        let boxed_value: Box<JSTraceable> = Box::new(Some(value));
+        let boxed_value: Box<JSManageable> = Box::new(Some(value));
         let fat_value: [*const libc::c_void; 2] = unsafe { mem::transmute(boxed_value) };
         unsafe { JS_SetReservedSlot(boxed_jsobject.get(), 0, PrivateValue(fat_value[0])) };
         unsafe { JS_SetReservedSlot(boxed_jsobject.get(), 1, PrivateValue(fat_value[1])) };
@@ -683,7 +680,7 @@ impl<S> JSContext<S> {
     {
         debug!("Creating compartment.");
         let value: Option<T> = None;
-        let boxed_value: Box<JSTraceable> = Box::new(value);
+        let boxed_value: Box<JSManageable> = Box::new(value);
         let fat_value: [*const libc::c_void; 2] = unsafe { mem::transmute(boxed_value) };
 
         let classp = unsafe { T::Init::global_classp() };
@@ -780,11 +777,10 @@ impl<S> JSContext<S> {
         unsafe { JS_GC(self.rt()); }
     }
 
-    pub fn evaluate<C, T, E>(&mut self, code: &str, config: T::Config) -> Result<T, E> where
+    pub fn evaluate<'a, C, K, T>(&'a mut self, code: &'a str) -> Result<JSManaged<'a, C, K>, JSEvaluateErr> where
         S: InCompartment<C> + CanAlloc,
-        T: FromJSValConvertible,
-        E: FromJSValConvertible + From<String> + Default,
-        E::Config: Default,
+        K: HasInstance<'a, C, Instance = T>,
+        T: HasClass<Class = K>,
     {
         let cx = self.jsapi_context;
 
@@ -796,40 +792,71 @@ impl<S> JSContext<S> {
 
         let ref mut result_ref = UndefinedValue();
         let result_mut = unsafe { MutableHandle::from_marked_location(result_ref) };
-        let result_handle = result_mut.handle();
 
         unsafe { Evaluate2(cx, options, code_ptr, code_len, result_mut) };
         self.take_pending_exception()?;
 
-        // TODO: safety here relies on from_jsval not triggering GC
-        match unsafe { T::from_jsval(cx, result_handle, config) } {
-            Ok(Success(result)) => Ok(result),
-            Ok(Failure(reason)) => Err(E::from(String::from(reason))),
-            Err(()) => Err(E::default()),
+        if !result_ref.is_object() {
+            return Err(JSEvaluateErr::NotAnObject);
         }
+
+        let js_object = result_ref.to_object();
+
+        let raw = if mem::size_of::<T>() == 0 {
+            // As a special case, if T is zero-sized, we can construct the JSManaged instance
+            // without accessing any reserved slots, since we know what raw must be.
+            Box::into_raw(Box::new(()))
+        } else {
+            let slot0 = unsafe { JS_GetReservedSlot(js_object, 0) };
+            let slot1 = unsafe { JS_GetReservedSlot(js_object, 1) };
+            if slot0.is_undefined() || slot1.is_undefined() {
+                return Err(JSEvaluateErr::NotJSManaged);
+            }
+            // This unsafe if there are raw uses of jsapi that are doing
+            // other things with the private slots.
+            let native: &mut JSManageable = unsafe { mem::transmute([ slot0.to_private(), slot1.to_private() ]) };
+            // TODO: inheritance
+            if TypeId::of::<Option<K>>() != unsafe { native.class_id() } {
+                return Err(JSEvaluateErr::WrongClass);
+            }
+            native as *mut _ as *mut ()
+        };
+
+        // TODO: these boxes never get deallocated, which is a space leak!
+        let boxed = Box::new(Heap::default());
+        boxed.set(js_object);
+
+        Ok(JSManaged {
+            js_object: Box::into_raw(boxed),
+            raw: raw,
+            marker: PhantomData,
+        })
     }
 
-    pub fn take_pending_exception<E>(&mut self) -> Result<(), E> where
-        E: FromJSValConvertible + From<String> + Default,
-        E::Config: Default,
-    {
+    pub fn take_pending_exception(&mut self) -> Result<(), JSEvaluateErr> {
         let cx = self.jsapi_context;
         if !unsafe { JS_IsExceptionPending(cx) } { return Ok(()); }
 
         let ref mut exn_ref = UndefinedValue();
         let exn_mut = unsafe { MutableHandle::from_marked_location(exn_ref) };
-        let exn_handle = exn_mut.handle();
+        let _exn_handle = exn_mut.handle();
 
         unsafe { JS_GetPendingException(cx, exn_mut) };
-        let exn = match unsafe { E::from_jsval(cx, exn_handle, E::Config::default()) } {
-            Ok(Success(result)) => result,
-            Ok(Failure(reason)) => E::from(String::from(reason)),
-            Err(()) => E::default(),
-        };
+        // TODO: include the exception in the error report
         unsafe { JS_ClearPendingException(cx) };
 
-        Err(exn)
+        Err(JSEvaluateErr::JSException)
     }
+}
+
+/// The errors which might be returned from cx.evaluate("code")
+// TODO: store more information about the reason for the error
+#[derive(Clone, Debug)]
+pub enum JSEvaluateErr {
+    JSException,
+    NotAnObject,
+    NotJSManaged,
+    WrongClass,
 }
 
 /// A trait for Rust data that can be traced.
@@ -874,17 +901,36 @@ unsafe impl<T> JSTraceable for Vec<T> where T: JSTraceable {
 /// A trait for Rust data which can be reflected
 
 pub trait HasClass {
-    type Class;
+    type Class: 'static;
     type Init: JSInitializer = DefaultInitializer;
 }
 
-pub trait HasInstance<'a, C>: Sized {
+pub trait HasInstance<'a, C>: 'static + Sized {
     type Instance: HasClass<Class = Self>;
 }
 
 /// Basic types
 impl HasClass for String { type Class = String; }
 impl<'a, C> HasInstance<'a, C> for String { type Instance = String; }
+
+impl<T> HasClass for Option<T> where T: HasClass { type Class = Option<T::Class>; }
+impl<'a, C, K> HasInstance<'a, C> for Option<K> where K: HasInstance<'a, C> { type Instance = Option<K::Instance>; }
+
+// etc.
+
+/// A trait for Rust data which can be managed
+
+pub trait JSManageable: JSTraceable {
+    unsafe fn class_id(&self) -> TypeId;
+}
+
+impl<T> JSManageable for T where
+    T: JSTraceable + HasClass
+{
+    unsafe fn class_id(&self) -> TypeId {
+        TypeId::of::<T::Class>()
+    }
+}
 
 /// Initialize JS data
 
@@ -1044,7 +1090,7 @@ pub unsafe extern "C" fn trace_jsobject_with_native_data(trc: *mut JSTracer, obj
         JS_GetReservedSlot(obj, 0).to_private(),
         JS_GetReservedSlot(obj, 1).to_private(),
     ];
-    let traceable: &JSTraceable = mem::transmute(fat_value);
+    let traceable: &JSManageable = mem::transmute(fat_value);
     debug!("Tracing native {:p}.", traceable);
     traceable.trace(trc);
 }
@@ -1055,7 +1101,7 @@ pub unsafe extern "C" fn finalize_jsobject_with_native_data(_op: *mut js::jsapi:
         JS_GetReservedSlot(obj, 0).to_private(),
         JS_GetReservedSlot(obj, 1).to_private(),
     ];
-    let traceable: *mut JSTraceable = mem::transmute(fat_value);
+    let traceable: *mut JSManageable = mem::transmute(fat_value);
     debug!("Finalizing native {:p}.", traceable);
     Box::from_raw(traceable);
 }
@@ -1131,7 +1177,7 @@ impl<'a, C, K> Debug for JSManaged<'a, C, K> {
 
 impl<'a, C, K> PartialEq for JSManaged<'a, C, K> {
     fn eq(&self, other: &Self) -> bool {
-        self.js_object == other.js_object
+        self.raw == other.raw
     }
 }
 
