@@ -1,4 +1,5 @@
 use js::jsapi;
+use js::jsapi::CallArgs;
 use js::jsapi::JSClass;
 use js::jsapi::JSClassOps;
 use js::jsapi::JSNativeWrapper;
@@ -62,6 +63,15 @@ static WINDOW_CLASS: JSClass = JSClass {
 
 const WINDOW_PROPERTIES: &[JSPropertySpec] = &[
     JSPropertySpec {
+        name: b"window\0" as *const u8 as *const c_char,
+        flags: 0,
+        getter: JSNativeWrapper {
+            op: Some(window_window_getter),
+            info: ptr::null(),
+        },
+        setter: null_wrapper(),
+    },
+    JSPropertySpec {
         name: b"console\0" as *const u8 as *const c_char,
         flags: 0,
         getter: JSNativeWrapper {
@@ -85,7 +95,17 @@ const WINDOW_PROPERTIES: &[JSPropertySpec] = &[
 // Just stub methods for now.
 
 #[allow(unsafe_code)]
+unsafe extern "C" fn window_window_getter(_cx: *mut jsapi::JSContext, argc: c_uint, vp: *mut Value) -> bool {
+    debug!("Getting window.");
+    let args = CallArgs::from_vp(vp, argc);
+    let window = args.thisv();
+    args.rval().set(window.get());
+    true
+}
+
+#[allow(unsafe_code)]
 unsafe extern "C" fn window_console_getter(_cx: *mut jsapi::JSContext, _argc: c_uint, _vp: *mut Value) -> bool {
+    debug!("Getting console.");
     // let args = CallArgs::from_vp(vp, argc);
     // let window = args.thisv();
     // let ref mut cx = JSContext::from(cx);

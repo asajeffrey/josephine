@@ -12,6 +12,9 @@ use linjs::JSManaged;
 use fake_codegen::WindowInitializer;
 use fake_codegen::WindowMethods;
 
+use std::fmt;
+use std::fmt::Debug;
+use std::fmt::Formatter;
 use std::ops::Deref;
 
 // -------------------------------------------------------------------
@@ -67,7 +70,7 @@ impl<'a, C> WindowMethods<'a, C> for Window<'a, C> {
 
 // -------------------------------------------------------------------
 
-#[derive(Debug, JSTraceable, JSRootable)]
+#[derive(JSTraceable, JSRootable)]
 pub struct Console<'a, C> (JSManaged<'a, C, NativeConsoleClass>);
 
 #[derive(HasClass, JSTraceable, JSRootable)]
@@ -128,6 +131,12 @@ impl<'a, C> Element<'a, C> {
 
 // The rest of the file is stuff which we should be able to write a #derive for
 
+impl<'a, C> From<JSManaged<'a, C, WindowClass>> for Window<'a, C> {
+    fn from(value: JSManaged<'a, C, WindowClass>) -> Window<'a, C> {
+        Window(value)
+    }
+}
+
 impl<'a, C> Copy for Window<'a, C> {
 }
 
@@ -144,6 +153,12 @@ impl<'a, C> Deref for Window<'a, C> {
     }
 }
 
+impl<'a, C> From<JSManaged<'a, C, NativeConsoleClass>> for Console<'a, C> {
+    fn from(value: JSManaged<'a, C, NativeConsoleClass>) -> Console<'a, C> {
+        Console(value)
+    }
+}
+
 impl<'a, C> Copy for Console<'a, C> {
 }
 
@@ -157,6 +172,18 @@ impl<'a, C> Deref for Console<'a, C> {
     type Target = JSManaged<'a, C, NativeConsoleClass>;
     fn deref(&self) -> &Self::Target {
         &self.0
+    }
+}
+
+impl<'a, C> PartialEq for Console<'a, C> {
+    fn eq(&self, other: &Console<'a, C>) -> bool {
+        &self.0 == &other.0
+    }
+}
+
+impl<'a, C> Debug for Console<'a, C> {
+    fn fmt(&self, fmt: &mut Formatter) -> Result<(), fmt::Error> {
+        self.0.fmt(fmt)
     }
 }
 

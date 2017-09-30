@@ -515,6 +515,8 @@ use js::jsapi::JSVersion;
 use js::jsapi::JS_AddExtraGCRootsTracer;
 use js::jsapi::JS_ClearPendingException;
 use js::jsapi::JS_GetPendingException;
+use js::jsapi::JS_DefineFunctions;
+use js::jsapi::JS_DefineProperties;
 use js::jsapi::JS_GetReservedSlot;
 use js::jsapi::JS_InitClass;
 use js::jsapi::JS_InitStandardClasses;
@@ -687,6 +689,8 @@ impl<S> JSContext<S> {
         let principals = unsafe { T::Init::global_principals() };
         let hook_options = unsafe { T::Init::global_hook_option() };
         let options = unsafe { T::Init::global_options() };
+        let properties = unsafe { T::Init::properties() };
+        let functions = unsafe { T::Init::functions() };
 
         let boxed_jsobject = Box::new(Heap::default());
         debug!("Boxed global {:p}", boxed_jsobject);
@@ -702,6 +706,10 @@ impl<S> JSContext<S> {
         // Save a pointer to the native value in a private slot
         unsafe { JS_SetReservedSlot(boxed_jsobject.get(), 0, PrivateValue(fat_value[0])) };
         unsafe { JS_SetReservedSlot(boxed_jsobject.get(), 1, PrivateValue(fat_value[1])) };
+
+        // Define the properties and functions of the global
+        if !properties.is_null() { unsafe { JS_DefineProperties(self.jsapi_context, boxed_jsobject.handle(), properties) }; }
+        if !functions.is_null() { unsafe { JS_DefineFunctions(self.jsapi_context, boxed_jsobject.handle(), functions) }; }
 
         // TODO: can we be sure that this won't trigger GC? Or do we need to root the boxed object?
         debug!("Initializing compartment.");
@@ -802,25 +810,19 @@ impl<S> JSContext<S> {
 
         let js_object = result_ref.to_object();
 
-        let raw = if mem::size_of::<T>() == 0 {
-            // As a special case, if T is zero-sized, we can construct the JSManaged instance
-            // without accessing any reserved slots, since we know what raw must be.
-            Box::into_raw(Box::new(()))
-        } else {
-            let slot0 = unsafe { JS_GetReservedSlot(js_object, 0) };
-            let slot1 = unsafe { JS_GetReservedSlot(js_object, 1) };
-            if slot0.is_undefined() || slot1.is_undefined() {
-                return Err(JSEvaluateErr::NotJSManaged);
-            }
-            // This unsafe if there are raw uses of jsapi that are doing
-            // other things with the private slots.
-            let native: &mut JSManageable = unsafe { mem::transmute([ slot0.to_private(), slot1.to_private() ]) };
-            // TODO: inheritance
-            if TypeId::of::<Option<K>>() != unsafe { native.class_id() } {
-                return Err(JSEvaluateErr::WrongClass);
-            }
-            native as *mut _ as *mut ()
-        };
+        let slot0 = unsafe { JS_GetReservedSlot(js_object, 0) };
+        let slot1 = unsafe { JS_GetReservedSlot(js_object, 1) };
+        if slot0.is_undefined() || slot1.is_undefined() {
+            return Err(JSEvaluateErr::NotJSManaged);
+        }
+        // This unsafe if there are raw uses of jsapi that are doing
+        // other things with the private slots.
+        let native: &mut JSManageable = unsafe { mem::transmute([ slot0.to_private(), slot1.to_private() ]) };
+        // TODO: inheritance
+        if TypeId::of::<Option<K>>() != unsafe { native.class_id() } {
+            return Err(JSEvaluateErr::WrongClass);
+        }
+        let raw = native as *mut _ as *mut ();
 
         // TODO: these boxes never get deallocated, which is a space leak!
         let boxed = Box::new(Heap::default());

@@ -33,6 +33,9 @@ impl JSRunnable<WindowClass> for Main {
         rooted!(in(cx) let window2 = cx.evaluate("this").unwrap());
         assert_eq!(window1, window2);
 
+        rooted!(in(cx) let window3 = cx.evaluate("this.window").unwrap());
+        assert_eq!(window1, window3);
+
         // Just GCing for testing purposes
         cx.gc();
     }
