@@ -498,6 +498,7 @@ use js::jsapi;
 use js::jsapi::CompartmentOptions;
 use js::jsapi::Evaluate2;
 use js::jsapi::GCTraceKindToAscii;
+use js::jsapi::Handle;
 use js::jsapi::HandleObject;
 use js::jsapi::Heap;
 use js::jsapi::JSAutoCompartment;
@@ -505,7 +506,6 @@ use js::jsapi::JSCLASS_RESERVED_SLOTS_SHIFT;
 use js::jsapi::JSClass;
 use js::jsapi::JSClassOps;
 use js::jsapi::JSFunctionSpec;
-use js::jsapi::MutableHandle;
 use js::jsapi::JSNative;
 use js::jsapi::JSNativeWrapper;
 use js::jsapi::JSObject;
@@ -525,9 +525,12 @@ use js::jsapi::JS_GC;
 use js::jsapi::JS_NewGlobalObject;
 use js::jsapi::JS_NewObject;
 use js::jsapi::JS_SetReservedSlot;
+use js::jsapi::MutableHandle;
 use js::jsapi::OnNewGlobalHookOption;
 use js::jsapi::TraceKind;
 
+use js::jsval::JSVal;
+use js::jsval::ObjectValue;
 use js::jsval::PrivateValue;
 use js::jsval::UndefinedValue;
 
@@ -566,6 +569,9 @@ pub struct Uninitialized<C> (PhantomData<C>);
 /// A context state in the middle of initializing a compartment `C`.
 pub struct Initializing<C> (PhantomData<C>);
 
+/// A context state for callbacks from JS,
+pub struct FromJS (());
+
 /// A context state in snapshotted compartment in underlying state `S`,
 /// which guarantees that no GC will happen during the lifetime `'a`.
 pub struct Snapshotted<'a, S> (PhantomData<(&'a(), S)>);
@@ -579,6 +585,7 @@ impl<'a, C, S> InCompartment<C> for Snapshotted<'a, S> where S: InCompartment<C>
 /// A marker trait for JS contexts that can access native state
 pub trait CanAccess {}
 impl<C> CanAccess for Initialized<C> {}
+impl CanAccess for FromJS {}
 impl<'a, S> CanAccess for Snapshotted<'a, S> where S: CanAccess {}
 
 /// A marker trait for JS contexts that can extend the lifetime of objects
@@ -589,6 +596,7 @@ impl<'a, S> CanExtend<'a> for Snapshotted<'a, S> {}
 pub trait CanAlloc {}
 impl<G> CanAlloc for Initialized<G> {}
 impl<G> CanAlloc for Initializing<G> {}
+impl CanAlloc for FromJS {}
 
 /// A marker trait for JS contexts that can create compartment `C`.
 pub trait CanCreate<C> {}
@@ -1108,6 +1116,50 @@ pub unsafe extern "C" fn finalize_jsobject_with_native_data(_op: *mut js::jsapi:
     Box::from_raw(traceable);
 }
 
+pub unsafe fn jscontext_called_from_js(cx: *mut jsapi::JSContext) -> JSContext<FromJS> {
+    JSContext {
+        jsapi_context: cx,
+        global_js_object: ptr::null_mut(),
+        global_raw: ptr::null_mut(),
+        auto_compartment: None,
+        marker: PhantomData,
+    }
+}
+
+pub unsafe fn jsmanaged_called_from_js<'a, K>(js_value: Handle<JSVal>) -> Result<JSManaged<'a, FromJS, K>, JSEvaluateErr> where
+    K: 'static
+{
+    if !js_value.is_object() {
+        return Err(JSEvaluateErr::NotAnObject);
+    }
+
+    let js_object = js_value.to_object();
+    let slot0 = JS_GetReservedSlot(js_object, 0);
+    let slot1 = JS_GetReservedSlot(js_object, 1);
+    if slot0.is_undefined() || slot1.is_undefined() {
+        return Err(JSEvaluateErr::NotJSManaged);
+    }
+    // This unsafe if there are raw uses of jsapi that are doing
+    // other things with the reserved slots.
+    let native: &mut JSManageable = mem::transmute([ slot0.to_private(), slot1.to_private() ]);
+
+    // TODO: inheritance
+    if TypeId::of::<Option<K>>() != native.class_id() {
+        return Err(JSEvaluateErr::WrongClass);
+    }
+    let raw = native as *mut _ as *mut ();
+
+    // TODO: these boxes never get deallocated, which is a space leak!
+    let boxed = Box::new(Heap::default());
+    boxed.set(js_object);
+
+    Ok(JSManaged {
+        js_object: Box::into_raw(boxed),
+        raw: raw,
+        marker: PhantomData,
+    })
+}
+
 /// A trait for a Rust class.
 
 pub trait HasJSClass {
@@ -1241,6 +1293,10 @@ impl<'a, C, K> JSManaged<'a, C, K> {
         S: CanExtend<'b>,
     {
         unsafe { self.change_lifetime() }
+    }
+
+    pub fn to_jsval(self) -> JSVal {
+        ObjectValue(unsafe { &*self.js_object }.get())
     }
 }
 

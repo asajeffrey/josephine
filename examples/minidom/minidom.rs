@@ -52,19 +52,23 @@ impl<'a, C> HasInstance<'a, C> for WindowClass {
     type Instance = NativeWindow<'a, C>;
 }
 
-impl<'a, C> WindowMethods<'a, C> for Window<'a, C> {
+impl<'a, C> WindowMethods<'a, C> for Window<'a, C> where C: 'a {
     fn Console<S>(self, cx: &'a JSContext<S>) -> Console<'a, C> where
-        S: CanAccess + InCompartment<C>,
-        C: 'a,
+        S: CanAccess,
     {
         self.borrow(cx).console
     }
 
     fn Document<S>(self, cx: &'a JSContext<S>) -> Document<'a, C> where
-        S: CanAccess + InCompartment<C>,
-        C: 'a,
+        S: CanAccess,
     {
         self.borrow(cx).document
+    }
+
+    fn Window<S>(self, _cx: &'a JSContext<S>) -> Window<'a, C> where
+        S: CanAccess,
+    {
+        self
     }
 }
 

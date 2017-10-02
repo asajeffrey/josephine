@@ -4,26 +4,28 @@ use js::jsapi::JSClass;
 use js::jsapi::JSClassOps;
 use js::jsapi::JSNativeWrapper;
 use js::jsapi::JSPropertySpec;
-use js::jsapi::Value;
+
+use js::jsval::JSVal;
 
 use libc::c_char;
 use libc::c_uint;
 
 use linjs::CanAccess;
 use linjs::CanAlloc;
-use linjs::HasGlobal;
-use linjs::InCompartment;
 use linjs::JSContext;
+use linjs::JSEvaluateErr;
 use linjs::JSInitializer;
 use linjs::finalize_jsobject_with_native_data;
 use linjs::jsclass_global_flags_with_slots;
+use linjs::jscontext_called_from_js;
+use linjs::jsmanaged_called_from_js;
 use linjs::null_property;
 use linjs::null_wrapper;
 use linjs::trace_jsobject_with_native_data;
 
 use minidom::Console;
 use minidom::Document;
-use minidom::WindowClass;
+use minidom::Window;
 
 use std::ptr;
 
@@ -32,13 +34,9 @@ use std::ptr;
 
 #[allow(non_snake_case)]
 pub trait WindowMethods<'a, C> {
-    fn Console<S>(self, cx: &'a JSContext<S>) -> Console<'a, C> where
-        S: 'a + CanAccess + CanAlloc + InCompartment<C>,
-        C: 'a + HasGlobal<WindowClass>;
-
-    fn Document<S>(self, cx: &'a JSContext<S>) -> Document<'a, C> where
-        S: 'a + CanAccess + CanAlloc + InCompartment<C>,
-        C: 'a + HasGlobal<WindowClass>;
+    fn Console<S>(self, cx: &'a JSContext<S>) -> Console<'a, C> where S: CanAccess + CanAlloc;
+    fn Document<S>(self, cx: &'a JSContext<S>) -> Document<'a, C> where S: CanAccess + CanAlloc;
+    fn Window<S>(self, cx: &'a JSContext<S>) -> Window<'a, C> where S: CanAccess + CanAlloc;
 }
 
 static WINDOW_CLASS: JSClass = JSClass {
@@ -66,7 +64,7 @@ const WINDOW_PROPERTIES: &[JSPropertySpec] = &[
         name: b"window\0" as *const u8 as *const c_char,
         flags: 0,
         getter: JSNativeWrapper {
-            op: Some(window_window_getter),
+            op: Some(window_window_getter_op),
             info: ptr::null(),
         },
         setter: null_wrapper(),
@@ -95,16 +93,25 @@ const WINDOW_PROPERTIES: &[JSPropertySpec] = &[
 // Just stub methods for now.
 
 #[allow(unsafe_code)]
-unsafe extern "C" fn window_window_getter(_cx: *mut jsapi::JSContext, argc: c_uint, vp: *mut Value) -> bool {
-    debug!("Getting window.");
+unsafe extern "C" fn window_window_getter_op(cx: *mut jsapi::JSContext, argc: c_uint, vp: *mut JSVal) -> bool {
     let args = CallArgs::from_vp(vp, argc);
-    let window = args.thisv();
-    args.rval().set(window.get());
-    true
+    match window_window_getter(cx, args) {
+        Ok(result) => { args.rval().set(result); true },
+        Err(_err) => { false } // TODO: set the exception
+    }
 }
 
 #[allow(unsafe_code)]
-unsafe extern "C" fn window_console_getter(_cx: *mut jsapi::JSContext, _argc: c_uint, _vp: *mut Value) -> bool {
+unsafe extern "C" fn window_window_getter(cx: *mut jsapi::JSContext, args: CallArgs) -> Result<JSVal, JSEvaluateErr> {
+    debug!("Getting window.");
+    let ref mut cx = jscontext_called_from_js(cx);
+    let this = Window::from(jsmanaged_called_from_js(args.thisv())?);
+    let result = this.Window(cx);
+    Ok(result.to_jsval())
+}
+
+#[allow(unsafe_code)]
+unsafe extern "C" fn window_console_getter(_cx: *mut jsapi::JSContext, _argc: c_uint, _vp: *mut JSVal) -> bool {
     debug!("Getting console.");
     // let args = CallArgs::from_vp(vp, argc);
     // let window = args.thisv();
@@ -115,7 +122,7 @@ unsafe extern "C" fn window_console_getter(_cx: *mut jsapi::JSContext, _argc: c_
 }
 
 #[allow(unsafe_code)]
-unsafe extern "C" fn window_document_getter(_cx: *mut jsapi::JSContext, _argc: c_uint, _vp: *mut Value) -> bool {
+unsafe extern "C" fn window_document_getter(_cx: *mut jsapi::JSContext, _argc: c_uint, _vp: *mut JSVal) -> bool {
     // let args = CallArgs::from_vp(vp, argc);
     // let window = args.thisv();
     // let ref mut cx = JSContext::from(cx);
