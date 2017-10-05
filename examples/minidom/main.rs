@@ -29,12 +29,7 @@ impl JSRunnable<WindowClass> for Main {
         C: HasGlobal<WindowClass>,
     {
         let ref mut cx = init_window(cx);
-        rooted!(in(cx) let window1 = cx.global());
-        rooted!(in(cx) let window2 = cx.evaluate("this").unwrap());
-        assert_eq!(window1, window2);
-
-        rooted!(in(cx) let window3 = cx.evaluate("this.window").unwrap());
-        assert_eq!(window1, window3);
+        cx.evaluate("console.log('Hello world. 😃')").unwrap();
 
         // Just GCing for testing purposes
         cx.gc();

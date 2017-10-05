@@ -499,7 +499,7 @@ use js::jsapi::CompartmentOptions;
 use js::jsapi::Evaluate2;
 use js::jsapi::GCTraceKindToAscii;
 use js::jsapi::Handle;
-use js::jsapi::HandleObject;
+use js::jsapi::HandleValue;
 use js::jsapi::Heap;
 use js::jsapi::JSAutoCompartment;
 use js::jsapi::JSCLASS_RESERVED_SLOTS_SHIFT;
@@ -514,17 +514,24 @@ use js::jsapi::JSPropertySpec;
 use js::jsapi::JSVersion;
 use js::jsapi::JS_AddExtraGCRootsTracer;
 use js::jsapi::JS_ClearPendingException;
-use js::jsapi::JS_GetPendingException;
 use js::jsapi::JS_DefineFunctions;
 use js::jsapi::JS_DefineProperties;
+use js::jsapi::JS_FlattenString;
+use js::jsapi::JS_GC;
+use js::jsapi::JS_GetLatin1FlatStringChars;
+use js::jsapi::JS_GetObjectPrototype;
+use js::jsapi::JS_GetPendingException;
 use js::jsapi::JS_GetReservedSlot;
+use js::jsapi::JS_GetStringLength;
+use js::jsapi::JS_GetTwoByteFlatStringChars;
 use js::jsapi::JS_InitClass;
 use js::jsapi::JS_InitStandardClasses;
 use js::jsapi::JS_IsExceptionPending;
-use js::jsapi::JS_GC;
+use js::jsapi::JS_IsNative;
 use js::jsapi::JS_NewGlobalObject;
-use js::jsapi::JS_NewObject;
+use js::jsapi::JS_NewObjectWithGivenProto;
 use js::jsapi::JS_SetReservedSlot;
+use js::jsapi::JS_StringHasLatin1Chars;
 use js::jsapi::MutableHandle;
 use js::jsapi::OnNewGlobalHookOption;
 use js::jsapi::TraceKind;
@@ -532,6 +539,7 @@ use js::jsapi::TraceKind;
 use js::jsval::JSVal;
 use js::jsval::ObjectValue;
 use js::jsval::PrivateValue;
+use js::jsval::StringValue;
 use js::jsval::UndefinedValue;
 
 use js::rust::Runtime;
@@ -543,13 +551,20 @@ use libc::c_uint;
 
 use std::any::TypeId;
 use std::cell::UnsafeCell;
+use std::char;
+use std::collections::HashMap;
+use std::fmt;
 use std::fmt::Debug;
+use std::fmt::Display;
+use std::fmt::Write;
 use std::marker::PhantomData;
 use std::mem;
 use std::ops::Deref;
 use std::ops::DerefMut;
 use std::os::raw::c_void;
 use std::ptr;
+use std::slice;
+use std::str;
 
 /// The type for JS contexts whose current state is `S`.
 pub struct JSContext<S> {
@@ -576,26 +591,33 @@ pub struct FromJS (());
 /// which guarantees that no GC will happen during the lifetime `'a`.
 pub struct Snapshotted<'a, S> (PhantomData<(&'a(), S)>);
 
+/// A context state which has entered compartment `C` from state `S`.
+pub struct Entered<C, S> (PhantomData<(C, S)>);
+
 /// A marker trait for JS contexts in compartment `C`
 pub trait InCompartment<C> {}
 impl<C> InCompartment<C> for Initializing<C> {}
 impl<C> InCompartment<C> for Initialized<C> {}
 impl<'a, C, S> InCompartment<C> for Snapshotted<'a, S> where S: InCompartment<C> {}
+impl<C, S> InCompartment<C> for Entered<C, S> {}
 
 /// A marker trait for JS contexts that can access native state
 pub trait CanAccess {}
 impl<C> CanAccess for Initialized<C> {}
 impl CanAccess for FromJS {}
 impl<'a, S> CanAccess for Snapshotted<'a, S> where S: CanAccess {}
+impl<C, S> CanAccess for Entered<C, S> where S: CanAccess {}
 
 /// A marker trait for JS contexts that can extend the lifetime of objects
 pub trait CanExtend<'a> {}
 impl<'a, S> CanExtend<'a> for Snapshotted<'a, S> {}
+impl<'a, C, S> CanExtend<'a> for Entered<C, S> where S: CanExtend<'a> {}
 
 /// A marker trait for JS contexts that can (de)allocate objects
 pub trait CanAlloc {}
 impl<G> CanAlloc for Initialized<G> {}
 impl<G> CanAlloc for Initializing<G> {}
+impl<C, S> CanAlloc for Entered<C, S> where S: CanAlloc {}
 impl CanAlloc for FromJS {}
 
 /// A marker trait for JS contexts that can create compartment `C`.
@@ -624,6 +646,19 @@ impl<S> JSContext<S> {
         }
     }
 
+    /// Enter a compartment.
+    pub fn enter<'a, C, K>(&'a mut self, value: JSManaged<'a, C, K>) -> JSContext<Entered<C, S>> {
+        debug!("Entering compartment.");
+        let ac = JSAutoCompartment::new(self.jsapi_context, unsafe { &*value.js_object }.get());
+        JSContext {
+            jsapi_context: self.jsapi_context,
+            global_js_object: ptr::null_mut(), // TODO: ensure that this isn't accessed
+            global_raw: ptr::null_mut(), // TODO: ensure that this isn't accessed
+            auto_compartment: Some(ac),
+            marker: PhantomData,
+        }
+    }
+
     /// Give ownership of data to JS.
     /// This allocates JS heap, which may trigger GC.
     pub fn manage<'a, 'b, C, K, T>(&'a mut self, value: T) -> JSManaged<'a, C, K> where
@@ -632,10 +667,18 @@ impl<S> JSContext<S> {
         K: HasInstance<'b, C, Instance = T>,
     {
         debug!("Managing native data.");
-        // TODO: use the private field to free up the native space when the JS object is GCd
+        let cx = self.jsapi_context;
+        let global = unsafe { &*self.global_js_object }.handle();
+        let prototypes = unsafe { &mut *(JS_GetReservedSlot(global.get(), 2).to_private() as *mut HashMap<TypeId, Box<Heap<*mut JSObject>>>) };
+        let prototype = prototypes.entry(TypeId::of::<K>()).or_insert_with(|| {
+            let boxed = Box::new(Heap::default());
+            boxed.set(unsafe { T::Init::js_init_class(cx, global) });
+            boxed
+        }).handle();
+
         let boxed_jsobject = Box::new(Heap::default());
         debug!("Boxed object {:p}", boxed_jsobject);
-        let unboxed_jsobject = unsafe { JS_NewObject(self.jsapi_context, T::Init::classp()) };
+        let unboxed_jsobject = unsafe { JS_NewObjectWithGivenProto(cx, T::Init::classp(), prototype) };
         debug!("Unboxed object {:p}", unboxed_jsobject);
         assert!(!unboxed_jsobject.is_null());
         boxed_jsobject.set(unboxed_jsobject);
@@ -648,7 +691,7 @@ impl<S> JSContext<S> {
 
         // TODO: can we be sure that this won't trigger GC? Or do we need to root the boxed object?
         debug!("Initializing JS object.");
-        unsafe { T::Init::js_init_object(self.jsapi_context, boxed_jsobject.handle()) };
+        unsafe { T::Init::js_init_object(cx, boxed_jsobject.handle()) };
 
         debug!("Managed native data.");
         JSManaged {
@@ -714,6 +757,11 @@ impl<S> JSContext<S> {
         // Save a pointer to the native value in a private slot
         unsafe { JS_SetReservedSlot(boxed_jsobject.get(), 0, PrivateValue(fat_value[0])) };
         unsafe { JS_SetReservedSlot(boxed_jsobject.get(), 1, PrivateValue(fat_value[1])) };
+
+        // Keep a hash map of all the class prototypes
+        // TODO: Fix this space leak!
+        let prototypes: Box<HashMap<TypeId, Box<Heap<*mut JSObject>>>> = Box::new(HashMap::new());
+        unsafe { JS_SetReservedSlot(boxed_jsobject.get(), 2, PrivateValue(Box::into_raw(prototypes) as *const _)) };
 
         // Define the properties and functions of the global
         if !properties.is_null() { unsafe { JS_DefineProperties(self.jsapi_context, boxed_jsobject.handle(), properties) }; }
@@ -793,54 +841,22 @@ impl<S> JSContext<S> {
         unsafe { JS_GC(self.rt()); }
     }
 
-    pub fn evaluate<'a, C, K, T>(&'a mut self, code: &'a str) -> Result<JSManaged<'a, C, K>, JSEvaluateErr> where
-        S: InCompartment<C> + CanAlloc,
-        K: HasInstance<'a, C, Instance = T>,
-        T: HasClass<Class = K>,
-    {
+    pub fn evaluate(&mut self, code: &str) -> Result<JSVal, JSEvaluateErr> {
         let cx = self.jsapi_context;
 
-        let options = unsafe { NewCompileOptions(cx, &[0][0], 0) };
+        let options = unsafe { NewCompileOptions(cx, &0, 0) };
 
         let code_utf16: Vec<u16> = code.encode_utf16().collect();
         let code_ptr = &code_utf16[0] as *const u16;
         let code_len = code_utf16.len() as usize;
 
-        let ref mut result_ref = UndefinedValue();
-        let result_mut = unsafe { MutableHandle::from_marked_location(result_ref) };
+        let mut result = UndefinedValue();
+        let result_mut = unsafe { MutableHandle::from_marked_location(&mut result) };
 
         unsafe { Evaluate2(cx, options, code_ptr, code_len, result_mut) };
         self.take_pending_exception()?;
 
-        if !result_ref.is_object() {
-            return Err(JSEvaluateErr::NotAnObject);
-        }
-
-        let js_object = result_ref.to_object();
-
-        let slot0 = unsafe { JS_GetReservedSlot(js_object, 0) };
-        let slot1 = unsafe { JS_GetReservedSlot(js_object, 1) };
-        if slot0.is_undefined() || slot1.is_undefined() {
-            return Err(JSEvaluateErr::NotJSManaged);
-        }
-        // This unsafe if there are raw uses of jsapi that are doing
-        // other things with the private slots.
-        let native: &mut JSManageable = unsafe { mem::transmute([ slot0.to_private(), slot1.to_private() ]) };
-        // TODO: inheritance
-        if TypeId::of::<Option<K>>() != unsafe { native.class_id() } {
-            return Err(JSEvaluateErr::WrongClass);
-        }
-        let raw = native as *mut _ as *mut ();
-
-        // TODO: these boxes never get deallocated, which is a space leak!
-        let boxed = Box::new(Heap::default());
-        boxed.set(js_object);
-
-        Ok(JSManaged {
-            js_object: Box::into_raw(boxed),
-            raw: raw,
-            marker: PhantomData,
-        })
+        Ok(result)
     }
 
     pub fn take_pending_exception(&mut self) -> Result<(), JSEvaluateErr> {
@@ -865,6 +881,7 @@ impl<S> JSContext<S> {
 pub enum JSEvaluateErr {
     JSException,
     NotAnObject,
+    NotAString,
     NotJSManaged,
     WrongClass,
 }
@@ -887,6 +904,10 @@ unsafe impl JSTraceable for String {
 }
 
 unsafe impl JSTraceable for usize {
+    unsafe fn trace(&self, _trc: *mut JSTracer) {}
+}
+
+unsafe impl JSTraceable for () {
     unsafe fn trace(&self, _trc: *mut JSTracer) {}
 }
 
@@ -945,8 +966,8 @@ impl<T> JSManageable for T where
 /// Initialize JS data
 
 pub trait JSInitializer {
-    unsafe fn parent_prototype() -> HandleObject {
-        HandleObject::null()
+    unsafe fn parent_prototype(cx: *mut jsapi::JSContext, global: jsapi::HandleObject) -> *mut JSObject {
+        JS_GetObjectPrototype(cx, global)
     }
 
     unsafe fn classp() -> *const JSClass {
@@ -992,15 +1013,16 @@ pub trait JSInitializer {
         ptr::null()
     }
 
-    unsafe fn js_init_class(cx: *mut jsapi::JSContext, global: jsapi::HandleObject) {
-        let parent_proto = Self::parent_prototype();
+    unsafe fn js_init_class(cx: *mut jsapi::JSContext, global: jsapi::HandleObject) -> *mut JSObject {
+        let ref parent_proto = Self::parent_prototype(cx, global);
+        let parent_proto_handle = Handle::from_marked_location(parent_proto);
         let classp = Self::classp();
         let (constructor, nargs) = Self::constructor();
         let ps = Self::properties();
         let fs = Self::functions();
         let static_ps = Self::static_properties();
         let static_fs = Self::static_functions();
-        JS_InitClass(cx, global, parent_proto, classp, constructor, nargs, ps, fs, static_ps, static_fs);
+        JS_InitClass(cx, global, parent_proto_handle, classp, constructor, nargs, ps, fs, static_ps, static_fs)
     }
 
     unsafe fn js_init_object(_cx: *mut jsapi::JSContext, _obj: jsapi::HandleObject) {
@@ -1095,23 +1117,34 @@ pub const fn null_function() -> JSFunctionSpec {
 }
 
 pub unsafe extern "C" fn trace_jsobject_with_native_data(trc: *mut JSTracer, obj: *mut JSObject) {
+    if !JS_IsNative(obj) {
+        debug!("Not a native object (should be a prototype).");
+    }
+
     debug!("Tracing {:p}.", obj);
-    let fat_value = [
-        JS_GetReservedSlot(obj, 0).to_private(),
-        JS_GetReservedSlot(obj, 1).to_private(),
-    ];
-    let traceable: &JSManageable = mem::transmute(fat_value);
+    let slot0 = JS_GetReservedSlot(obj, 0);
+    let slot1 = JS_GetReservedSlot(obj, 1);
+    if slot0.is_undefined() || slot1.is_undefined() {
+        return debug!("Tracing uninitialized object.");
+    }
+    let traceable: &JSManageable = mem::transmute([ slot0.to_private(), slot1.to_private() ]);
     debug!("Tracing native {:p}.", traceable);
     traceable.trace(trc);
 }
 
 pub unsafe extern "C" fn finalize_jsobject_with_native_data(_op: *mut js::jsapi::JSFreeOp, obj: *mut JSObject) {
+    if !JS_IsNative(obj) {
+        debug!("Not a native object (should be a prototype).");
+        // TODO: remove the object from the prototype hash table?
+    }
+
     debug!("Finalizing {:p}.", obj);
-    let fat_value = [
-        JS_GetReservedSlot(obj, 0).to_private(),
-        JS_GetReservedSlot(obj, 1).to_private(),
-    ];
-    let traceable: *mut JSManageable = mem::transmute(fat_value);
+    let slot0 = JS_GetReservedSlot(obj, 0);
+    let slot1 = JS_GetReservedSlot(obj, 1);
+    if slot0.is_undefined() || slot1.is_undefined() {
+        return debug!("Finalizing uninitialized object.");
+    }
+    let traceable: *mut JSManageable = mem::transmute([ slot0.to_private(), slot1.to_private() ]);
     debug!("Finalizing native {:p}.", traceable);
     Box::from_raw(traceable);
 }
@@ -1126,7 +1159,7 @@ pub unsafe fn jscontext_called_from_js(cx: *mut jsapi::JSContext) -> JSContext<F
     }
 }
 
-pub unsafe fn jsmanaged_called_from_js<'a, K>(js_value: Handle<JSVal>) -> Result<JSManaged<'a, FromJS, K>, JSEvaluateErr> where
+pub unsafe fn jsmanaged_called_from_js<'a, K>(js_value: HandleValue) -> Result<JSManaged<'a, FromJS, K>, JSEvaluateErr> where
     K: 'static
 {
     if !js_value.is_object() {
@@ -1134,6 +1167,11 @@ pub unsafe fn jsmanaged_called_from_js<'a, K>(js_value: Handle<JSVal>) -> Result
     }
 
     let js_object = js_value.to_object();
+
+    if !JS_IsNative(js_object) {
+        return Err(JSEvaluateErr::NotJSManaged);
+    }
+
     let slot0 = JS_GetReservedSlot(js_object, 0);
     let slot1 = JS_GetReservedSlot(js_object, 1);
     if slot0.is_undefined() || slot1.is_undefined() {
@@ -1194,6 +1232,98 @@ pub trait JSRunnable<K>: Sized {
             marker: PhantomData,
         };
         self.run::<JSCompartmentImpl, Uninitialized<JSCompartmentImpl>>(cx);
+    }
+}
+
+/// The type of JS-managed strings in the same zone as compartment `C`, with lifetime `a`.
+/// Rust is much happier with flat string representations, so we flatten
+/// strings when they come into Rust.
+pub struct JSString<'a, C> {
+    js_string: *mut jsapi::JSFlatString,
+    marker: PhantomData<(&'a(), C)>,
+}
+
+impl<'a, C> Clone for JSString<'a, C> {
+    fn clone(&self) -> JSString<'a, C> {
+        JSString {
+            js_string: self.js_string,
+            marker: PhantomData,
+        }
+    }
+}
+
+impl<'a, C> Copy for JSString<'a, C> {}
+
+impl<'a, C> JSString<'a, C> {
+    pub fn to_jsstring(self) -> *mut jsapi::JSString {
+        self.js_string as *mut jsapi::JSString
+    }
+
+    pub fn to_jsval(self) -> JSVal {
+        StringValue(unsafe { &*self.to_jsstring() })
+    }
+
+    pub fn len(self) -> usize {
+        unsafe { JS_GetStringLength(self.to_jsstring()) }
+    }
+
+    pub fn has_latin1_chars(self) -> bool {
+        unsafe { JS_StringHasLatin1Chars(self.to_jsstring()) }
+    }
+
+    pub unsafe fn get_latin1_chars(self) -> &'a str {
+        let nogc = ptr::null_mut(); // TODO: build an AutoCheckCannotGC?
+        let raw = JS_GetLatin1FlatStringChars(nogc, self.js_string);
+        str::from_utf8_unchecked(slice::from_raw_parts(raw, self.len()))
+    }
+
+    pub unsafe fn get_two_byte_chars(self) -> &'a [u16] {
+        let nogc = ptr::null_mut(); // TODO: build an AutoCheckCannotGC?
+        let raw = JS_GetTwoByteFlatStringChars(nogc, self.js_string);
+        slice::from_raw_parts(raw, self.len())
+    }
+
+    pub fn contents(self) -> JSStringContents<'a> {
+        if self.has_latin1_chars() {
+            JSStringContents::Latin1(unsafe { self.get_latin1_chars() })
+        } else {
+            JSStringContents::TwoByte(unsafe { self.get_two_byte_chars() })
+        }
+    }
+}
+
+impl<'a, C> Display for JSString<'a, C> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        self.contents().fmt(f)
+    }
+}
+
+pub enum JSStringContents<'a> {
+    Latin1(&'a str),
+    TwoByte(&'a[u16]),
+}
+
+impl<'a> Display for JSStringContents<'a> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match *self {
+            JSStringContents::Latin1(ref string) => f.write_str(string),
+            JSStringContents::TwoByte(ref slice) => char::decode_utf16(slice.iter().cloned())
+                .map(|ch| ch.unwrap_or(char::REPLACEMENT_CHARACTER))
+                .map(|ch| f.write_char(ch))
+                .find(Result::is_err)
+                .unwrap_or(Ok(()))
+        }
+    }
+}
+
+pub unsafe fn jsstring_called_from_js<'a>(cx: *mut jsapi::JSContext, value: HandleValue) -> Result<JSString<'a, FromJS>, JSEvaluateErr> {
+    if value.is_string() {
+        Ok(JSString {
+            js_string: JS_FlattenString(cx, value.to_string()),
+            marker: PhantomData,
+        })
+    } else {
+        Err(JSEvaluateErr::NotAString)
     }
 }
 

@@ -8,7 +8,10 @@ use linjs::InCompartment;
 use linjs::Initialized;
 use linjs::JSContext;
 use linjs::JSManaged;
+use linjs::JSString;
 
+use fake_codegen::ConsoleInitializer;
+use fake_codegen::ConsoleMethods;
 use fake_codegen::WindowInitializer;
 use fake_codegen::WindowMethods;
 
@@ -75,16 +78,34 @@ impl<'a, C> WindowMethods<'a, C> for Window<'a, C> where C: 'a {
 // -------------------------------------------------------------------
 
 #[derive(JSTraceable, JSRootable)]
-pub struct Console<'a, C> (JSManaged<'a, C, NativeConsoleClass>);
+pub struct Console<'a, C> (JSManaged<'a, C, ConsoleClass>);
 
-#[derive(HasClass, JSTraceable, JSRootable)]
-pub struct NativeConsole();
+#[derive(JSTraceable, JSRootable)]
+pub struct NativeConsole(());
+
+pub struct ConsoleClass;
+
+impl HasClass for NativeConsole {
+    type Class = ConsoleClass;
+    type Init = ConsoleInitializer;
+}
+
+impl<'a, C> HasInstance<'a, C> for ConsoleClass {
+    type Instance = NativeConsole;
+}
 
 impl<'a, C> Console<'a, C> {
     fn new<S>(cx: &'a mut JSContext<S>) -> Console<'a, C> where
         S: CanAlloc + InCompartment<C>,
     {
-        Console(cx.manage(NativeConsole()))
+        Console(cx.manage(NativeConsole(())))
+    }
+}
+
+impl<'a, C> ConsoleMethods<'a, C> for Console<'a, C> {
+    fn Log<S>(self, _cx: &mut JSContext<S>, arg: JSString<'a, C>) {
+        debug!("Logging");
+        println!("{}", arg);
     }
 }
 
@@ -157,8 +178,8 @@ impl<'a, C> Deref for Window<'a, C> {
     }
 }
 
-impl<'a, C> From<JSManaged<'a, C, NativeConsoleClass>> for Console<'a, C> {
-    fn from(value: JSManaged<'a, C, NativeConsoleClass>) -> Console<'a, C> {
+impl<'a, C> From<JSManaged<'a, C, ConsoleClass>> for Console<'a, C> {
+    fn from(value: JSManaged<'a, C, ConsoleClass>) -> Console<'a, C> {
         Console(value)
     }
 }
@@ -173,7 +194,7 @@ impl<'a, C> Clone for Console<'a, C> {
 }
 
 impl<'a, C> Deref for Console<'a, C> {
-    type Target = JSManaged<'a, C, NativeConsoleClass>;
+    type Target = JSManaged<'a, C, ConsoleClass>;
     fn deref(&self) -> &Self::Target {
         &self.0
     }
