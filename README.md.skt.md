@@ -1,6 +1,5 @@
-```rust,skt-main
+```rust,skt-linjs
 extern crate linjs;
-fn main() {{
-    {}
-}}
+#[macro_use] extern crate linjs_derive;
+{}
 ```
