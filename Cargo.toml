@@ -3,6 +3,7 @@ name = "linjs"
 version = "0.0.1"
 authors = ["ajeffrey@mozilla.com"]
 license = "MPL-2.0"
+build = "build.rs"
 
 [lib]
 
@@ -11,9 +12,13 @@ js = { git = "https://github.com/servo/rust-mozjs" }
 libc = "0.2.30"
 log = "0.3"
 
+[build-dependencies]
+skeptic = "0.13"
+
 [dev-dependencies]
 env_logger = "0.4"
 linjs_derive = { path = "linjs-derive" }
+skeptic = "0.13"
 
 [[example]]
 name = "minidom"
