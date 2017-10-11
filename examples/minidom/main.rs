@@ -16,30 +16,22 @@ mod minidom;
 use linjs::CanCreate;
 use linjs::HasGlobal;
 use linjs::JSContext;
-use linjs::JSRunnable;
 
-use minidom::init_window;
 use minidom::WindowClass;
 
-struct Main;
-
-impl JSRunnable<WindowClass> for Main {
-    fn run<C, S>(self, cx: JSContext<S>) where
-        S: CanCreate<C>,
-        C: HasGlobal<WindowClass>,
-    {
-        let ref mut cx = init_window(cx);
-        cx.evaluate("console.log('Hello world. 😃')").unwrap();
-
-        // Just GCing for testing purposes
-        cx.gc();
-    }
-}
+struct PrintHello;
 
 fn main() {
     env_logger::init().unwrap();
 
-    debug!("Running main");
-    Main.start();
-    debug!("Done running main");
+    debug!("Creating JSContext.");
+    let mut cx = JSContext::new();
+
+    debug!("Creating compartment");
+    cx.new_global::<WindowClass>();
+
+    debug!("Printing hello");
+    cx.evaluate("console.log('hello')");
+
+    debug!("Done.");
 }

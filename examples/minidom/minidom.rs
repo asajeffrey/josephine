@@ -7,6 +7,7 @@ use linjs::HasGlobal;
 use linjs::InCompartment;
 use linjs::Initialized;
 use linjs::JSContext;
+use linjs::JSGlobal;
 use linjs::JSManaged;
 use linjs::JSString;
 
@@ -31,17 +32,19 @@ pub struct NativeWindow<'a, C> {
     document: Document<'a, C>,
 }
 
-pub fn init_window<'a, C, S>(cx: JSContext<S>) -> JSContext<Initialized<C>> where
-    S: CanCreate<C>,
-    C: HasGlobal<WindowClass>,
-{
-    let mut cx = cx.create_compartment();
-    rooted!(in(cx) let console = Console::new(&mut cx));
-    rooted!(in(cx) let document = Document::new(&mut cx));
-    cx.global_manage(NativeWindow {
-        console: console,
-        document: document,
-    })
+impl JSGlobal for WindowClass {
+    fn init<C, S>(cx: JSContext<S>) -> JSContext<Initialized<C>> where
+        S: CanCreate<C>,
+        C: HasGlobal<WindowClass>,
+    {
+        let mut cx = cx.create_compartment();
+        rooted!(in(cx) let console = Console::new(&mut cx));
+        rooted!(in(cx) let document = Document::new(&mut cx));
+        cx.global_manage(NativeWindow {
+            console: console,
+            document: document,
+        })
+    }
 }
 
 pub struct WindowClass;

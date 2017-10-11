@@ -13,27 +13,31 @@ use linjs::CanCreate;
 use linjs::HasClass;
 use linjs::HasInstance;
 use linjs::HasGlobal;
-use linjs::JSRunnable;
+use linjs::Initialized;
 use linjs::JSContext;
+use linjs::JSGlobal;
 
 struct MyGlobalClass;
 impl<'a, C> HasInstance<'a, C> for MyGlobalClass {
     type Instance = NativeMyGlobal;
 }
-impl JSRunnable<MyGlobalClass> for MyGlobalClass {
-    fn run<C, S>(self, cx: JSContext<S>) where
+impl JSGlobal for MyGlobalClass {
+    fn init<C, S>(cx: JSContext<S>) -> JSContext<Initialized<C>> where
         S: CanCreate<C>,
 	C: HasGlobal<MyGlobalClass>,
     {
         // Create the JavaScript global
         let cx = cx.create_compartment();
         let native = NativeMyGlobal { message: String::from("hello") };
-	let ref cx = cx.global_manage(native);
+	let cx = cx.global_manage(native);
 	let global = cx.global();
 
         // The global is now managed by JavaScript.
 	// We can borrow the native data being managed by JavaScript.
-	assert_eq!(global.borrow(cx).message, "hello");
+	assert_eq!(global.borrow(&cx).message, "hello");
+
+        // Return the initialized context
+        cx
     }
 }
 
@@ -48,6 +52,7 @@ impl HasClass for NativeMyGlobal {
 
 // Run the example
 pub fn main() {
-    MyGlobalClass.start()
+    let mut cx = JSContext::new();
+    cx.new_global::<MyGlobalClass>();
 }
 ```

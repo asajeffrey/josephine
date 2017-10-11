@@ -361,10 +361,8 @@
 //!
 //! # Bootstrapping
 //!
-//! To bootstrap initialization, a user defines a type which implements the `JSRunnable` trait.
-//! This requires a `run` method, which takes the JS context as an argument.  The `JSRunnable`
-//! trait provides a `start()` method which calls the `run(cx)` method back with an appropriate
-//! context.
+//! To bootstrap initialization, a user defines a type which implements the `JSGlobal` trait.
+//! This requires a `init` method, which takes the JS context as an argument.
 //!
 //! ```rust
 //! # extern crate linjs;
@@ -373,21 +371,23 @@
 //! #[derive(HasClass, JSTraceable, JSRootable)]
 //! pub struct NativeMyGlobal { name: String }
 //!
-//! struct Example;
-//!
-//! impl JSRunnable<NativeMyGlobalClass> for Example {
-//!     fn run<C, S>(self, cx: JSContext<S>) where
+//! impl JSGlobal for NativeMyGlobalClass {
+//!     fn init<C, S>(cx: JSContext<S>) -> JSContext<Initialized<C>> where
 //!         S: CanCreate<C>,
 //!         C: HasGlobal<NativeMyGlobalClass>,
 //!     {
 //!         let cx = cx.create_compartment();
 //!         let name = String::from("Alice");
-//!         let ref cx = cx.global_manage(NativeMyGlobal { name: name });
-//!         assert_eq!(cx.global().borrow(cx).name, "Alice");
+//!         let cx = cx.global_manage(NativeMyGlobal { name: name });
+//!         assert_eq!(cx.global().borrow(&cx).name, "Alice");
+//!         cx
 //!     }
 //! }
 //!
-//! fn main() { Example.start(); }
+//! fn main() {
+//!     let mut cx = JSContext::new();
+//!     cx.new_global::<NativeMyGlobalClass>();
+//! }
 //! ```
 //!
 //! #Examples
@@ -399,9 +399,9 @@
 //! ```
 //! #[macro_use] extern crate linjs;
 //! #[macro_use] extern crate linjs_derive;
-//! use linjs::{CanAlloc, CanAccess, CanCreate, CanExtend};
+//! use linjs::{CanAlloc, CanAccess, CanCreate};
 //! use linjs::{HasClass, HasGlobal, HasInstance, InCompartment};
-//! use linjs::{JSContext, JSManaged, JSRunnable};
+//! use linjs::{Initialized, JSContext, JSManaged, JSGlobal};
 //!
 //! // A graph type
 //! type Graph<'a, C> = JSManaged<'a, C, GraphClass>;
@@ -427,56 +427,58 @@
 //! impl<'a, C> HasInstance<'a, C> for NodeClass { type Instance = NativeNode<'a, C>; }
 //!
 //! // Build a cyclic graph
-//! struct Example;
-//! impl JSRunnable<GraphClass> for Example {
-//!     fn run<C, S>(self, cx: JSContext<S>) where
+//! impl JSGlobal for GraphClass {
+//!     fn init<C, S>(cx: JSContext<S>) -> JSContext<Initialized<C>> where
 //!         S: CanCreate<C>,
 //!         C: HasGlobal<GraphClass>,
 //!     {
 //!         let cx = cx.create_compartment();
-//!         let ref mut cx = cx.global_manage(NativeGraph { nodes: vec![] });
+//!         let mut cx = cx.global_manage(NativeGraph { nodes: vec![] });
 //!         let graph = cx.global();
-//!         self.add_node1(cx, graph);
-//!         self.add_node2(cx, graph);
-//!         assert_eq!(graph.borrow(cx).nodes[0].borrow(cx).data, 1);
-//!         assert_eq!(graph.borrow(cx).nodes[1].borrow(cx).data, 2);
-//!         let ref mut cx = cx.snapshot();
-//!         self.add_edges(cx, graph);
-//!         assert_eq!(graph.borrow(cx).nodes[0].borrow(cx).edges[0].borrow(cx).data, 2);
-//!         assert_eq!(graph.borrow(cx).nodes[1].borrow(cx).edges[0].borrow(cx).data, 1);
+//!         add_node1(&mut cx, graph);
+//!         add_node2(&mut cx, graph);
+//!         assert_eq!(graph.borrow(&cx).nodes[0].borrow(&cx).data, 1);
+//!         assert_eq!(graph.borrow(&cx).nodes[1].borrow(&cx).data, 2);
+//!         add_edges(&mut cx, graph);
+//!         assert_eq!(graph.borrow(&cx).nodes[0].borrow(&cx).edges[0].borrow(&cx).data, 2);
+//!         assert_eq!(graph.borrow(&cx).nodes[1].borrow(&cx).edges[0].borrow(&cx).data, 1);
+//!         cx
 //!     }
 //! }
 //!
-//! impl Example {
-//!     fn add_node1<S, C>(&self, cx: &mut JSContext<S>, graph: Graph<C>) where
-//!         S: CanAccess + CanAlloc + InCompartment<C>
-//!     {
-//!         // Creating nodes does memory allocation, which may trigger GC,
-//!         // so we need to be careful about lifetimes while they are being added.
-//!         // Approach 1 is to root the node.
-//!         rooted!(in(cx) let node1 = cx.manage(NativeNode { data: 1, edges: vec![] }));
-//!         graph.borrow_mut(cx).nodes.push(node1);
-//!     }
-//!     fn add_node2<S, C>(&self, cx: &mut JSContext<S>, graph: Graph<C>) where
-//!         S: CanAccess + CanAlloc + InCompartment<C>
-//!      {
-//!         // Approach 2 is to take a snapshot of the context right after allocation.
-//!         let (ref mut cx, node2) = cx.snapshot_manage(NativeNode { data: 2, edges: vec![] });
-//!         graph.borrow_mut(cx).nodes.push(node2);
-//!     }
-//!     fn add_edges<'a, S, C>(&self, cx: &mut JSContext<S>, graph: Graph<C>) where
-//!         C: 'a,
-//!         S: CanAccess + CanExtend<'a> + InCompartment<C>
-//!      {
-//!         // Note that there's no rooting here.
-//!         let node1 = graph.borrow(cx).nodes[0].extend_lifetime(cx);
-//!         let node2 = graph.borrow(cx).nodes[1].extend_lifetime(cx);
-//!         node1.borrow_mut(cx).edges.push(node2);
-//!         node2.borrow_mut(cx).edges.push(node1);
-//!     }
+//! fn add_node1<S, C>(cx: &mut JSContext<S>, graph: Graph<C>) where
+//!     S: CanAccess + CanAlloc + InCompartment<C>
+//! {
+//!     // Creating nodes does memory allocation, which may trigger GC,
+//!     // so we need to be careful about lifetimes while they are being added.
+//!     // Approach 1 is to root the node.
+//!     rooted!(in(cx) let node1 = cx.manage(NativeNode { data: 1, edges: vec![] }));
+//!     graph.borrow_mut(cx).nodes.push(node1);
 //! }
 //!
-//! fn main() { Example.start(); }
+//! fn add_node2<S, C>(cx: &mut JSContext<S>, graph: Graph<C>) where
+//!     S: CanAccess + CanAlloc + InCompartment<C>
+//!  {
+//!     // Approach 2 is to take a snapshot of the context right after allocation.
+//!     let (ref mut cx, node2) = cx.snapshot_manage(NativeNode { data: 2, edges: vec![] });
+//!     graph.borrow_mut(cx).nodes.push(node2);
+//! }
+//!
+//! fn add_edges<S, C>(cx: &mut JSContext<S>, graph: Graph<C>) where
+//!     S: CanAccess + InCompartment<C>
+//!  {
+//!     let ref mut cx = cx.snapshot();
+//!     // Note that there's no rooting here.
+//!     let node1 = graph.borrow(cx).nodes[0].extend_lifetime(cx);
+//!     let node2 = graph.borrow(cx).nodes[1].extend_lifetime(cx);
+//!     node1.borrow_mut(cx).edges.push(node2);
+//!     node2.borrow_mut(cx).edges.push(node1);
+//! }
+//!
+//! fn main() {
+//!     let mut cx = JSContext::new();
+//!     cx.new_global::<GraphClass>();
+//! }
 //! ```
 
 #![feature(associated_type_defaults)]
@@ -501,6 +503,7 @@ use js::jsapi::GCTraceKindToAscii;
 use js::jsapi::Handle;
 use js::jsapi::HandleValue;
 use js::jsapi::Heap;
+use js::jsapi::InitSelfHostedCode;
 use js::jsapi::JSAutoCompartment;
 use js::jsapi::JSCLASS_RESERVED_SLOTS_SHIFT;
 use js::jsapi::JSClass;
@@ -511,26 +514,33 @@ use js::jsapi::JSNativeWrapper;
 use js::jsapi::JSObject;
 use js::jsapi::JSPrincipals;
 use js::jsapi::JSPropertySpec;
+use js::jsapi::JSRuntime;
 use js::jsapi::JSVersion;
 use js::jsapi::JS_AddExtraGCRootsTracer;
 use js::jsapi::JS_ClearPendingException;
 use js::jsapi::JS_DefineFunctions;
 use js::jsapi::JS_DefineProperties;
+use js::jsapi::JS_DestroyRuntime;
 use js::jsapi::JS_FlattenString;
 use js::jsapi::JS_GC;
+use js::jsapi::JS_GetContext;
 use js::jsapi::JS_GetLatin1FlatStringChars;
 use js::jsapi::JS_GetObjectPrototype;
 use js::jsapi::JS_GetPendingException;
 use js::jsapi::JS_GetReservedSlot;
+use js::jsapi::JS_GetRuntime;
 use js::jsapi::JS_GetStringLength;
 use js::jsapi::JS_GetTwoByteFlatStringChars;
+use js::jsapi::JS_Init;
 use js::jsapi::JS_InitClass;
 use js::jsapi::JS_InitStandardClasses;
 use js::jsapi::JS_IsExceptionPending;
 use js::jsapi::JS_IsNative;
+use js::jsapi::JS_NewRuntime;
 use js::jsapi::JS_NewGlobalObject;
 use js::jsapi::JS_NewObjectWithGivenProto;
 use js::jsapi::JS_SetReservedSlot;
+use js::jsapi::JS_ShutDown;
 use js::jsapi::JS_StringHasLatin1Chars;
 use js::jsapi::MutableHandle;
 use js::jsapi::OnNewGlobalHookOption;
@@ -541,8 +551,6 @@ use js::jsval::ObjectValue;
 use js::jsval::PrivateValue;
 use js::jsval::StringValue;
 use js::jsval::UndefinedValue;
-
-use js::rust::Runtime;
 
 pub use js::jsapi::JSTracer;
 
@@ -563,6 +571,7 @@ use std::ops::Deref;
 use std::ops::DerefMut;
 use std::os::raw::c_void;
 use std::ptr;
+use std::rc::Rc;
 use std::slice;
 use std::str;
 
@@ -572,6 +581,7 @@ pub struct JSContext<S> {
     global_js_object: *mut Heap<*mut JSObject>,
     global_raw: *mut (),
     auto_compartment: Option<JSAutoCompartment>,
+    runtime: Option<OwnedJSRuntime>,
     marker: PhantomData<S>,
 }
 
@@ -583,6 +593,9 @@ pub struct Uninitialized<C> (PhantomData<C>);
 
 /// A context state in the middle of initializing a compartment `C`.
 pub struct Initializing<C> (PhantomData<C>);
+
+/// A context state for JS contexts owned by Rust.
+pub struct Owned (());
 
 /// A context state for callbacks from JS,
 pub struct FromJS (());
@@ -624,12 +637,34 @@ impl CanAlloc for FromJS {}
 pub trait CanCreate<C> {}
 impl<C> CanCreate<C> for Uninitialized<C> {}
 
+/// A marker trait for JS contexts that can create new compartments.
+pub trait CanCreateCompartments {}
+impl CanCreateCompartments for Owned {}
+
 /// A marker trait for JS contexts that are in the middle of initializing
 pub trait IsInitializing {}
 impl<C> IsInitializing for Initializing<C> {}
 
 /// A marker trait for JS compartments that have a global of class `K`.
 pub trait HasGlobal<K> {}
+
+impl JSContext<Owned> {
+    /// Create a new JSContext.
+    pub fn new() -> JSContext<Owned> {
+        // TODO: set options on the runtime?
+        let runtime = OwnedJSRuntime::new();
+        let jsapi_context = unsafe { JS_GetContext(runtime.0) };
+        unsafe { JS_AddExtraGCRootsTracer(runtime.0, Some(trace_thread_local_roots), ptr::null_mut()); }
+        JSContext {
+            jsapi_context: jsapi_context,
+            global_js_object: ptr::null_mut(),
+            global_raw: ptr::null_mut(),
+            auto_compartment: None,
+            runtime: Some(runtime),
+            marker: PhantomData,
+        }
+    }
+}
 
 impl<S> JSContext<S> {
     /// Get a snapshot of the JS state.
@@ -642,12 +677,15 @@ impl<S> JSContext<S> {
             global_js_object: self.global_js_object,
             global_raw: self.global_raw,
             auto_compartment: None,
+            runtime: None,
             marker: PhantomData,
         }
     }
 
     /// Enter a compartment.
     pub fn enter<'a, C, K>(&'a mut self, value: JSManaged<'a, C, K>) -> JSContext<Entered<C, S>> {
+        // TODO: ensure the value came from the same JSContext.
+        // TODO: statically ensure same-origin?
         debug!("Entering compartment.");
         let ac = JSAutoCompartment::new(self.jsapi_context, unsafe { &*value.js_object }.get());
         JSContext {
@@ -655,6 +693,7 @@ impl<S> JSContext<S> {
             global_js_object: ptr::null_mut(), // TODO: ensure that this isn't accessed
             global_raw: ptr::null_mut(), // TODO: ensure that this isn't accessed
             auto_compartment: Some(ac),
+            runtime: None,
             marker: PhantomData,
         }
     }
@@ -719,6 +758,7 @@ impl<S> JSContext<S> {
             global_js_object: global_js_object,
             global_raw: global_raw,
             auto_compartment: None,
+            runtime: None,
             marker: PhantomData,
         };
         (snapshot, managed)
@@ -777,6 +817,7 @@ impl<S> JSContext<S> {
             global_js_object: Box::into_raw(boxed_jsobject),
             global_raw: fat_value[0] as *mut (),
             auto_compartment: Some(ac),
+            runtime: self.runtime,
             marker: PhantomData,
         }
     }
@@ -799,6 +840,7 @@ impl<S> JSContext<S> {
             global_js_object: self.global_js_object,
             global_raw: self.global_raw,
             auto_compartment: self.auto_compartment,
+            runtime: self.runtime,
             marker: PhantomData,
         }
     }
@@ -815,6 +857,25 @@ impl<S> JSContext<S> {
         }
     }
 
+    /// Create a new global.
+    /// TODO: return a JSManaged with a wildcard compartment.
+    pub fn new_global<'a, K>(&'a mut self) where
+        S: CanCreateCompartments,
+        K: JSGlobal,
+    {
+        struct JSCompartmentImpl;
+        impl<K> HasGlobal<K> for JSCompartmentImpl {}
+        let cx: JSContext<Uninitialized<JSCompartmentImpl>> = JSContext {
+            jsapi_context: self.jsapi_context,
+            global_js_object: ptr::null_mut(),
+            global_raw: ptr::null_mut(),
+            auto_compartment: None,
+            runtime: None,
+            marker: PhantomData,
+        };
+        let _cx = K::init(cx);
+    }
+    
     /// Create a new root.
     pub fn new_root<T>(&mut self) -> JSRoot<T> {
         JSRoot {
@@ -832,7 +893,7 @@ impl<S> JSContext<S> {
     }
 
     pub fn rt(&self) -> *mut jsapi::JSRuntime {
-        RUNTIME.with(|runtime| runtime.rt())
+        unsafe { JS_GetRuntime(self.jsapi_context) }
     }
 
     pub fn gc(&mut self) where
@@ -872,6 +933,39 @@ impl<S> JSContext<S> {
         unsafe { JS_ClearPendingException(cx) };
 
         Err(JSEvaluateErr::JSException)
+    }
+}
+
+/// A JS runtime owned by Rust
+pub struct OwnedJSRuntime(*mut JSRuntime, Rc<OwnedJSInit>);
+
+const DEFAULT_HEAPSIZE: u32 = 32_u32 * 1024_u32 * 1024_u32;
+const CHUNK_SIZE: u32 = 1 << 20;
+
+impl OwnedJSRuntime {
+    fn new() -> OwnedJSRuntime {
+        let js_init = OWNED_JSINIT.with(|init| init.clone());
+        let js_runtime = unsafe { JS_NewRuntime(DEFAULT_HEAPSIZE, CHUNK_SIZE, ptr::null_mut()) };
+        let js_context = unsafe { JS_GetContext(js_runtime) };
+        unsafe { InitSelfHostedCode(js_context) };
+        OwnedJSRuntime(js_runtime, js_init)
+    }
+}
+
+impl Drop for OwnedJSRuntime {
+    fn drop(&mut self) {
+        unsafe { JS_DestroyRuntime(self.0) };
+    }
+}
+
+/// A capability to create JSRuntimes, owned by Rust.
+struct OwnedJSInit;
+
+thread_local! { static OWNED_JSINIT: Rc<OwnedJSInit> = { unsafe { JS_Init() }; Rc::new(OwnedJSInit) }; }
+
+impl Drop for OwnedJSInit {
+    fn drop(&mut self) {
+        unsafe { JS_ShutDown() };
     }
 }
 
@@ -1155,6 +1249,7 @@ pub unsafe fn jscontext_called_from_js(cx: *mut jsapi::JSContext) -> JSContext<F
         global_js_object: ptr::null_mut(),
         global_raw: ptr::null_mut(),
         auto_compartment: None,
+        runtime: None,
         marker: PhantomData,
     }
 }
@@ -1204,35 +1299,12 @@ pub trait HasJSClass {
     fn js_class() -> &'static JSClass;
 }
 
-/// The thread-local JS runtime
-thread_local! {
-    static RUNTIME: Runtime = {
-        let rt = Runtime::new().unwrap();
-        unsafe { JS_AddExtraGCRootsTracer(rt.rt(), Some(trace_thread_local_roots), ptr::null_mut()); }
-        rt
-    };
-}
-
-/// A user of a JS runtime implements `JSRunnable`.
-pub trait JSRunnable<K>: Sized {
+/// A trait for classes that can be used as a global.
+pub trait JSGlobal: Sized {
     /// This callback is called with a fresh JS compartment type `C`.
-    fn run<C, S>(self, cx: JSContext<S>) where
+    fn init<C, S>(cx: JSContext<S>) -> JSContext<Initialized<C>> where
         S: CanCreate<C>,
-        C: HasGlobal<K>;
-
-    /// To trigger the callback, call `rt.start()`.
-    fn start(self) {
-        struct JSCompartmentImpl;
-        impl<K> HasGlobal<K> for JSCompartmentImpl {}
-        let cx = JSContext {
-            jsapi_context: RUNTIME.with(|rt| rt.cx()),
-            global_js_object: ptr::null_mut(),
-            global_raw: ptr::null_mut(),
-            auto_compartment: None,
-            marker: PhantomData,
-        };
-        self.run::<JSCompartmentImpl, Uninitialized<JSCompartmentImpl>>(cx);
-    }
+        C: HasGlobal<Self>;
 }
 
 /// The type of JS-managed strings in the same zone as compartment `C`, with lifetime `a`.
