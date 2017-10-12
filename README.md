@@ -26,24 +26,16 @@ impl JSGlobal for MyGlobalClass {
         S: CanCreate<C>,
 	C: HasGlobal<MyGlobalClass>,
     {
-        // Create the JavaScript global
-        let cx = cx.create_compartment();
+        // Some native data whose lifetime will be managed by JavaScript
         let native = NativeMyGlobal { message: String::from("hello") };
-	let cx = cx.global_manage(native);
-	let global = cx.global();
 
-        // The global is now managed by JavaScript.
-	// We can borrow the native data being managed by JavaScript.
-	assert_eq!(global.borrow(&cx).message, "hello");
-
-        // Return the initialized context
-        cx
+        // Create the JavaScript compartment and give the global native data to manage
+        cx.create_compartment().global_manage(native)
     }
 }
 
 #[derive(Debug, JSTraceable)]
 struct NativeMyGlobal {
-    // The lifetime of this message is managed by JavaScript.
     message: String,
 }
 impl HasClass for NativeMyGlobal {
@@ -52,7 +44,15 @@ impl HasClass for NativeMyGlobal {
 
 // Run the example
 pub fn main() {
-    let mut cx = JSContext::new();
-    cx.new_global::<MyGlobalClass>();
+    // Create a new JavaScript context,
+    let ref mut cx = JSContext::new();
+
+    // Create a new global in that context.
+    // We have to root the global to stop it being garbage collected.
+    // If we don't root it, this code won't compile!
+    rooted!(in(cx) let global = cx.new_global::<MyGlobalClass>());
+
+    // Make sure the global has the native data we expect.
+    assert_eq!(global.borrow(cx).message, "hello");
 }
 ```

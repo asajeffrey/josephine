@@ -594,6 +594,9 @@ pub struct Uninitialized<C> (PhantomData<C>);
 /// A context state in the middle of initializing a compartment `C`.
 pub struct Initializing<C> (PhantomData<C>);
 
+/// A context state that is visiting `C`.
+pub struct Visiting<C> (PhantomData<C>);
+
 /// A context state for JS contexts owned by Rust.
 pub struct Owned (());
 
@@ -604,34 +607,32 @@ pub struct FromJS (());
 /// which guarantees that no GC will happen during the lifetime `'a`.
 pub struct Snapshotted<'a, S> (PhantomData<(&'a(), S)>);
 
-/// A context state which has entered compartment `C` from state `S`.
-pub struct Entered<C, S> (PhantomData<(C, S)>);
-
 /// A marker trait for JS contexts in compartment `C`
 pub trait InCompartment<C> {}
 impl<C> InCompartment<C> for Initializing<C> {}
 impl<C> InCompartment<C> for Initialized<C> {}
+impl<C> InCompartment<C> for Visiting<C> {}
 impl<'a, C, S> InCompartment<C> for Snapshotted<'a, S> where S: InCompartment<C> {}
-impl<C, S> InCompartment<C> for Entered<C, S> {}
 
 /// A marker trait for JS contexts that can access native state
 pub trait CanAccess {}
 impl<C> CanAccess for Initialized<C> {}
+impl<C> CanAccess for Visiting<C> {}
 impl CanAccess for FromJS {}
 impl<'a, S> CanAccess for Snapshotted<'a, S> where S: CanAccess {}
-impl<C, S> CanAccess for Entered<C, S> where S: CanAccess {}
+impl CanAccess for Owned {}
 
 /// A marker trait for JS contexts that can extend the lifetime of objects
 pub trait CanExtend<'a> {}
 impl<'a, S> CanExtend<'a> for Snapshotted<'a, S> {}
-impl<'a, C, S> CanExtend<'a> for Entered<C, S> where S: CanExtend<'a> {}
 
 /// A marker trait for JS contexts that can (de)allocate objects
 pub trait CanAlloc {}
-impl<G> CanAlloc for Initialized<G> {}
-impl<G> CanAlloc for Initializing<G> {}
-impl<C, S> CanAlloc for Entered<C, S> where S: CanAlloc {}
+impl<C> CanAlloc for Initialized<C> {}
+impl<C> CanAlloc for Initializing<C> {}
+impl<C> CanAlloc for Visiting<C> {}
 impl CanAlloc for FromJS {}
+impl CanAlloc for Owned {}
 
 /// A marker trait for JS contexts that can create compartment `C`.
 pub trait CanCreate<C> {}
@@ -677,22 +678,6 @@ impl<S> JSContext<S> {
             global_js_object: self.global_js_object,
             global_raw: self.global_raw,
             auto_compartment: None,
-            runtime: None,
-            marker: PhantomData,
-        }
-    }
-
-    /// Enter a compartment.
-    pub fn enter<'a, C, K>(&'a mut self, value: JSManaged<'a, C, K>) -> JSContext<Entered<C, S>> {
-        // TODO: ensure the value came from the same JSContext.
-        // TODO: statically ensure same-origin?
-        debug!("Entering compartment.");
-        let ac = JSAutoCompartment::new(self.jsapi_context, unsafe { &*value.js_object }.get());
-        JSContext {
-            jsapi_context: self.jsapi_context,
-            global_js_object: ptr::null_mut(), // TODO: ensure that this isn't accessed
-            global_raw: ptr::null_mut(), // TODO: ensure that this isn't accessed
-            auto_compartment: Some(ac),
             runtime: None,
             marker: PhantomData,
         }
@@ -859,7 +844,7 @@ impl<S> JSContext<S> {
 
     /// Create a new global.
     /// TODO: return a JSManaged with a wildcard compartment.
-    pub fn new_global<'a, K>(&'a mut self) where
+    pub fn new_global<'a, K>(&'a mut self) -> JSManaged<'a, SOMEWHERE, K> where
         S: CanCreateCompartments,
         K: JSGlobal,
     {
@@ -873,7 +858,8 @@ impl<S> JSContext<S> {
             runtime: None,
             marker: PhantomData,
         };
-        let _cx = K::init(cx);
+        let cx = K::init(cx);
+        cx.global().forget_compartment()
     }
     
     /// Create a new root.
@@ -1473,7 +1459,7 @@ impl<'a, C, K> JSManaged<'a, C, K> {
 
     /// Read-write access to JS-managed data.
     pub fn borrow_mut<'b, S>(self, _: &'b mut JSContext<S>) -> &'b mut K::Instance where
-        S: CanAccess,
+        S: CanAccess + InCompartment<C>,
         K: HasInstance<'b, C>,
         'a: 'b,
     {
@@ -1497,9 +1483,52 @@ impl<'a, C, K> JSManaged<'a, C, K> {
         unsafe { self.change_lifetime() }
     }
 
-    pub fn to_jsval(self) -> JSVal {
-        ObjectValue(unsafe { &*self.js_object }.get())
+    /// Forget about which compartment the managed data is in.
+    /// This is safe because when we mutate data in compartment `C` we do so with a
+    /// JS context in compartment `C`, which means it is never `SOMEWHERE`.
+    pub fn forget_compartment(self) -> JSManaged<'a, SOMEWHERE, K> {
+        JSManaged {
+            js_object: self.js_object,
+            raw: self.raw,
+            marker: PhantomData,
+        }
     }
+
+    /// Visit the compartment of this object.
+    pub fn visit_compartment<S, V>(self, cx: &'a mut JSContext<S>, visitor: V) -> V::Result where
+        S: CanAccess + CanAlloc,
+        V: VisitCompartment<'a, K>,
+    {
+        debug!("Visiting compartment.");
+        let ac = JSAutoCompartment::new(cx.jsapi_context, self.to_jsobject());
+        let ref mut cx = JSContext {
+            jsapi_context: cx.jsapi_context,
+            global_js_object: ptr::null_mut(),
+            global_raw: ptr::null_mut(),
+            auto_compartment: Some(ac),
+            runtime: None,
+            marker: PhantomData,
+        };
+        visitor.visit::<C, Visiting<C>>(cx, self)
+    }
+
+    pub fn to_jsobject(self) -> *mut JSObject {
+        unsafe { &*self.js_object }.get()
+    }
+
+    pub fn to_jsval(self) -> JSVal {
+        ObjectValue(self.to_jsobject())
+    }
+}
+
+/// A wildcard compartment name.
+pub struct SOMEWHERE(());
+
+/// A trait for entering a compartment, and binding it to `C`.
+pub trait VisitCompartment<'a, K> {
+    type Result = ();
+    fn visit<C, S>(self, cx: &mut JSContext<S>, managed: JSManaged<'a, C, K>) -> Self::Result where
+        S: CanAccess + CanAlloc + InCompartment<C>;
 }
 
 /// A stack allocated root containing data of type `T`.`
