@@ -1,6 +1,7 @@
 use linjs::CanAccess;
 use linjs::CanAlloc;
 use linjs::CanCreate;
+use linjs::Compartment;
 use linjs::HasClass;
 use linjs::HasInstance;
 use linjs::HasGlobal;
@@ -64,19 +65,19 @@ impl<'a, C> HasInstance<'a, C> for WindowClass {
 impl<'a, C> WindowMethods<'a, C> for Window<'a, C> where C: 'a {
     fn Console<S>(self, cx: &'a JSContext<S>) -> Console<'a, C> where
         S: CanAccess,
+        C: Compartment,
     {
         self.borrow(cx).console
     }
 
     fn Document<S>(self, cx: &'a JSContext<S>) -> Document<'a, C> where
         S: CanAccess,
+        C: Compartment,
     {
         self.borrow(cx).document
     }
 
-    fn Window<S>(self, _cx: &'a JSContext<S>) -> Window<'a, C> where
-        S: CanAccess,
-    {
+    fn Window<S>(self, _cx: &'a JSContext<S>) -> Window<'a, C> {
         self
     }
 }

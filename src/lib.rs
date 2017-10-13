@@ -21,6 +21,7 @@
 //! # use linjs::*;
 //! fn example<C, S>(cx: &mut JSContext<S>) where
 //!     S: CanAlloc + InCompartment<C>,
+//!     C: Compartment,
 //! {
 //!     let x: JSManaged<C, String> = cx.manage(String::from("hello"));
 //! }
@@ -32,7 +33,8 @@
 //! ```rust
 //! # use linjs::*;
 //! fn example<C, S>(cx: &mut JSContext<S>, x: JSManaged<C, String>) where
-//!     S: CanAccess + InCompartment<C>,
+//!     S: CanAccess,
+//!     C: Compartment,
 //! {
 //!     println!("{} world", x.borrow(cx));
 //! }
@@ -47,6 +49,7 @@
 //! # use linjs::*;
 //! fn unsafe_example<C, S>(cx: &mut JSContext<S>) where
 //!     S: CanAlloc + CanAccess + InCompartment<C>,
+//!     C: Compartment,
 //! {
 //!     let x: JSManaged<C, String> = cx.manage(String::from("hello"));
 //!     // Imagine something triggers GC here
@@ -62,15 +65,15 @@
 //!
 //! ```text
 //! 	error[E0502]: cannot borrow `*cx` as immutable because it is also borrowed as mutable
-//!  --> <anon>:7:32
-//!   |
-//! 5 |     let x: JSManaged<C, String> = cx.manage(String::from("hello"));
-//!   |                                   -- mutable borrow occurs here
-//! 6 |     // Imagine something triggers GC here
-//! 7 |     println!("{} world", x.borrow(cx));
-//!   |                                ^^ immutable borrow occurs here
-//! 8 | }
-//!   | - mutable borrow ends here
+//!   --> src/lib.rs:10:35
+//!    |
+//! 8  |     let x: JSManaged<C, String> = cx.manage(String::from("hello"));
+//!    |                                   -- mutable borrow occurs here
+//! 9  |     // Imagine something triggers GC here
+//! 10 |     println!("{} world", x.borrow(cx));
+//!    |                                   ^^ immutable borrow occurs here
+//! 11 | }
+//!    | - mutable borrow ends here
 //! ```
 //!
 //! To see why this example fails to typecheck, we can introduce explicit lifetimes:
@@ -79,6 +82,7 @@
 //! # use linjs::*;
 //! fn unsafe_example<'a, C, S>(cx: &'a mut JSContext<S>) where
 //!     S: CanAlloc + CanAccess + InCompartment<C>,
+//!     C: Compartment,
 //! {
 //!     // x has type JSManaged<'b, C, String>
 //!     let x = cx.manage(String::from("hello"));
@@ -101,8 +105,9 @@
 //!
 //! ```rust
 //! # use linjs::*;
-//! fn example<'a, C: 'a, S>(cx: &'a mut JSContext<S>) where
+//! fn example<'a, C, S>(cx: &'a mut JSContext<S>) where
 //!     S: CanAlloc + CanAccess + InCompartment<C>,
+//!     C: Compartment,
 //! {
 //!     // Function body has lifetime 'b
 //!     // x has type JSManaged<'b, C, String>
@@ -135,7 +140,8 @@
 //! ```rust
 //! # use linjs::*;
 //! fn example<C, S>(cx: &mut JSContext<S>, x: JSManaged<C, String>) where
-//!     S: CanAccess + InCompartment<C>,
+//!     S: CanAccess,
+//!     C: Compartment,
 //! {
 //!     println!("{} world", x.borrow(cx));
 //!     *x.borrow_mut(cx) = String::from("hi");
@@ -149,21 +155,22 @@
 //! ```rust,ignore
 //! # use linjs::*; use std::mem;
 //! fn unsafe_example<C, S>(cx: &mut JSContext<S>, x: JSManaged<C, String>, y: JSManaged<C, String>) where
-//!     S: CanAccess + InCompartment<C>,
+//!     S: CanAccess,
+//!     C: Compartment,
 //! {
 //!     mem::swap(x.borrow_mut(cx), y.borrow_mut(cx));
 //! }
 //! ```
 //!
 //! ```text
-//!         error[E0499]: cannot borrow `*cx` as mutable more than once at a time
-//!  --> <anon>:7:40
+//! 	error[E0499]: cannot borrow `*cx` as mutable more than once at a time
+//!  --> src/lib.rs:8:46
 //!   |
-//! 7 |     mem::swap(x.borrow_mut(cx), y.borrow_mut(cx));
-//!   |                         --             ^^ - first borrow ends here
-//!   |                         |              |
-//!   |                         |              second mutable borrow occurs here
-//!   |                         first mutable borrow occurs here
+//! 8 |     mem::swap(x.borrow_mut(cx), y.borrow_mut(cx));
+//!   |                            --                ^^ - first borrow ends here
+//!   |                            |                 |
+//!   |                            |                 second mutable borrow occurs here
+//!   |                            first mutable borrow occurs here
 //! ```
 //!
 //! Mutable update allows the construction of cyclic structures, for example:
@@ -179,6 +186,7 @@
 //! type Loop<'a, C> = JSManaged<'a, C, NativeLoopClass>;
 //! fn example<C, S>(cx: &mut JSContext<S>) where
 //!     S: CanAccess + CanAlloc + InCompartment<C>,
+//!     C: Compartment,
 //! {
 //!    let ref mut root = cx.new_root();
 //!    let l = cx.manage(NativeLoop { next: None }).in_root(root);
@@ -208,6 +216,7 @@
 //! # type Loop<'a, C> = JSManaged<'a, C, NativeLoopClass>;
 //! fn example<C, S>(cx: &mut JSContext<S>) where
 //!     S: CanAccess + CanAlloc + InCompartment<C>,
+//!     C: Compartment,
 //! {
 //!    let (ref mut cx, l) = cx.snapshot_manage(NativeLoop { next: None });
 //!    l.borrow_mut(cx).next = Some(l);
@@ -229,11 +238,13 @@
 //! # }
 //! # type Loop<'a, C> = JSManaged<'a, C, NativeLoopClass>;
 //! fn might_trigger_gc<C, S>(cx: &mut JSContext<S>) where
-//!     S: CanAccess + CanAlloc + InCompartment<C>
+//!     S: CanAccess + CanAlloc + InCompartment<C>,
+//!     C: Compartment,
 //! { }
 //!
 //! fn unsafe_example<C, S>(cx: &mut JSContext<S>) where
-//!     S: CanAccess + CanAlloc + InCompartment<C>
+//!     S: CanAccess + CanAlloc + InCompartment<C>,
+//!     C: Compartment,
 //! {
 //!    let (ref mut cx, l) = cx.snapshot_manage(NativeLoop { next: None });
 //!    might_trigger_gc(cx);
@@ -246,11 +257,11 @@
 //! to support `CanAlloc<C>`, which is not allowed by the snapshotted state.
 //!
 //! ```text
-//! 	error[E0277]: the trait bound `linjs::Snapshotted<'_, S>: linjs::CanAlloc<C>` is not satisfied
-//!   --> <anon>:16:4
+//! 	error[E0277]: the trait bound `linjs::Snapshotted<'_, S>: linjs::CanAlloc` is not satisfied
+//!   --> src/lib.rs:19:4
 //!    |
-//! 16 |    might_trigger_gc(cx);
-//!    |    ^^^^^^^^^^^^^^^^ the trait `linjs::CanAlloc<C>` is not implemented for `linjs::Snapshotted<'_, S>`
+//! 19 |    might_trigger_gc(cx);
+//!    |    ^^^^^^^^^^^^^^^^ the trait `linjs::CanAlloc` is not implemented for `linjs::Snapshotted<'_, S>`
 //!    |
 //!    = note: required by `might_trigger_gc`
 //! ```
@@ -401,9 +412,9 @@
 //! the graph with no need for rooting.
 //!
 //! ```
-//! #[macro_use] extern crate linjs;
+//! extern crate linjs;
 //! #[macro_use] extern crate linjs_derive;
-//! use linjs::{CanAlloc, CanAccess, CanCreate};
+//! use linjs::{CanAlloc, CanAccess, CanCreate, Compartment};
 //! use linjs::{HasClass, HasGlobal, HasInstance, InCompartment};
 //! use linjs::{Initialized, JSContext, JSManaged, JSGlobal, JSRootable};
 //!
@@ -452,7 +463,8 @@
 //! }
 //!
 //! fn add_node1<S, C>(cx: &mut JSContext<S>, graph: Graph<C>) where
-//!     S: CanAccess + CanAlloc + InCompartment<C>
+//!     S: CanAccess + CanAlloc + InCompartment<C>,
+//!     C: Compartment,
 //! {
 //!     // Creating nodes does memory allocation, which may trigger GC,
 //!     // so we need to be careful about lifetimes while they are being added.
@@ -463,7 +475,8 @@
 //! }
 //!
 //! fn add_node2<S, C>(cx: &mut JSContext<S>, graph: Graph<C>) where
-//!     S: CanAccess + CanAlloc + InCompartment<C>
+//!     S: CanAccess + CanAlloc + InCompartment<C>,
+//!     C: Compartment,
 //!  {
 //!     // Approach 2 is to take a snapshot of the context right after allocation.
 //!     let (ref mut cx, node2) = cx.snapshot_manage(NativeNode { data: 2, edges: vec![] });
@@ -471,7 +484,8 @@
 //! }
 //!
 //! fn add_edges<S, C>(cx: &mut JSContext<S>, graph: Graph<C>) where
-//!     S: CanAccess + InCompartment<C>
+//!     S: CanAccess,
+//!     C: Compartment,
 //!  {
 //!     let ref mut cx = cx.snapshot();
 //!     // Note that there's no rooting here.
@@ -654,8 +668,11 @@ impl CanCreateCompartments for Owned {}
 pub trait IsInitializing {}
 impl<C> IsInitializing for Initializing<C> {}
 
+/// A marker trait for JS compartments.
+pub trait Compartment {}
+
 /// A marker trait for JS compartments that have a global of class `K`.
-pub trait HasGlobal<K> {}
+pub trait HasGlobal<K>: Compartment {}
 
 impl JSContext<Owned> {
     /// Create a new JSContext.
@@ -866,9 +883,7 @@ impl<S> JSContext<S> {
         S: CanCreateCompartments,
         K: JSGlobal,
     {
-        struct JSCompartmentImpl;
-        impl<K> HasGlobal<K> for JSCompartmentImpl {}
-        let cx: JSContext<Uninitialized<JSCompartmentImpl>> = JSContext {
+        let cx: JSContext<Uninitialized<UNSAFE>> = JSContext {
             jsapi_context: self.jsapi_context,
             global_js_object: ptr::null_mut(),
             global_raw: ptr::null_mut(),
@@ -1258,7 +1273,7 @@ pub unsafe fn jscontext_called_from_js(cx: *mut jsapi::JSContext) -> JSContext<F
     }
 }
 
-pub unsafe fn jsmanaged_called_from_js<'a, K>(js_value: HandleValue) -> Result<JSManaged<'a, FromJS, K>, JSEvaluateErr> where
+pub unsafe fn jsmanaged_called_from_js<'a, K>(js_value: HandleValue) -> Result<JSManaged<'a, UNSAFE, K>, JSEvaluateErr> where
     K: 'static
 {
     if !js_value.is_object() {
@@ -1392,7 +1407,7 @@ impl<'a> Display for JSStringContents<'a> {
     }
 }
 
-pub unsafe fn jsstring_called_from_js<'a>(cx: *mut jsapi::JSContext, value: HandleValue) -> Result<JSString<'a, FromJS>, JSEvaluateErr> {
+pub unsafe fn jsstring_called_from_js<'a>(cx: *mut jsapi::JSContext, value: HandleValue) -> Result<JSString<'a, UNSAFE>, JSEvaluateErr> {
     if value.is_string() {
         Ok(JSString {
             js_string: JS_FlattenString(cx, value.to_string()),
@@ -1458,6 +1473,7 @@ impl<'a, C, K> JSManaged<'a, C, K> {
     /// Read-only access to JS-managed data.
     pub fn get<'b, S>(self, _: &'b JSContext<S>) -> K::Instance where
         S: CanAccess,
+        C: Compartment,
         K: HasInstance<'b, C>,
         K::Instance: Copy,
         'a: 'b,
@@ -1468,6 +1484,7 @@ impl<'a, C, K> JSManaged<'a, C, K> {
 
     pub fn borrow<'b, S>(self, _: &'b JSContext<S>) -> &'b K::Instance where
         S: CanAccess,
+        C: Compartment,
         K: HasInstance<'b, C>,
         'a: 'b,
     {
@@ -1477,12 +1494,22 @@ impl<'a, C, K> JSManaged<'a, C, K> {
 
     /// Read-write access to JS-managed data.
     pub fn borrow_mut<'b, S>(self, _: &'b mut JSContext<S>) -> &'b mut K::Instance where
-        S: CanAccess + InCompartment<C>,
+        S: CanAccess,
+        C: Compartment,
         K: HasInstance<'b, C>,
         'a: 'b,
     {
         let result = unsafe { &mut *(self.raw as *mut Option<K::Instance>) };
         result.as_mut().unwrap()
+    }
+
+    /// Change the compartment of JS-managed data.
+    pub unsafe fn change_compartment<D>(self) -> JSManaged<'a, D, K> {
+        JSManaged {
+            js_object: self.js_object,
+            raw: self.raw,
+            marker: PhantomData,
+        }
     }
 
     /// Change the lifetime of JS-managed data.
@@ -1502,8 +1529,8 @@ impl<'a, C, K> JSManaged<'a, C, K> {
     }
 
     /// Forget about which compartment the managed data is in.
-    /// This is safe because when we mutate data in compartment `C` we do so with a
-    /// JS context in compartment `C`, which means it is never `SOMEWHERE`.
+    /// This is safe because when we mutate data in compartment `C` we require
+    /// `C: Compartment`, which means it is never `SOMEWHERE`.
     pub fn forget_compartment(self) -> JSManaged<'a, SOMEWHERE, K> {
         JSManaged {
             js_object: self.js_object,
@@ -1518,16 +1545,15 @@ impl<'a, C, K> JSManaged<'a, C, K> {
         V: VisitCompartment<'a, K>,
     {
         debug!("Visiting compartment.");
-        let ac = JSAutoCompartment::new(cx.jsapi_context, self.to_jsobject());
         let ref mut cx = JSContext {
             jsapi_context: cx.jsapi_context,
             global_js_object: ptr::null_mut(),
             global_raw: ptr::null_mut(),
-            auto_compartment: Some(ac),
+            auto_compartment: None,
             runtime: None,
             marker: PhantomData,
         };
-        visitor.visit::<C, Visiting<C>>(cx, self)
+        unsafe { visitor.visit::<UNSAFE, Visiting<UNSAFE>>(cx, self.change_compartment()) }
     }
 
     pub fn to_jsobject(self) -> *mut JSObject {
@@ -1542,11 +1568,17 @@ impl<'a, C, K> JSManaged<'a, C, K> {
 /// A wildcard compartment name.
 pub struct SOMEWHERE(());
 
+/// An unsafe compartment name, which we only give access to via unsafe code.
+pub struct UNSAFE(());
+impl Compartment for UNSAFE {}
+impl<K> HasGlobal<K> for UNSAFE {}
+
 /// A trait for entering a compartment, and binding it to `C`.
 pub trait VisitCompartment<'a, K> {
     type Result = ();
     fn visit<C, S>(self, cx: &mut JSContext<S>, managed: JSManaged<'a, C, K>) -> Self::Result where
-        S: CanAccess + CanAlloc + InCompartment<C>;
+        S: CanAccess + CanAlloc,
+        C: Compartment;
 }
 
 /// A stack allocated root containing data of type `T` with lifetime `'a`.

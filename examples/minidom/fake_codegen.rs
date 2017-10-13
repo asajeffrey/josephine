@@ -16,6 +16,7 @@ use libc::c_uint;
 
 use linjs::CanAccess;
 use linjs::CanAlloc;
+use linjs::Compartment;
 use linjs::JSContext;
 use linjs::JSEvaluateErr;
 use linjs::JSInitializer;
@@ -44,9 +45,9 @@ use std::ptr;
 
 #[allow(non_snake_case)]
 pub trait WindowMethods<'a, C> {
-    fn Console<S>(self, cx: &'a JSContext<S>) -> Console<'a, C> where S: CanAccess + CanAlloc;
-    fn Document<S>(self, cx: &'a JSContext<S>) -> Document<'a, C> where S: CanAccess + CanAlloc;
-    fn Window<S>(self, cx: &'a JSContext<S>) -> Window<'a, C> where S: CanAccess + CanAlloc;
+    fn Console<S>(self, cx: &'a JSContext<S>) -> Console<'a, C> where S: CanAccess + CanAlloc, C: Compartment;
+    fn Document<S>(self, cx: &'a JSContext<S>) -> Document<'a, C> where S: CanAccess + CanAlloc, C: Compartment;
+    fn Window<S>(self, cx: &'a JSContext<S>) -> Window<'a, C> where S: CanAccess + CanAlloc, C: Compartment;
 }
 
 static WINDOW_CLASS: JSClass = JSClass {
@@ -180,7 +181,7 @@ impl JSInitializer for WindowInitializer {
 
 #[allow(non_snake_case)]
 pub trait ConsoleMethods<'a, C> {
-    fn Log<S>(self, cx: &'a mut JSContext<S>, arg: JSString<'a, C>) where S: CanAccess + CanAlloc;
+    fn Log<S>(self, cx: &'a mut JSContext<S>, arg: JSString<'a, C>) where S: CanAccess + CanAlloc, C: Compartment;
 }
 
 static CONSOLE_CLASS: JSClass = JSClass {

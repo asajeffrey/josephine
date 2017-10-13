@@ -9,14 +9,18 @@ using it, congratulations you found a bug! Please report an issue!
 ## Example
 
 ```rust,skt-linjs
+use linjs::CanAccess;
 use linjs::CanCreate;
+use linjs::Compartment;
 use linjs::HasClass;
 use linjs::HasInstance;
 use linjs::HasGlobal;
 use linjs::Initialized;
 use linjs::JSContext;
 use linjs::JSGlobal;
+use linjs::JSManaged;
 use linjs::JSRootable;
+use linjs::VisitCompartment;
 
 struct MyGlobalClass;
 impl<'a, C> HasInstance<'a, C> for MyGlobalClass {
@@ -29,6 +33,16 @@ impl JSGlobal for MyGlobalClass {
     {
         // Create the JavaScript compartment and give the global native data to manage
         cx.create_global(NativeMyGlobal::new())
+    }
+}
+impl<'a> VisitCompartment<'a, MyGlobalClass> for MyGlobalClass {
+    type Result = ();
+    fn visit<C, S>(self, cx: &mut JSContext<S>, global: JSManaged<'a, C, MyGlobalClass>) where
+        S: CanAccess,
+        C: Compartment,
+    {
+        // Make sure the global has the native data we expect.
+        assert_eq!(global.borrow(cx).message, "hello");
     }
 }
 
@@ -58,7 +72,7 @@ pub fn main() {
     let ref mut root = cx.new_root();
     let global = cx.new_global::<MyGlobalClass>().in_root(root);
 
-    // Make sure the global has the native data we expect.
-    assert_eq!(global.borrow(cx).message, "hello");
+    // Run the visitor code in the global.
+    global.visit_compartment(cx, MyGlobalClass);
 }
 ```
