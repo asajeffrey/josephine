@@ -16,6 +16,7 @@ use linjs::HasGlobal;
 use linjs::Initialized;
 use linjs::JSContext;
 use linjs::JSGlobal;
+use linjs::JSRootable;
 
 struct MyGlobalClass;
 impl<'a, C> HasInstance<'a, C> for MyGlobalClass {
@@ -26,17 +27,21 @@ impl JSGlobal for MyGlobalClass {
         S: CanCreate<C>,
 	C: HasGlobal<MyGlobalClass>,
     {
-        // Some native data whose lifetime will be managed by JavaScript
-        let native = NativeMyGlobal { message: String::from("hello") };
-
         // Create the JavaScript compartment and give the global native data to manage
-        cx.create_compartment().global_manage(native)
+        cx.create_compartment().global_manage(NativeMyGlobal::new())
     }
 }
 
 #[derive(Debug, JSTraceable)]
 struct NativeMyGlobal {
     message: String,
+}
+impl NativeMyGlobal {
+    fn new() -> NativeMyGlobal {
+        NativeMyGlobal {
+	    message: String::from("hello"),
+	}
+    }
 }
 impl HasClass for NativeMyGlobal {
     type Class = MyGlobalClass;
@@ -50,7 +55,8 @@ pub fn main() {
     // Create a new global in that context.
     // We have to root the global to stop it being garbage collected.
     // If we don't root it, this code won't compile!
-    rooted!(in(cx) let global = cx.new_global::<MyGlobalClass>());
+    let ref mut root = cx.new_root();
+    let global = cx.new_global::<MyGlobalClass>().in_root(root);
 
     // Make sure the global has the native data we expect.
     assert_eq!(global.borrow(cx).message, "hello");
