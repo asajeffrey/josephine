@@ -106,7 +106,8 @@
 //! {
 //!     // Function body has lifetime 'b
 //!     // x has type JSManaged<'b, C, String>
-//!     rooted!(in(cx) let x = cx.manage(String::from("hello")));
+//!     let ref mut root = cx.new_root();
+//!     let x = cx.manage(String::from("hello")).in_root(root);
 //!     // Imagine something triggers GC here
 //!     // x_ref has type &'c String
 //!     let x_ref = x.borrow(cx);
@@ -179,7 +180,8 @@
 //! fn example<C, S>(cx: &mut JSContext<S>) where
 //!     S: CanAccess + CanAlloc + InCompartment<C>,
 //! {
-//!    rooted!(in(cx) let l = cx.manage(NativeLoop { next: None }));
+//!    let ref mut root = cx.new_root();
+//!    let l = cx.manage(NativeLoop { next: None }).in_root(root);
 //!    l.borrow_mut(cx).next = Some(l);
 //! }
 //! # fn main() {}
@@ -317,7 +319,8 @@
 //!    C: HasGlobal<MyGlobalClass>,
 //! {
 //!    let mut cx = cx.create_compartment();
-//!    rooted!(in(cx) let name = cx.manage(String::from("Alice")));
+//!    let ref mut root = cx.new_root();
+//!    let name = cx.manage(String::from("Alice")).in_root(root);
 //!    cx.global_manage(NativeMyGlobal { name: name })
 //! }
 //! # fn main() {}
@@ -341,7 +344,8 @@
 //! {
 //!    let mut cx = cx.create_compartment();
 //!    let oops = cx.global().borrow(&cx).name.borrow(&cx);
-//!    rooted!(in(cx) let name = cx.manage(String::from("Alice")));
+//!    let ref mut root = cx.new_root();
+//!    let name = cx.manage(String::from("Alice")).in_root(root);
 //!    cx.global_manage(NativeMyGlobal { name: name })
 //! }
 //! # fn main() {}
@@ -453,7 +457,8 @@
 //!     // Creating nodes does memory allocation, which may trigger GC,
 //!     // so we need to be careful about lifetimes while they are being added.
 //!     // Approach 1 is to root the node.
-//!     rooted!(in(cx) let node1 = cx.manage(NativeNode { data: 1, edges: vec![] }));
+//!     let ref mut root = cx.new_root();
+//!     let node1 = cx.manage(NativeNode { data: 1, edges: vec![] }).in_root(root);
 //!     graph.borrow_mut(cx).nodes.push(node1);
 //! }
 //!
@@ -1685,20 +1690,4 @@ unsafe impl<#[may_dangle] 'a, #[may_dangle] T> Drop for JSRoot<'a, T> {
     fn drop(&mut self) {
         unsafe { self.unpin() }
     }
-}
-
-#[macro_export]
-macro_rules! rooted {
-    (in($cx:expr) let $name:ident = $init:expr) => (
-        let mut __root = $cx.new_root();
-        let $name = __root.set($init);
-    );
-    (in($cx:expr) let mut $name:ident = $init:expr) => (
-        let mut __root = $cx.new_root();
-        let mut $name = __root.set($init);
-    );
-    (in($cx:expr) let ref $name:ident = $init:expr) => (
-        let mut __root = $cx.new_root();
-        let $name = __root.pin($init);
-    )
 }
