@@ -28,7 +28,7 @@ impl JSGlobal for MyGlobalClass {
 	C: HasGlobal<MyGlobalClass>,
     {
         // Create the JavaScript compartment and give the global native data to manage
-        cx.create_compartment().global_manage(NativeMyGlobal::new())
+        cx.create_global(NativeMyGlobal::new())
     }
 }
 

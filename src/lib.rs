@@ -838,6 +838,16 @@ impl<S> JSContext<S> {
         }
     }
 
+    /// Shortcut to create a compartmetn and finish initializing in one go.
+    pub fn create_global<'a, C, K, T>(self, value: T) -> JSContext<Initialized<C>> where
+        S: CanCreate<C>,
+        C: HasGlobal<K>,
+        K: HasInstance<'a, C, Instance = T>,
+        T: JSTraceable + HasClass<Class = K>,
+    {
+        self.create_compartment().global_manage(value)
+    }
+
     /// Get the global of an initialized context.
     pub fn global<'a, C, G>(&'a self) -> JSManaged<'a, C, G> where
         S: InCompartment<C>,
