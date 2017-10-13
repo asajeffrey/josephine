@@ -6,20 +6,16 @@
 extern crate env_logger;
 extern crate js;
 extern crate libc;
-#[macro_use] extern crate linjs;
+extern crate linjs;
 #[macro_use] extern crate linjs_derive;
 #[macro_use] extern crate log;
 
 mod fake_codegen;
 mod minidom;
 
-use linjs::CanCreate;
-use linjs::HasGlobal;
 use linjs::JSContext;
-
-use minidom::WindowClass;
-
-struct PrintHello;
+use linjs::JSRootable;
+use minidom::Window;
 
 fn main() {
     env_logger::init().unwrap();
@@ -28,10 +24,11 @@ fn main() {
     let mut cx = JSContext::new();
 
     debug!("Creating compartment");
-    cx.new_global::<WindowClass>();
+    let ref mut root = cx.new_root();
+    let _window = Window::from(cx.new_global().in_root(root));
 
     debug!("Printing hello");
-    cx.evaluate("console.log('hello')");
+    cx.evaluate("console.log('hello')").unwrap();
 
     debug!("Done.");
 }

@@ -401,7 +401,7 @@
 //! #[macro_use] extern crate linjs_derive;
 //! use linjs::{CanAlloc, CanAccess, CanCreate};
 //! use linjs::{HasClass, HasGlobal, HasInstance, InCompartment};
-//! use linjs::{Initialized, JSContext, JSManaged, JSGlobal};
+//! use linjs::{Initialized, JSContext, JSManaged, JSGlobal, JSRootable};
 //!
 //! // A graph type
 //! type Graph<'a, C> = JSManaged<'a, C, GraphClass>;
@@ -434,7 +434,8 @@
 //!     {
 //!         let cx = cx.create_compartment();
 //!         let mut cx = cx.global_manage(NativeGraph { nodes: vec![] });
-//!         let graph = cx.global();
+//!         let ref mut root = cx.new_root();
+//!         let graph = cx.global().in_root(root);
 //!         add_node1(&mut cx, graph);
 //!         add_node2(&mut cx, graph);
 //!         assert_eq!(graph.borrow(&cx).nodes[0].borrow(&cx).data, 1);
@@ -484,6 +485,8 @@
 #![feature(associated_type_defaults)]
 #![feature(const_fn)]
 #![feature(const_ptr_null)]
+#![feature(generic_param_attrs)]
+#![feature(dropck_eyepatch)]
 
 extern crate js;
 extern crate libc;
@@ -808,10 +811,10 @@ impl<S> JSContext<S> {
     }
 
     /// Finish initializing a JS Context
-    pub fn global_manage<'a, 'b, C, K, T>(self, value: T) -> JSContext<Initialized<C>> where
+    pub fn global_manage<'a, C, K, T>(self, value: T) -> JSContext<Initialized<C>> where
         S: IsInitializing + InCompartment<C>,
         C: HasGlobal<K>,
-        K: HasInstance<'b, C, Instance = T>,
+        K: HasInstance<'a, C, Instance = T>,
         T: JSTraceable + HasClass<Class = K>,
     {
         debug!("Managing native global.");
@@ -831,7 +834,7 @@ impl<S> JSContext<S> {
     }
 
     /// Get the global of an initialized context.
-    pub fn global<'a, 'b, C, G>(&'a self) -> JSManaged<'b, C, G> where
+    pub fn global<'a, C, G>(&'a self) -> JSManaged<'a, C, G> where
         S: InCompartment<C>,
         C: HasGlobal<G>,
     {
@@ -858,12 +861,11 @@ impl<S> JSContext<S> {
             runtime: None,
             marker: PhantomData,
         };
-        let cx = K::init(cx);
-        cx.global().forget_compartment()
+        unsafe { K::init(cx).global().forget_compartment().change_lifetime() }
     }
     
     /// Create a new root.
-    pub fn new_root<T>(&mut self) -> JSRoot<T> {
+    pub fn new_root<'a, 'b, T>(&'b mut self) -> JSRoot<'a, T> {
         JSRoot {
             value: None,
             pin: JSUntypedPinnedRoot {
@@ -871,6 +873,7 @@ impl<S> JSContext<S> {
                 next: ptr::null_mut(),
                 prev: ptr::null_mut(),
             },
+            marker: PhantomData,
         }
     }
 
@@ -1531,14 +1534,15 @@ pub trait VisitCompartment<'a, K> {
         S: CanAccess + CanAlloc + InCompartment<C>;
 }
 
-/// A stack allocated root containing data of type `T`.`
-pub struct JSRoot<T> {
+/// A stack allocated root containing data of type `T` with lifetime `'a`.
+pub struct JSRoot<'a, T: 'a> {
     value: Option<T>,
     pin: JSUntypedPinnedRoot,
+    marker: PhantomData<&'a ()>, // NOTE: this is variant in `'a`.
 }
 
 /// A stack allocated root that has been pinned, so the backing store can't move.
-pub struct JSPinnedRoot<'a, T: 'a> (&'a mut JSRoot<T>);
+pub struct JSPinnedRoot<'a, T: 'a> (&'a mut JSRoot<'a, T>);
 
 /// A doubly linked list with all the pinned roots.
 #[derive(Eq, PartialEq)]
@@ -1622,6 +1626,13 @@ pub unsafe trait JSRootable<'a> {
     fn contract_lifetime(self) -> Self::Aged where Self: 'a + Sized {
         unsafe { self.change_lifetime() }
     }
+
+    fn in_root(self, root: &'a mut JSRoot<'a, Self::Aged>) -> Self::Aged where
+        Self: Sized,
+        Self::Aged: Copy + JSTraceable,
+    {
+        root.set(self)
+    }
 }
 
 unsafe impl<'a, 'b, C, K> JSRootable<'a> for JSManaged<'b, C, K>
@@ -1629,22 +1640,26 @@ unsafe impl<'a, 'b, C, K> JSRootable<'a> for JSManaged<'b, C, K>
     type Aged = JSManaged<'a, C, K>;
 }
 
-impl<T> JSRoot<T> {
-    // Very annoyingly, this function has to be marked as unsafe,
-    // because we can't rely on the destructor for the pinned root running.
-    // See the discussion about `mem::forget` being safe at
-    // https://github.com/rust-lang/rfcs/pull/1066.
-    // This is safe as long as it is unpinned before the memory
-    // is reclaimed, but Rust does not enforce that.
-    pub unsafe fn pin<'a, U>(&'a mut self, value: U) -> JSPinnedRoot<'a, T> where
+impl<'a, T> JSRoot<'a, T> {
+    // This uses Sgeo's trick to stop the JSRoot being forgotten by `mem::forget`.
+    // The pin takes a `&'a mut JSRoot<'a, T>`, so borrows the root for the
+    // duration of `'a`, so the type is no longer valid after the pin is dropped.
+    pub fn pin<U>(&'a mut self, value: U) -> &'a T where
         T: JSTraceable,
         U: JSRootable<'a, Aged=T>,
     {
-        let roots = &mut *thread_local_roots();
-        self.value = Some(value.change_lifetime());
+        let roots = unsafe { &mut *thread_local_roots() };
+        self.value = Some(unsafe { value.change_lifetime() });
         self.pin.value = self.value.as_mut_ptr();
-        roots.insert(&mut self.pin);
-        JSPinnedRoot(self)
+        unsafe { roots.insert(&mut self.pin) };
+        self.value.as_ref().unwrap()
+    }
+
+    pub fn set<U>(&'a mut self, value: U) -> T where
+        T: Copy + JSTraceable,
+        U: JSRootable<'a, Aged=T>,
+    {
+        *self.pin(value)
     }
 
     pub unsafe fn unpin(&mut self) {
@@ -1666,9 +1681,9 @@ impl<'a, T> DerefMut for JSPinnedRoot<'a, T> {
     }
 }
 
-impl<'a, T> Drop for JSPinnedRoot<'a, T> {
+unsafe impl<#[may_dangle] 'a, #[may_dangle] T> Drop for JSRoot<'a, T> {
     fn drop(&mut self) {
-        unsafe { self.0.unpin() }
+        unsafe { self.unpin() }
     }
 }
 
@@ -1676,26 +1691,14 @@ impl<'a, T> Drop for JSPinnedRoot<'a, T> {
 macro_rules! rooted {
     (in($cx:expr) let $name:ident = $init:expr) => (
         let mut __root = $cx.new_root();
-        #[allow(unsafe_code)]
-        let __pinned = unsafe { __root.pin($init) };
-        let $name = *__pinned;
+        let $name = __root.set($init);
     );
     (in($cx:expr) let mut $name:ident = $init:expr) => (
         let mut __root = $cx.new_root();
-        #[allow(unsafe_code)]
-        let __pinned = unsafe { __root.pin($init) };
-        let mut $name = *__pinned;
+        let mut $name = __root.set($init);
     );
     (in($cx:expr) let ref $name:ident = $init:expr) => (
         let mut __root = $cx.new_root();
-        #[allow(unsafe_code)]
-        let __pinned = unsafe { __root.pin($init) };
-        let $name = &*__pinned;
-    );
-    (in($cx:expr) let ref mut $name:ident = $init:expr) => (
-        let mut __root = $cx.new_root();
-        #[allow(unsafe_code)]
-        let __pinned = unsafe { __root.pin($init) };
-        let mut $name = &mut*__pinned;
+        let $name = __root.pin($init);
     )
 }

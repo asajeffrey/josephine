@@ -9,6 +9,7 @@ use linjs::Initialized;
 use linjs::JSContext;
 use linjs::JSGlobal;
 use linjs::JSManaged;
+use linjs::JSRootable;
 use linjs::JSString;
 
 use fake_codegen::ConsoleInitializer;
@@ -38,8 +39,10 @@ impl JSGlobal for WindowClass {
         C: HasGlobal<WindowClass>,
     {
         let mut cx = cx.create_compartment();
-        rooted!(in(cx) let console = Console::new(&mut cx));
-        rooted!(in(cx) let document = Document::new(&mut cx));
+        let ref mut console_root = cx.new_root();
+        let ref mut document_root = cx.new_root();
+        let console = Console::new(&mut cx).in_root(console_root);
+        let document = Document::new(&mut cx).in_root(document_root);
         cx.global_manage(NativeWindow {
             console: console,
             document: document,
@@ -126,7 +129,8 @@ impl<'a, C> Document<'a, C> {
     pub fn new<S>(cx: &'a mut JSContext<S>) -> Document<'a, C> where
         S: CanAlloc + InCompartment<C>,
     {
-        rooted!(in(cx) let body = Element::new(cx));
+        let ref mut root = cx.new_root();
+        let body = Element::new(cx).in_root(root);
         Document(cx.manage(NativeDocument {
             body: body,
         }))
