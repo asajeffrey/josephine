@@ -587,6 +587,7 @@ use std::fmt;
 use std::fmt::Debug;
 use std::fmt::Display;
 use std::fmt::Write;
+use std::hash::Hash;
 use std::marker::PhantomData;
 use std::mem;
 use std::ops::Deref;
@@ -669,7 +670,10 @@ pub trait IsInitializing {}
 impl<C> IsInitializing for Initializing<C> {}
 
 /// A marker trait for JS compartments.
-pub trait Compartment {}
+/// We mark it as `'static` to avoid lifetime issues which require marking `C:'a`.
+/// We mark it as `Copy` so that anything that uses `[#derive{Copy)]` will be copyable.
+/// Ditto `Eq` and `Hash`.
+pub trait Compartment: 'static + Copy + Debug + Eq + Hash {}
 
 /// A marker trait for JS compartments that have a global of class `K`.
 pub trait HasGlobal<K>: Compartment {}
@@ -712,8 +716,9 @@ impl<S> JSContext<S> {
     /// This allocates JS heap, which may trigger GC.
     pub fn manage<'a, 'b, C, K, T>(&'a mut self, value: T) -> JSManaged<'a, C, K> where
         S: CanAlloc + InCompartment<C>,
-        T: JSTraceable + HasClass<Class = K>,
+        C: Compartment,
         K: HasInstance<'b, C, Instance = T>,
+        T: JSTraceable + HasClass<Class = K>,
     {
         debug!("Managing native data.");
         let cx = self.jsapi_context;
@@ -754,8 +759,9 @@ impl<S> JSContext<S> {
     /// This allocates JS heap, which may trigger GC.
     pub fn snapshot_manage<'a, 'b, C, K, T>(&'a mut self, value: T) -> (JSContext<Snapshotted<'a, S>>, JSManaged<'a, C, K>) where
         S: CanAlloc + InCompartment<C>,
-        T: JSTraceable + HasClass<Class = K>,
+        C: Compartment,
         K: HasInstance<'b, C, Instance = T>,
+        T: JSTraceable + HasClass<Class = K>,
     {
         let jsapi_context = self.jsapi_context;
         let global_js_object = self.global_js_object;
@@ -1566,9 +1572,11 @@ impl<'a, C, K> JSManaged<'a, C, K> {
 }
 
 /// A wildcard compartment name.
+#[derive(Copy, Clone, Debug, Eq, PartialEq, Hash)]
 pub struct SOMEWHERE(());
 
 /// An unsafe compartment name, which we only give access to via unsafe code.
+#[derive(Copy, Clone, Debug, Eq, PartialEq, Hash)]
 pub struct UNSAFE(());
 impl Compartment for UNSAFE {}
 impl<K> HasGlobal<K> for UNSAFE {}

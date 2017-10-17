@@ -117,10 +117,10 @@ unsafe extern "C" fn window_window_getter_op(cx: *mut jsapi::JSContext, argc: c_
 #[allow(unsafe_code)]
 unsafe fn window_window_getter(cx: *mut jsapi::JSContext, args: CallArgs) -> Result<JSVal, JSEvaluateErr> {
     debug!("Getting window.");
-    let this = Window::from(jsmanaged_called_from_js(args.thisv())?);
+    let this = Window(jsmanaged_called_from_js(args.thisv())?);
     let ref mut cx = jscontext_called_from_js(cx);
     let result = this.Window(cx);
-    Ok(result.to_jsval())
+    Ok(result.0.to_jsval())
 }
 
 #[allow(unsafe_code)]
@@ -137,10 +137,10 @@ unsafe extern "C" fn window_console_getter_op(cx: *mut jsapi::JSContext, argc: c
 #[allow(unsafe_code)]
 unsafe fn window_console_getter(cx: *mut jsapi::JSContext, args: CallArgs) -> Result<JSVal, JSEvaluateErr> {
     debug!("Getting console.");
-    let this = Window::from(jsmanaged_called_from_js(args.thisv())?);
+    let this = Window(jsmanaged_called_from_js(args.thisv())?);
     let ref mut cx = jscontext_called_from_js(cx);
     let result = this.Console(cx);
-    Ok(result.to_jsval())
+    Ok(result.0.to_jsval())
 }
 
 #[allow(unsafe_code)]
@@ -157,10 +157,10 @@ unsafe extern "C" fn window_document_getter_op(cx: *mut jsapi::JSContext, argc: 
 #[allow(unsafe_code)]
 unsafe fn window_document_getter(cx: *mut jsapi::JSContext, args: CallArgs) -> Result<JSVal, JSEvaluateErr> {
     debug!("Getting document.");
-    let this = Window::from(jsmanaged_called_from_js(args.thisv())?);
+    let this = Window(jsmanaged_called_from_js(args.thisv())?);
     let ref mut cx = jscontext_called_from_js(cx);
     let result = this.Document(cx);
-    Ok(result.to_jsval())
+    Ok(result.0.to_jsval())
 }
 
 pub struct WindowInitializer;
@@ -246,7 +246,7 @@ unsafe extern "C" fn console_log_op(cx: *mut jsapi::JSContext, argc: c_uint, vp:
 #[allow(unsafe_code)]
 unsafe fn console_log(cx: *mut jsapi::JSContext, args: CallArgs) -> Result<JSVal, JSEvaluateErr> {
     debug!("Logging.");
-    let this = Console::from(jsmanaged_called_from_js(args.thisv())?);
+    let this = Console(jsmanaged_called_from_js(args.thisv())?);
     let arg = jsstring_called_from_js(cx, args.get(0))?;
     let ref mut cx = jscontext_called_from_js(cx);
     this.Log(cx, arg);
