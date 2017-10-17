@@ -120,7 +120,8 @@ fn impl_has_class(ast: &syn::DeriveInput) -> quote::Tokens {
             type Class = #class_name #class_generics;
         }
         impl <#(#instance_lifetimes),* , #(#instance_ty_params),*> ::linjs::HasInstance<#instance_lifetime, #instance_ty_param> for #class_name #class_generics #where_clause {
-            type Instance = #name #ty_generics;
+            type Native = #name #ty_generics;
+            type Managed = ::linjs::JSManaged<#instance_lifetime, #instance_ty_param, #class_name #class_generics>;
         }
     }
 }

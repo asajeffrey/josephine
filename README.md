@@ -24,7 +24,8 @@ use linjs::VisitCompartment;
 
 struct MyGlobalClass;
 impl<'a, C> HasInstance<'a, C> for MyGlobalClass {
-    type Instance = NativeMyGlobal;
+    type Native = NativeMyGlobal;
+    type Managed = MyGlobal<'a, C>;
 }
 impl JSGlobal for MyGlobalClass {
     fn init<C, S>(cx: JSContext<S>) -> JSContext<Initialized<C>> where
@@ -60,6 +61,8 @@ impl NativeMyGlobal {
 impl HasClass for NativeMyGlobal {
     type Class = MyGlobalClass;
 }
+
+type MyGlobal<'a, C> = JSManaged<'a, C, MyGlobalClass>;
 
 // Run the example
 pub fn main() {

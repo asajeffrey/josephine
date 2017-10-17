@@ -15,7 +15,9 @@ mod minidom;
 
 use linjs::JSContext;
 use linjs::JSRootable;
+use linjs::SOMEWHERE;
 use minidom::Window;
+use minidom::WindowClass;
 
 fn main() {
     env_logger::init().unwrap();
@@ -25,7 +27,7 @@ fn main() {
 
     debug!("Creating compartment");
     let ref mut root = cx.new_root();
-    let _window = Window::from(cx.new_global().in_root(root));
+    let _window = cx.new_global::<WindowClass>().in_root(root);
 
     debug!("Printing hello");
     cx.evaluate("console.log('hello')").unwrap();

@@ -315,7 +315,7 @@
 //! providing the JS-managed data for the global, for example:
 //!
 //! ```rust
-//! # #[macro_use] extern crate linjs;
+//! # extern crate linjs;
 //! # #[macro_use] extern crate linjs_derive;
 //! # use linjs::*;
 //! #[derive(JSTraceable, JSRootable)]
@@ -323,7 +323,9 @@
 //! impl<'a, C> HasClass for NativeMyGlobal<'a, C> { type Class = MyGlobalClass; }
 //!
 //! struct MyGlobalClass;
-//! impl<'a, C> HasInstance<'a, C> for MyGlobalClass { type Instance = NativeMyGlobal<'a, C>; }
+//! impl<'a, C> HasInstance<'a, C> for MyGlobalClass { type Native = NativeMyGlobal<'a, C>; type Managed = MyGlobal<'a, C>; }
+//!
+//! type MyGlobal<'a, C> = JSManaged<'a, C, MyGlobalClass>;
 //!
 //! fn example<'a, C, S>(cx: JSContext<S>) -> JSContext<Initialized<C>> where
 //!    S: CanCreate<C>,
@@ -427,7 +429,7 @@
 //! impl<'a, C> HasClass for NativeGraph<'a, C> { type Class = GraphClass; }
 //!
 //! struct GraphClass;
-//! impl<'a, C> HasInstance<'a, C> for GraphClass { type Instance = NativeGraph<'a, C>; }
+//! impl<'a, C> HasInstance<'a, C> for GraphClass { type Native = NativeGraph<'a, C>; type Managed = Graph<'a, C>; }
 //!
 //! // A node type
 //! type Node<'a, C> = JSManaged<'a, C, NodeClass>;
@@ -439,7 +441,7 @@
 //! impl<'a, C> HasClass for NativeNode<'a, C> { type Class = NodeClass; }
 //!
 //! struct NodeClass;
-//! impl<'a, C> HasInstance<'a, C> for NodeClass { type Instance = NativeNode<'a, C>; }
+//! impl<'a, C> HasInstance<'a, C> for NodeClass { type Native = NativeNode<'a, C>; type Managed = Node<'a, C>; }
 //!
 //! // Build a cyclic graph
 //! impl JSGlobal for GraphClass {
@@ -710,10 +712,10 @@ impl<S> JSContext<S> {
 
     /// Give ownership of data to JS.
     /// This allocates JS heap, which may trigger GC.
-    pub fn manage<'a, 'b, C, K, T>(&'a mut self, value: T) -> K::Managed where
+    pub fn manage<'a, C, K, T>(&'a mut self, value: T) -> K::Managed where
         S: CanAlloc + InCompartment<C>,
-        T: JSTraceable + HasClass<Class = K>,
-        K: HasInstance<'b, C, Native = T>,
+        T: JSTraceable + JSRootable<'a> + HasClass<Class = K>,
+        K: HasInstance<'a, C, Native = T::Aged>,
     {
         debug!("Managing native data.");
         let cx = self.jsapi_context;
@@ -752,10 +754,10 @@ impl<S> JSContext<S> {
 
     /// Give ownership of data to JS.
     /// This allocates JS heap, which may trigger GC.
-    pub fn snapshot_manage<'a, 'b, C, K, T>(&'a mut self, value: T) -> (JSContext<Snapshotted<'a, S>>, K::Managed) where
+    pub fn snapshot_manage<'a, C, K, T>(&'a mut self, value: T) -> (JSContext<Snapshotted<'a, S>>, K::Managed) where
         S: CanAlloc + InCompartment<C>,
-        T: JSTraceable + HasClass<Class = K>,
-        K: HasInstance<'b, C, Native = T>,
+        T: JSTraceable + JSRootable<'a> + HasClass<Class = K>,
+        K: HasInstance<'a, C, Native = T::Aged>,
     {
         let jsapi_context = self.jsapi_context;
         let global_js_object = self.global_js_object;
@@ -1056,7 +1058,7 @@ pub trait HasClass {
 }
 
 pub trait HasInstance<'a, C>: 'static + Sized {
-    type Native: HasClass<Class = Self> = ();
+    type Native;
     type Managed: From<JSManaged<'a, C, Self>> = JSManaged<'a, C, Self>;
 }
 
@@ -1702,6 +1704,11 @@ pub unsafe trait JSRootable<'a> {
         root.set(self)
     }
 }
+
+// JSRootable impls for base types
+unsafe impl<'a> JSRootable<'a> for String { type Aged = String; }
+unsafe impl<'a> JSRootable<'a> for usize { type Aged = usize; }
+// etc.
 
 unsafe impl<'a, 'b, C, K> JSRootable<'a> for JSManaged<'b, C, K>
 {

@@ -59,7 +59,8 @@ impl<'a, C> HasClass for NativeWindow<'a, C> {
 }
 
 impl<'a, C> HasInstance<'a, C> for WindowClass {
-    type Instance = NativeWindow<'a, C>;
+    type Native = NativeWindow<'a, C>;
+    type Managed = Window<'a, C>;
 }
 
 impl<'a, C> WindowMethods<'a, C> for Window<'a, C> where C: 'a {
@@ -98,14 +99,15 @@ impl HasClass for NativeConsole {
 }
 
 impl<'a, C> HasInstance<'a, C> for ConsoleClass {
-    type Instance = NativeConsole;
+    type Native = NativeConsole;
+    type Managed = Console<'a, C>;
 }
 
 impl<'a, C> Console<'a, C> {
     fn new<S>(cx: &'a mut JSContext<S>) -> Console<'a, C> where
         S: CanAlloc + InCompartment<C>,
     {
-        Console(cx.manage(NativeConsole(())))
+        cx.manage(NativeConsole(()))
     }
 }
 
@@ -119,44 +121,68 @@ impl<'a, C> ConsoleMethods<'a, C> for Console<'a, C> {
 // -------------------------------------------------------------------
 
 #[derive(Debug, Eq, PartialEq, JSTraceable, JSRootable)]
-pub struct Document<'a, C> (JSManaged<'a, C, NativeDocumentClass>);
+pub struct Document<'a, C> (JSManaged<'a, C, DocumentClass>);
 
-#[derive(HasClass, JSTraceable, JSRootable)]
+#[derive(JSTraceable, JSRootable)]
 pub struct NativeDocument<'a, C> {
     body: Element<'a, C>,
+}
+
+pub struct DocumentClass;
+
+impl<'a, C> HasClass for NativeDocument<'a, C> {
+    type Class = DocumentClass;
+}
+
+impl<'a, C> HasInstance<'a, C> for DocumentClass {
+    type Native = NativeDocument<'a, C>;
+    type Managed = Document<'a, C>;
 }
 
 impl<'a, C> Document<'a, C> {
     pub fn new<S>(cx: &'a mut JSContext<S>) -> Document<'a, C> where
         S: CanAlloc + InCompartment<C>,
+        C: 'a,
     {
         let ref mut root = cx.new_root();
         let body = Element::new(cx).in_root(root);
-        Document(cx.manage(NativeDocument {
+        cx.manage(NativeDocument {
             body: body,
-        }))
+        })
     }
 }
 
 // -------------------------------------------------------------------
 
 #[derive(Debug, Eq, PartialEq, JSTraceable, JSRootable)]
-pub struct Element<'a, C> (JSManaged<'a, C, NativeElementClass>);
+pub struct Element<'a, C> (JSManaged<'a, C, ElementClass>);
 
-#[derive(HasClass, JSTraceable, JSRootable)]
+#[derive(JSTraceable, JSRootable)]
 pub struct NativeElement<'a, C> {
     parent: Option<Element<'a, C>>,
     children: Vec<Element<'a, C>>,
 }
 
+pub struct ElementClass;
+
+impl<'a, C> HasClass for NativeElement<'a, C> {
+    type Class = ElementClass;
+}
+
+impl<'a, C> HasInstance<'a, C> for ElementClass {
+    type Native = NativeElement<'a, C>;
+    type Managed = Element<'a, C>;
+}
+
 impl<'a, C> Element<'a, C> {
     pub fn new<S>(cx: &'a mut JSContext<S>) -> Element<'a, C> where
         S: CanAlloc + InCompartment<C>,
+        C: 'a,
     {
-        Element(cx.manage(NativeElement {
+        cx.manage(NativeElement {
             parent: None,
             children: Vec::new(),
-        }))
+        })
     }
 }
 
@@ -230,9 +256,15 @@ impl<'a, C> Clone for Document<'a, C> {
 }
 
 impl<'a, C> Deref for Document<'a, C> {
-    type Target = JSManaged<'a, C, NativeDocumentClass>;
+    type Target = JSManaged<'a, C, DocumentClass>;
     fn deref(&self) -> &Self::Target {
         &self.0
+    }
+}
+
+impl<'a, C> From<JSManaged<'a, C, DocumentClass>> for Document<'a, C> {
+    fn from(value: JSManaged<'a, C, DocumentClass>) -> Document<'a, C> {
+        Document(value)
     }
 }
 
@@ -246,8 +278,14 @@ impl<'a, C> Clone for Element<'a, C> {
 }
 
 impl<'a, C> Deref for Element<'a, C> {
-    type Target = JSManaged<'a, C, NativeElementClass>;
+    type Target = JSManaged<'a, C, ElementClass>;
     fn deref(&self) -> &Self::Target {
         &self.0
+    }
+}
+
+impl<'a, C> From<JSManaged<'a, C, ElementClass>> for Element<'a, C> {
+    fn from(value: JSManaged<'a, C, ElementClass>) -> Element<'a, C> {
+        Element(value)
     }
 }
