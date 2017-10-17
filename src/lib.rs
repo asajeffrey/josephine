@@ -710,10 +710,10 @@ impl<S> JSContext<S> {
 
     /// Give ownership of data to JS.
     /// This allocates JS heap, which may trigger GC.
-    pub fn manage<'a, 'b, C, K, T>(&'a mut self, value: T) -> JSManaged<'a, C, K> where
+    pub fn manage<'a, 'b, C, K, T>(&'a mut self, value: T) -> K::Managed where
         S: CanAlloc + InCompartment<C>,
         T: JSTraceable + HasClass<Class = K>,
-        K: HasInstance<'b, C, Instance = T>,
+        K: HasInstance<'b, C, Native = T>,
     {
         debug!("Managing native data.");
         let cx = self.jsapi_context;
@@ -743,19 +743,19 @@ impl<S> JSContext<S> {
         unsafe { T::Init::js_init_object(cx, boxed_jsobject.handle()) };
 
         debug!("Managed native data.");
-        JSManaged {
+        K::Managed::from(JSManaged {
             js_object: Box::into_raw(boxed_jsobject),
             raw: fat_value[0] as *mut (),
             marker: PhantomData,
-        }
+        })
     }
 
     /// Give ownership of data to JS.
     /// This allocates JS heap, which may trigger GC.
-    pub fn snapshot_manage<'a, 'b, C, K, T>(&'a mut self, value: T) -> (JSContext<Snapshotted<'a, S>>, JSManaged<'a, C, K>) where
+    pub fn snapshot_manage<'a, 'b, C, K, T>(&'a mut self, value: T) -> (JSContext<Snapshotted<'a, S>>, K::Managed) where
         S: CanAlloc + InCompartment<C>,
         T: JSTraceable + HasClass<Class = K>,
-        K: HasInstance<'b, C, Instance = T>,
+        K: HasInstance<'b, C, Native = T>,
     {
         let jsapi_context = self.jsapi_context;
         let global_js_object = self.global_js_object;
@@ -779,7 +779,7 @@ impl<S> JSContext<S> {
         S: CanCreate<C>,
         C: HasGlobal<K>,
         T: JSTraceable + HasClass<Class = K>,
-        K: HasInstance<'a, C, Instance = T>,
+        K: HasInstance<'a, C, Native = T>,
     {
         debug!("Creating compartment.");
         let value: Option<T> = None;
@@ -836,7 +836,7 @@ impl<S> JSContext<S> {
     pub fn global_manage<'a, C, K, T>(self, value: T) -> JSContext<Initialized<C>> where
         S: IsInitializing + InCompartment<C>,
         C: HasGlobal<K>,
-        K: HasInstance<'a, C, Instance = T>,
+        K: HasInstance<'a, C, Native = T>,
         T: JSTraceable + HasClass<Class = K>,
     {
         debug!("Managing native global.");
@@ -859,29 +859,30 @@ impl<S> JSContext<S> {
     pub fn create_global<'a, C, K, T>(self, value: T) -> JSContext<Initialized<C>> where
         S: CanCreate<C>,
         C: HasGlobal<K>,
-        K: HasInstance<'a, C, Instance = T>,
+        K: HasInstance<'a, C, Native = T>,
         T: JSTraceable + HasClass<Class = K>,
     {
         self.create_compartment().global_manage(value)
     }
 
     /// Get the global of an initialized context.
-    pub fn global<'a, C, G>(&'a self) -> JSManaged<'a, C, G> where
+    pub fn global<'a, C, G>(&'a self) -> G::Managed where
         S: InCompartment<C>,
         C: HasGlobal<G>,
+        G: HasInstance<'a, C>,
     {
-        JSManaged {
+        G::Managed::from(JSManaged {
             js_object: self.global_js_object,
             raw: self.global_raw,
             marker: PhantomData,
-        }
+        })
     }
 
     /// Create a new global.
     /// TODO: return a JSManaged with a wildcard compartment.
-    pub fn new_global<'a, K>(&'a mut self) -> JSManaged<'a, SOMEWHERE, K> where
+    pub fn new_global<'a, K>(&'a mut self) -> K::Managed where
         S: CanCreateCompartments,
-        K: JSGlobal,
+        K: JSGlobal + HasInstance<'a, SOMEWHERE>,
     {
         let cx: JSContext<Uninitialized<UNSAFE>> = JSContext {
             jsapi_context: self.jsapi_context,
@@ -891,7 +892,12 @@ impl<S> JSContext<S> {
             runtime: None,
             marker: PhantomData,
         };
-        unsafe { K::init(cx).global().forget_compartment().change_lifetime() }
+        let cx: JSContext<Initialized<UNSAFE>> = K::init(cx);
+        K::Managed::from(JSManaged {
+            js_object: cx.global_js_object,
+            raw: cx.global_raw,
+            marker: PhantomData,
+        })
     }
     
     /// Create a new root.
@@ -1050,15 +1056,22 @@ pub trait HasClass {
 }
 
 pub trait HasInstance<'a, C>: 'static + Sized {
-    type Instance: HasClass<Class = Self>;
+    type Native: HasClass<Class = Self> = ();
+    type Managed: From<JSManaged<'a, C, Self>> = JSManaged<'a, C, Self>;
 }
 
 /// Basic types
 impl HasClass for String { type Class = String; }
-impl<'a, C> HasInstance<'a, C> for String { type Instance = String; }
+impl<'a, C> HasInstance<'a, C> for String {
+    type Native = String;
+    type Managed = JSManaged<'a, C, String>;
+}
 
 impl<T> HasClass for Option<T> where T: HasClass { type Class = Option<T::Class>; }
-impl<'a, C, K> HasInstance<'a, C> for Option<K> where K: HasInstance<'a, C> { type Instance = Option<K::Instance>; }
+impl<'a, C, K> HasInstance<'a, C> for Option<K> where K: HasInstance<'a, C> {
+    type Native = Option<K::Native>;
+    type Managed = JSManaged<'a, C, Option<K>>;
+}
 
 // etc.
 
@@ -1461,7 +1474,7 @@ impl<'a, C, K> Eq for JSManaged<'a, C, K> {
 
 unsafe impl<'a, C, K> JSTraceable for JSManaged<'a, C, K> where
     K: HasInstance<'a, C>,
-    K::Instance: JSTraceable,
+    K::Native: JSTraceable,
 {
     unsafe fn trace(&self, trc: *mut JSTracer) {
         debug!("Tracing JSManaged {:p}.", self.js_object);
@@ -1471,54 +1484,58 @@ unsafe impl<'a, C, K> JSTraceable for JSManaged<'a, C, K> where
 
 impl<'a, C, K> JSManaged<'a, C, K> {
     /// Read-only access to JS-managed data.
-    pub fn get<'b, S>(self, _: &'b JSContext<S>) -> K::Instance where
+    pub fn get<'b, S>(self, _: &'b JSContext<S>) -> K::Native where
         S: CanAccess,
         C: Compartment,
         K: HasInstance<'b, C>,
-        K::Instance: Copy,
+        K::Native: Copy,
         'a: 'b,
     {
-        let result = unsafe { *(self.raw as *mut Option<K::Instance>) };
+        let result = unsafe { *(self.raw as *mut Option<K::Native>) };
         result.unwrap()
     }
 
-    pub fn borrow<'b, S>(self, _: &'b JSContext<S>) -> &'b K::Instance where
+    pub fn borrow<'b, S>(self, _: &'b JSContext<S>) -> &'b K::Native where
         S: CanAccess,
         C: Compartment,
         K: HasInstance<'b, C>,
         'a: 'b,
     {
-        let result = unsafe { &*(self.raw as *mut Option<K::Instance>) };
+        let result = unsafe { &*(self.raw as *mut Option<K::Native>) };
         result.as_ref().unwrap()
     }
 
     /// Read-write access to JS-managed data.
-    pub fn borrow_mut<'b, S>(self, _: &'b mut JSContext<S>) -> &'b mut K::Instance where
+    pub fn borrow_mut<'b, S>(self, _: &'b mut JSContext<S>) -> &'b mut K::Native where
         S: CanAccess,
         C: Compartment,
         K: HasInstance<'b, C>,
         'a: 'b,
     {
-        let result = unsafe { &mut *(self.raw as *mut Option<K::Instance>) };
+        let result = unsafe { &mut *(self.raw as *mut Option<K::Native>) };
         result.as_mut().unwrap()
     }
 
     /// Change the compartment of JS-managed data.
-    pub unsafe fn change_compartment<D>(self) -> JSManaged<'a, D, K> {
-        JSManaged {
+    pub unsafe fn change_compartment<D>(self) -> K::Managed where
+        K: HasInstance<'a, D>
+    {
+        K::Managed::from(JSManaged {
             js_object: self.js_object,
             raw: self.raw,
             marker: PhantomData,
-        }
+        })
     }
 
     /// Change the lifetime of JS-managed data.
-    pub unsafe fn change_lifetime<'b>(self) -> JSManaged<'b, C, K> {
-        JSManaged {
+    pub unsafe fn change_lifetime<'b>(self) -> K::Managed where
+        K: HasInstance<'b, C>,
+    {
+        K::Managed::from(JSManaged {
             js_object: self.js_object,
             raw: self.raw,
             marker: PhantomData,
-        }
+        })
     }
 
     /// It's safe to extend the lifetime of JS-managed data if it has been snapshotted.
@@ -1531,21 +1548,20 @@ impl<'a, C, K> JSManaged<'a, C, K> {
     /// Forget about which compartment the managed data is in.
     /// This is safe because when we mutate data in compartment `C` we require
     /// `C: Compartment`, which means it is never `SOMEWHERE`.
-    pub fn forget_compartment(self) -> JSManaged<'a, SOMEWHERE, K> {
-        JSManaged {
-            js_object: self.js_object,
-            raw: self.raw,
-            marker: PhantomData,
-        }
+    pub fn forget_compartment(self) -> K::Managed where
+        K: HasInstance<'a, SOMEWHERE>,
+    {
+        unsafe { self.change_compartment() }
     }
 
     /// Visit the compartment of this object.
     pub fn visit_compartment<S, V>(self, cx: &'a mut JSContext<S>, visitor: V) -> V::Result where
         S: CanAccess + CanAlloc,
+        K: HasInstance<'a, C>,
         V: VisitCompartment<'a, K>,
     {
         debug!("Visiting compartment.");
-        let ref mut cx = JSContext {
+        let ref mut cx: JSContext<Visiting<UNSAFE>> = JSContext {
             jsapi_context: cx.jsapi_context,
             global_js_object: ptr::null_mut(),
             global_raw: ptr::null_mut(),
@@ -1553,7 +1569,12 @@ impl<'a, C, K> JSManaged<'a, C, K> {
             runtime: None,
             marker: PhantomData,
         };
-        unsafe { visitor.visit::<UNSAFE, Visiting<UNSAFE>>(cx, self.change_compartment()) }
+        let managed: JSManaged<'a, UNSAFE, K> = JSManaged {
+            js_object: self.js_object,
+            raw: self.raw,
+            marker: PhantomData,
+        };
+        visitor.visit(cx, managed)
     }
 
     pub fn to_jsobject(self) -> *mut JSObject {
