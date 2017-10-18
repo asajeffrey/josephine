@@ -9,18 +9,14 @@ using it, congratulations you found a bug! Please report an issue!
 ## Example
 
 ```rust,skt-linjs
-use linjs::CanAccess;
 use linjs::CanCreate;
-use linjs::Compartment;
 use linjs::HasClass;
 use linjs::HasInstance;
 use linjs::HasGlobal;
 use linjs::Initialized;
 use linjs::JSContext;
 use linjs::JSGlobal;
-use linjs::JSManaged;
 use linjs::JSRootable;
-use linjs::VisitCompartment;
 
 struct MyGlobalClass;
 impl<'a, C> HasInstance<'a, C> for MyGlobalClass {
@@ -35,16 +31,6 @@ impl JSGlobal for MyGlobalClass {
         cx.create_global(NativeMyGlobal::new())
     }
 }
-impl<'a> VisitCompartment<'a, MyGlobalClass> for MyGlobalClass {
-    type Result = ();
-    fn visit<C, S>(self, cx: &mut JSContext<S>, global: JSManaged<'a, C, MyGlobalClass>) where
-        S: CanAccess,
-        C: Compartment,
-    {
-        // Make sure the global has the native data we expect.
-        assert_eq!(global.borrow(cx).message, "hello");
-    }
-}
 
 #[derive(Debug, JSTraceable)]
 struct NativeMyGlobal {
@@ -55,6 +41,9 @@ impl NativeMyGlobal {
         NativeMyGlobal {
 	    message: String::from("hello"),
 	}
+    }
+    fn hello(&self) {
+        assert_eq!(self.message, "hello");
     }
 }
 impl HasClass for NativeMyGlobal {
@@ -72,7 +61,9 @@ pub fn main() {
     let ref mut root = cx.new_root();
     let global = cx.new_global::<MyGlobalClass>().in_root(root);
 
-    // Run the visitor code in the global.
-    global.visit_compartment(cx, MyGlobalClass);
+    // Check that the global contains the expected "hello" message.
+    // We have to unpack the global first, since it is in the wildcard
+    // `SOMEWHERE` compartment
+    global.unpack(|global| global.borrow(cx).hello());
 }
 ```

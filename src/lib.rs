@@ -670,10 +670,9 @@ pub trait IsInitializing {}
 impl<C> IsInitializing for Initializing<C> {}
 
 /// A marker trait for JS compartments.
-/// We mark it as `'static` to avoid lifetime issues which require marking `C:'a`.
 /// We mark it as `Copy` so that anything that uses `[#derive{Copy)]` will be copyable.
 /// Ditto `Eq` and `Hash`.
-pub trait Compartment: 'static + Copy + Debug + Eq + Hash {}
+pub trait Compartment: Copy + Debug + Eq + Hash {}
 
 /// A marker trait for JS compartments that have a global of class `K`.
 pub trait HasGlobal<K>: Compartment {}
@@ -1545,21 +1544,11 @@ impl<'a, C, K> JSManaged<'a, C, K> {
         }
     }
 
-    /// Visit the compartment of this object.
-    pub fn visit_compartment<S, V>(self, cx: &'a mut JSContext<S>, visitor: V) -> V::Result where
-        S: CanAccess + CanAlloc,
-        V: VisitCompartment<'a, K>,
+    /// Bind the compartment of this object.
+    pub fn unpack<F, R>(self, f: F) -> R where
+        F: FnOnce(JSManaged<'a, BOUND, K>) -> R,
     {
-        debug!("Visiting compartment.");
-        let ref mut cx = JSContext {
-            jsapi_context: cx.jsapi_context,
-            global_js_object: ptr::null_mut(),
-            global_raw: ptr::null_mut(),
-            auto_compartment: None,
-            runtime: None,
-            marker: PhantomData,
-        };
-        unsafe { visitor.visit::<UNSAFE, Visiting<UNSAFE>>(cx, self.change_compartment()) }
+        unsafe { f(self.change_compartment()) }
     }
 
     pub fn to_jsobject(self) -> *mut JSObject {
@@ -1575,19 +1564,16 @@ impl<'a, C, K> JSManaged<'a, C, K> {
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Hash)]
 pub struct SOMEWHERE(());
 
+/// A compartment name that remembers the lifetime it was bound for.
+#[derive(Copy, Clone, Debug, Eq, PartialEq, Hash)]
+pub struct BOUND<'a>(PhantomData<&'a mut &'a ()>);
+impl<'a> Compartment for BOUND<'a> {}
+
 /// An unsafe compartment name, which we only give access to via unsafe code.
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Hash)]
 pub struct UNSAFE(());
 impl Compartment for UNSAFE {}
 impl<K> HasGlobal<K> for UNSAFE {}
-
-/// A trait for entering a compartment, and binding it to `C`.
-pub trait VisitCompartment<'a, K> {
-    type Result = ();
-    fn visit<C, S>(self, cx: &mut JSContext<S>, managed: JSManaged<'a, C, K>) -> Self::Result where
-        S: CanAccess + CanAlloc,
-        C: Compartment;
-}
 
 /// A stack allocated root containing data of type `T` with lifetime `'a`.
 pub struct JSRoot<'a, T: 'a> {
