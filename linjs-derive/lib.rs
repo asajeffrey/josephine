@@ -76,6 +76,47 @@ fn impl_js_rootable(ast: &syn::DeriveInput) -> quote::Tokens {
 
 //  -------------------------------------------------------------------------------------------------------
 
+#[proc_macro_derive(JSTransplantable)]
+pub fn derive_js_transplantable(input: TokenStream) -> TokenStream {
+    let s = input.to_string();
+    let ast = syn::parse_derive_input(&s).unwrap();
+    let gen = impl_js_transplantable(&ast);
+    gen.parse().unwrap()
+}
+
+fn impl_js_transplantable(ast: &syn::DeriveInput) -> quote::Tokens {
+    let name = &ast.ident;
+    let (impl_generics, ty_generics, where_clause) = ast.generics.split_for_impl();
+
+    // For types without any generic parameters, we provide a trivial
+    // implementation of `JSTransplantable`.
+    if ast.generics.ty_params.is_empty() {
+        return quote! {
+            #[allow(unsafe_code)]
+            unsafe impl<#impl_lifetimes, Z> ::linjs::JSTransplantable<Z> for #name #ty_generics #where_clause {
+                type Aged = #name #ty_generics;
+            }
+        }
+    }
+
+    // we assume there's only one type param, not named Z
+    assert!(ast.generics.ty_params.len() == 1, "deriving JSTransplantable requires a single type parameter");
+
+    let impl_ty_param = &ast.generics.ty_params[0].ident;
+    assert!(impl_lifetime != "Z", "deriving JSTransplantable requires the type parameter to not be named Z");
+
+    let lifetimes = ast.generics.lifetimes.iter().map(|lifetime| lifetime.ident.collect());
+    
+    quote! {
+        #[allow(unsafe_code)]
+        unsafe impl<#lifetimes, #impl_ty_param, Z> ::linjs::JSTransplantable<Z> for #name #ty_generics #where_clause {
+            type Transplanted = #name<#(#lifetimes),*, Z>;
+        }
+    }
+}
+
+//  -------------------------------------------------------------------------------------------------------
+
 #[proc_macro_derive(HasClass)]
 pub fn derive_has_class(input: TokenStream) -> TokenStream {
     let s = input.to_string();

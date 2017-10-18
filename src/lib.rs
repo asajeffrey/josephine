@@ -449,18 +449,15 @@ pub struct JSContext<S> {
     marker: PhantomData<S>,
 }
 
-/// A context state in an initialized compartment `C` with lifetime `'a` and global class `K`.
-pub struct Initialized<'a, C, K> (PhantomData<(&'a(), C, K)>);
+/// A context state in an initialized compartment `C` with lifetime `'a` and global type `T`.
+pub struct Initialized<'a, C, T> (PhantomData<(&'a(), C, T)>);
 
-/// A context state which can initialize compartment `C` with lifetime `'a`.
-pub struct Uninitialized<'a, C> (PhantomData<(&'a(), C)>);
+/// A context state in the middTle of initializing a compartment `C` with lifetime `'a` and global type `T`.
+pub struct Initializing<'a, C, T> (PhantomData<(&'a(), C, T)>);
 
-/// A context state in the middle of initializing a compartment `C` with lifetime `'a` and global class `K`.
-pub struct Initializing<'a, C, K> (PhantomData<(&'a(), C, K)>);
-
-/// A context state that has entered compartment `C` via an object with lifetime `'a` and global class `K`.
+/// A context state that has entered compartment `C` via an object with lifetime `'a` and global type `T`.
 /// The previous context state was `S`.
-pub struct Entered<'a, C, K, S> (PhantomData<(&'a(), C, K, S)>);
+pub struct Entered<'a, C, T, S> (PhantomData<(&'a(), C, T, S)>);
 
 /// A context state for JS contexts owned by Rust.
 pub struct Owned (());
@@ -474,47 +471,47 @@ pub struct Snapshotted<'a, S> (PhantomData<(&'a(), S)>);
 
 /// A marker trait for JS contexts in compartment `C`
 pub trait InCompartment<C> {}
-impl<'a, C, K> InCompartment<C> for Initializing<'a, C, K> {}
-impl<'a, C, K> InCompartment<C> for Initialized<'a, C, K> {}
-impl<'a, C, K, S> InCompartment<C> for Entered<'a, C, K, S> {}
+impl<'a, C, T> InCompartment<C> for Initializing<'a, C, T> {}
+impl<'a, C, T> InCompartment<C> for Initialized<'a, C, T> {}
+impl<'a, C, T, S> InCompartment<C> for Entered<'a, C, T, S> {}
 impl<'a, C, S> InCompartment<C> for Snapshotted<'a, S> where S: InCompartment<C> {}
 
 /// A marker trait for JS contexts that can access native state
 pub trait CanAccess {}
-impl<'a, C, K> CanAccess for Initialized<'a, C, K> {}
+impl<'a, C, T> CanAccess for Initialized<'a, C, T> {}
 impl CanAccess for FromJS {}
 impl CanAccess for Owned {}
-impl<'a, C, K, S> CanAccess for Entered<'a, C, K, S> where S: CanAccess {}
+impl<'a, C, T, S> CanAccess for Entered<'a, C, T, S> where S: CanAccess {}
 impl<'a, S> CanAccess for Snapshotted<'a, S> where S: CanAccess {}
 
 /// A marker trait for JS contexts that can extend the lifetime of objects
 pub trait CanExtend<'a> {}
 impl<'a, S> CanExtend<'a> for Snapshotted<'a, S> {}
-impl<'a, 'b, C, K, S> CanExtend<'a> for Entered<'b, C, K, S> where S: CanExtend<'a> {}
+impl<'a, 'b, C, T, S> CanExtend<'a> for Entered<'b, C, T, S> where S: CanExtend<'a> {}
 
 /// A marker trait for JS contexts that can (de)allocate objects
 pub trait CanAlloc {}
-impl<'a, C, K> CanAlloc for Initialized<'a, C, K> {}
-impl<'a, C, K> CanAlloc for Initializing<'a, C, K> {}
+impl<'a, C, T> CanAlloc for Initialized<'a, C, T> {}
+impl<'a, C, T> CanAlloc for Initializing<'a, C, T> {}
 impl CanAlloc for FromJS {}
 impl CanAlloc for Owned {}
-impl<'a, C, K, S> CanAlloc for Entered<'a, C, K, S> where S: CanAlloc {}
+impl<'a, C, T, S> CanAlloc for Entered<'a, C, T, S> where S: CanAlloc {}
 
 /// A marker trait for JS contexts that can create new compartments.
 pub trait CanCreateCompartments {}
 impl CanCreateCompartments for Owned {}
 
 /// A marker trait for JS contexts that are in the middle of initializing
-pub trait IsInitializing<'a, C, K> {}
-impl<'a, C, K> IsInitializing<'a, C, K> for Initializing<'a, C, K> {}
+pub trait IsInitializing<'a, C, T> {}
+impl<'a, C, T> IsInitializing<'a, C, T> for Initializing<'a, C, T> {}
 
 /// A marker trait for JS contexts that have initialized a global
-pub trait IsInitialized<'a, C, K> {}
-impl<'a, C, K> IsInitialized<'a, C, K> for Initialized<'a, C, K> {}
+pub trait IsInitialized<'a, C, T> {}
+impl<'a, C, T> IsInitialized<'a, C, T> for Initialized<'a, C, T> {}
 
 /// A marker trait for JS contexts that have been entered
-pub trait IsEntered<'a, C, K> {}
-impl<'a, C, K, S> IsEntered<'a, C, K> for Entered<'a, C, K, S> {}
+pub trait IsEntered<'a, C, T> {}
+impl<'a, C, T, S> IsEntered<'a, C, T> for Entered<'a, C, T, S> {}
 
 /// A marker trait for JS compartments.
 /// We mark it as `Copy` so that anything that uses `[#derive{Copy)]` will be copyable.
@@ -556,7 +553,9 @@ impl<S> JSContext<S> {
     }
 
     /// Enter a compartment.
-    pub fn enter_compartment<'a, C, K>(&'a mut self, managed: JSManaged<'a, C, K>) -> JSContext<Entered<'a, BOUND<'a>, K, S>> {
+    pub fn enter_compartment<'a, 'b, C, T>(&'a mut self, managed: JSManaged<'b, C, T>) -> JSContext<Entered<'a, BOUND<'a>, T::Aged, S>> where
+        T: JSRootable<'a>,
+    {
         debug!("Entering compartment.");
         let ac = JSAutoCompartment::new(self.jsapi_context, managed.to_jsobject());
         JSContext {
@@ -571,17 +570,16 @@ impl<S> JSContext<S> {
 
     /// Give ownership of data to JS.
     /// This allocates JS heap, which may trigger GC.
-    pub fn manage<'a, 'b, C, K, T>(&'a mut self, value: T) -> JSManaged<'a, C, K> where
+    pub fn manage<'a, C, T>(&'a mut self, value: T) -> JSManaged<'a, C, T::Aged> where
         S: CanAlloc + InCompartment<C>,
         C: Compartment,
-        K: HasInstance<'b, C, Instance = T>,
-        T: JSTraceable + HasClass<Class = K>,
+        T: JSTraceable + JSInitializable + JSRootable<'a>,
     {
         debug!("Managing native data.");
         let cx = self.jsapi_context;
         let global = unsafe { &*self.global_js_object }.handle();
         let prototypes = unsafe { &mut *(JS_GetReservedSlot(global.get(), 2).to_private() as *mut HashMap<TypeId, Box<Heap<*mut JSObject>>>) };
-        let prototype = prototypes.entry(TypeId::of::<K>()).or_insert_with(|| {
+        let prototype = prototypes.entry(TypeId::of::<T::Init>()).or_insert_with(|| {
             let boxed = Box::new(Heap::default());
             boxed.set(unsafe { T::Init::js_init_class(cx, global) });
             boxed
@@ -614,11 +612,10 @@ impl<S> JSContext<S> {
 
     /// Give ownership of data to JS.
     /// This allocates JS heap, which may trigger GC.
-    pub fn snapshot_manage<'a, 'b, C, K, T>(&'a mut self, value: T) -> (JSContext<Snapshotted<'a, S>>, JSManaged<'a, C, K>) where
+    pub fn snapshot_manage<'a, C, T>(&'a mut self, value: T) -> (JSContext<Snapshotted<'a, S>>, JSManaged<'a, C, T::Aged>) where
         S: CanAlloc + InCompartment<C>,
         C: Compartment,
-        K: HasInstance<'b, C, Instance = T>,
-        T: JSTraceable + HasClass<Class = K>,
+        T: JSTraceable + JSInitializable + JSRootable<'a>,
     {
         let jsapi_context = self.jsapi_context;
         let global_js_object = self.global_js_object;
@@ -638,10 +635,9 @@ impl<S> JSContext<S> {
     }
 
     /// Create a compartment
-    pub fn create_compartment<'a, K, T>(&'a mut self) -> JSContext<Initializing<'a, BOUND<'a>, K>> where
+    pub fn create_compartment<'a, T>(&'a mut self) -> JSContext<Initializing<'a, BOUND<'a>, T>> where
         S: CanCreateCompartments,
-        T: JSTraceable + HasClass<Class = K>,
-        K: HasInstance<'a, BOUND<'a>, Instance = T>,
+        T: JSInitializable + JSTraceable,
     {
         debug!("Creating compartment.");
         let value: Option<T> = None;
@@ -695,10 +691,9 @@ impl<S> JSContext<S> {
     }
 
     /// Finish initializing a JS Context
-    pub fn global_manage<'a, C, K, T>(self, value: T) -> JSContext<Initialized<'a, C, K>> where
-        S: IsInitializing<'a, C, K>,
-        T: JSTraceable + HasClass<Class = K>,
-        K: HasInstance<'a, C>,
+    pub fn global_manage<'a, C, T>(self, value: T) -> JSContext<Initialized<'a, C, T::Aged>> where
+        S: IsInitializing<'a, C, T>,
+        T: JSTraceable + JSRootable<'a>,
     {
         debug!("Managing native global.");
         let raw = self.global_raw as *mut Option<T>;
@@ -716,18 +711,17 @@ impl<S> JSContext<S> {
         }
     }
 
-    /// Shortcut to create a compartmetn and finish initializing in one go.
-    pub fn create_global<'a, K, T>(&'a mut self, value: T) -> JSContext<Initialized<'a, BOUND<'a>, K>> where
+    /// Shortcut to create a compartment and finish initializing in one go.
+    pub fn create_global<'a, T>(&'a mut self, value: T) -> JSContext<Initialized<'a, BOUND<'a>, T::Aged>> where
         S: CanCreateCompartments,
-        T: JSTraceable + HasClass<Class = K>,
-        K: HasInstance<'a, BOUND<'a>, Instance = T>,
+        T: JSInitializable + JSTraceable + JSRootable<'a>,
     {
         self.create_compartment().global_manage(value)
     }
 
     /// Get the object we entered the current compartment via
-    pub fn entered<'a, C, K>(&self) -> JSManaged<'a, C, K> where
-        S: IsEntered<'a, C, K>
+    pub fn entered<'a, C, T>(&self) -> JSManaged<'a, C, T> where
+        S: IsEntered<'a, C, T>
     {
         JSManaged {
             js_object: self.global_js_object,
@@ -737,8 +731,8 @@ impl<S> JSContext<S> {
     }
 
      /// Get the global of an initialized context.
-    pub fn global<'a, C, K>(&self) -> JSManaged<'a, C, K> where
-        S: IsInitialized<'a, C, K>
+    pub fn global<'a, C, T>(&self) -> JSManaged<'a, C, T> where
+        S: IsInitialized<'a, C, T>
     {
         JSManaged {
             js_object: self.global_js_object,
@@ -897,35 +891,26 @@ unsafe impl<T> JSTraceable for Vec<T> where T: JSTraceable {
 
 /// A trait for Rust data which can be reflected
 
-pub trait HasClass {
-    type Class: 'static;
-    type Init: JSInitializer = DefaultInitializer;
-}
-
-pub trait HasInstance<'a, C>: 'static + Sized {
-    type Instance: HasClass<Class = Self>;
+pub trait JSInitializable {
+    type Init: 'static + JSInitializer = DefaultInitializer;
 }
 
 /// Basic types
-impl HasClass for String { type Class = String; }
-impl<'a, C> HasInstance<'a, C> for String { type Instance = String; }
-
-impl<T> HasClass for Option<T> where T: HasClass { type Class = Option<T::Class>; }
-impl<'a, C, K> HasInstance<'a, C> for Option<K> where K: HasInstance<'a, C> { type Instance = Option<K::Instance>; }
-
+impl JSInitializable for String {}
+impl JSInitializable for usize {}
 // etc.
 
 /// A trait for Rust data which can be managed
 
-pub trait JSManageable: JSTraceable {
+trait JSManageable: JSTraceable {
     unsafe fn class_id(&self) -> TypeId;
 }
 
-impl<T> JSManageable for T where
-    T: JSTraceable + HasClass
+impl<T> JSManageable for Option<T> where
+    T: JSTraceable + JSInitializable
 {
     unsafe fn class_id(&self) -> TypeId {
-        TypeId::of::<T::Class>()
+        TypeId::of::<T::Init>()
     }
 }
 
@@ -1126,8 +1111,8 @@ pub unsafe fn jscontext_called_from_js(cx: *mut jsapi::JSContext) -> JSContext<F
     }
 }
 
-pub unsafe fn jsmanaged_called_from_js<'a, K>(js_value: HandleValue) -> Result<JSManaged<'a, UNSAFE, K>, JSEvaluateErr> where
-    K: 'static
+pub unsafe fn jsmanaged_called_from_js<'a, T>(js_value: HandleValue) -> Result<JSManaged<'a, UNSAFE, T>, JSEvaluateErr> where
+    T: JSInitializable,
 {
     if !js_value.is_object() {
         return Err(JSEvaluateErr::NotAnObject);
@@ -1149,7 +1134,7 @@ pub unsafe fn jsmanaged_called_from_js<'a, K>(js_value: HandleValue) -> Result<J
     let native: &mut JSManageable = mem::transmute([ slot0.to_private(), slot1.to_private() ]);
 
     // TODO: inheritance
-    if TypeId::of::<Option<K>>() != native.class_id() {
+    if TypeId::of::<T::Init>() != native.class_id() {
         return Err(JSEvaluateErr::WrongClass);
     }
     let raw = native as *mut _ as *mut ();
@@ -1263,17 +1248,17 @@ pub unsafe fn jsstring_called_from_js<'a>(cx: *mut jsapi::JSContext, value: Hand
     }
 }
 
-/// The type of JS-managed data in a JS compartment `C`, with lifetime `'a` and class `K`.
+/// The type of JS-managed data in a JS compartment `C`, with lifetime `'a` and type `T`.
 ///
 /// If the user has access to a `JSManaged`, then the JS-managed
 /// data is live for the given lifetime.
-pub struct JSManaged<'a, C, K> {
+pub struct JSManaged<'a, C, T> {
     js_object: *mut Heap<*mut JSObject>,
     raw: *mut (),
-    marker: PhantomData<(&'a(), C, K)>
+    marker: PhantomData<(&'a(), C, T)>
 }
 
-impl<'a, C, K> Clone for JSManaged<'a, C, K> {
+impl<'a, C, T> Clone for JSManaged<'a, C, T> {
     fn clone(&self) -> Self {
         JSManaged {
             js_object: self.js_object,
@@ -1283,10 +1268,10 @@ impl<'a, C, K> Clone for JSManaged<'a, C, K> {
     }
 }
 
-impl<'a, C, K> Copy for JSManaged<'a, C, K> {
+impl<'a, C, T> Copy for JSManaged<'a, C, T> {
 }
 
-impl<'a, C, K> Debug for JSManaged<'a, C, K> {
+impl<'a, C, T> Debug for JSManaged<'a, C, T> {
     fn fmt(&self, fmt: &mut std::fmt::Formatter) -> Result<(), std::fmt::Error> {
         fmt.debug_struct("JSManaged")
             .field("js_object", &self.js_object)
@@ -1295,18 +1280,17 @@ impl<'a, C, K> Debug for JSManaged<'a, C, K> {
     }
 }
 
-impl<'a, C, K> PartialEq for JSManaged<'a, C, K> {
+impl<'a, C, T> PartialEq for JSManaged<'a, C, T> {
     fn eq(&self, other: &Self) -> bool {
         self.raw == other.raw
     }
 }
 
-impl<'a, C, K> Eq for JSManaged<'a, C, K> {
+impl<'a, C, T> Eq for JSManaged<'a, C, T> {
 }
 
-unsafe impl<'a, C, K> JSTraceable for JSManaged<'a, C, K> where
-    K: HasInstance<'a, C>,
-    K::Instance: JSTraceable,
+unsafe impl<'a, C, T> JSTraceable for JSManaged<'a, C, T> where
+    T: JSTraceable,
 {
     unsafe fn trace(&self, trc: *mut JSTracer) {
         debug!("Tracing JSManaged {:p}.", self.js_object);
@@ -1314,42 +1298,44 @@ unsafe impl<'a, C, K> JSTraceable for JSManaged<'a, C, K> where
     }
 }
 
-impl<'a, C, K> JSManaged<'a, C, K> {
+impl<'a, C, T> JSManaged<'a, C, T> {
     /// Read-only access to JS-managed data.
-    pub fn get<'b, S>(self, _: &'b JSContext<S>) -> K::Instance where
+    pub fn get<'b, S>(self, _: &'b JSContext<S>) -> T::Aged where
         S: CanAccess,
         C: Compartment,
-        K: HasInstance<'b, C>,
-        K::Instance: Copy,
+        T: JSRootable<'b>,
+        T::Aged: Copy,
         'a: 'b,
     {
-        let result = unsafe { *(self.raw as *mut Option<K::Instance>) };
+        let result = unsafe { *(self.raw as *mut Option<T::Aged>) };
         result.unwrap()
     }
 
-    pub fn borrow<'b, S>(self, _: &'b JSContext<S>) -> &'b K::Instance where
+    pub fn borrow<'b, S>(self, _: &'b JSContext<S>) -> &'b T::Aged where
         S: CanAccess,
         C: Compartment,
-        K: HasInstance<'b, C>,
+        T: JSRootable<'b>,
         'a: 'b,
     {
-        let result = unsafe { &*(self.raw as *mut Option<K::Instance>) };
+        let result = unsafe { &*(self.raw as *mut Option<T::Aged>) };
         result.as_ref().unwrap()
     }
 
     /// Read-write access to JS-managed data.
-    pub fn borrow_mut<'b, S>(self, _: &'b mut JSContext<S>) -> &'b mut K::Instance where
+    pub fn borrow_mut<'b, S>(self, _: &'b mut JSContext<S>) -> &'b mut T::Aged where
         S: CanAccess,
         C: Compartment,
-        K: HasInstance<'b, C>,
+        T: JSRootable<'b>,
         'a: 'b,
     {
-        let result = unsafe { &mut *(self.raw as *mut Option<K::Instance>) };
+        let result = unsafe { &mut *(self.raw as *mut Option<T::Aged>) };
         result.as_mut().unwrap()
     }
 
     /// Change the compartment of JS-managed data.
-    pub unsafe fn change_compartment<D>(self) -> JSManaged<'a, D, K> {
+    pub unsafe fn change_compartment<D>(self) -> JSManaged<'a, D, T::Transplanted> where
+        T: JSTransplantable<D>,
+    {
         JSManaged {
             js_object: self.js_object,
             raw: self.raw,
@@ -1358,7 +1344,9 @@ impl<'a, C, K> JSManaged<'a, C, K> {
     }
 
     /// Change the lifetime of JS-managed data.
-    pub unsafe fn change_lifetime<'b>(self) -> JSManaged<'b, C, K> {
+    pub unsafe fn change_lifetime<'b>(self) -> JSManaged<'b, C, T::Aged> where
+        T: JSRootable<'b>,
+    {
         JSManaged {
             js_object: self.js_object,
             raw: self.raw,
@@ -1367,8 +1355,9 @@ impl<'a, C, K> JSManaged<'a, C, K> {
     }
 
     /// It's safe to extend the lifetime of JS-managed data if it has been snapshotted.
-    pub fn extend_lifetime<'b, 'c, S>(self, _: &'c JSContext<S>) -> JSManaged<'b, C, K> where
+    pub fn extend_lifetime<'b, 'c, S>(self, _: &'c JSContext<S>) -> JSManaged<'b, C, T::Aged> where
         S: CanExtend<'b>,
+        T: JSRootable<'b>,
     {
         unsafe { self.change_lifetime() }
     }
@@ -1376,19 +1365,10 @@ impl<'a, C, K> JSManaged<'a, C, K> {
     /// Forget about which compartment the managed data is in.
     /// This is safe because when we mutate data in compartment `C` we require
     /// `C: Compartment`, which means it is never `SOMEWHERE`.
-    pub fn forget_compartment(self) -> JSManaged<'a, SOMEWHERE, K> {
-        JSManaged {
-            js_object: self.js_object,
-            raw: self.raw,
-            marker: PhantomData,
-        }
-    }
-
-    /// Bind the compartment of this object.
-    pub fn unpack<F, R>(self, f: F) -> R where
-        F: FnOnce(JSManaged<'a, BOUND, K>) -> R,
+    pub fn forget_compartment(self) -> JSManaged<'a, SOMEWHERE, T::Transplanted> where
+        T: JSTransplantable<SOMEWHERE>,
     {
-        unsafe { f(self.change_compartment()) }
+        unsafe { self.change_compartment() }
     }
 
     pub fn to_jsobject(self) -> *mut JSObject {
@@ -1515,9 +1495,10 @@ pub unsafe trait JSRootable<'a> {
     }
 }
 
-unsafe impl<'a, 'b, C, K> JSRootable<'a> for JSManaged<'b, C, K>
+unsafe impl<'a, 'b, C, T> JSRootable<'a> for JSManaged<'b, C, T> where
+    T: JSRootable<'a>,
 {
-    type Aged = JSManaged<'a, C, K>;
+    type Aged = JSManaged<'a, C, T::Aged>;
 }
 
 impl<'a, T> JSRoot<'a, T> {
@@ -1566,3 +1547,16 @@ unsafe impl<#[may_dangle] 'a, #[may_dangle] T> Drop for JSRoot<'a, T> {
         unsafe { self.unpin() }
     }
 }
+
+
+/// Data which can be transplanted into compartment C.
+
+pub unsafe trait JSTransplantable<C> {
+    type Transplanted;
+}
+
+unsafe impl<C> JSTransplantable<C> for String { type Transplanted = String; }
+unsafe impl<C> JSTransplantable<C> for usize { type Transplanted = usize; }
+unsafe impl<C, T> JSTransplantable<C> for Option<T> where T: JSTransplantable<C> { type Transplanted = Option<T::Transplanted>; }
+unsafe impl<C, T> JSTransplantable<C> for Vec<T> where T: JSTransplantable<C> { type Transplanted = Vec<T::Transplanted>; }
+unsafe impl<'a, C, D, T> JSTransplantable<C> for JSManaged<'a, D, T> where T: JSTransplantable<C> { type Transplanted = JSManaged<'a, C, T::Transplanted>; }
