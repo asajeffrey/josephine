@@ -9,30 +9,25 @@ using it, congratulations you found a bug! Please report an issue!
 ## Example
 
 ```rust,skt-linjs
+use linjs::HasInstance;
+use linjs::CanAccess;
+use linjs::CanInitialize;
 use linjs::CanCreate;
 use linjs::HasClass;
-use linjs::HasInstance;
+use linjs::Compartment;
+use linjs::CreateCompartment;
 use linjs::HasGlobal;
+use linjs::InCompartment;
 use linjs::Initialized;
 use linjs::JSContext;
 use linjs::JSGlobal;
 use linjs::JSRootable;
+use linjs::JSManaged;
+use linjs::JSRootable;
+use linjs::SOMEWHERE;
+use linjs::VisitCompartment;
 
-struct MyGlobalClass;
-impl<'a, C> HasInstance<'a, C> for MyGlobalClass {
-    type Instance = NativeMyGlobal;
-}
-impl JSGlobal for MyGlobalClass {
-    fn init<C, S>(cx: JSContext<S>) -> JSContext<Initialized<C>> where
-        S: CanCreate<C>,
-	C: HasGlobal<MyGlobalClass>,
-    {
-        // Create the JavaScript compartment and give the global native data to manage
-        cx.create_global(NativeMyGlobal::new())
-    }
-}
-
-#[derive(Debug, JSTraceable)]
+#[derive(Debug, JSTraceable, JSRootable)]
 struct NativeMyGlobal {
     message: String,
 }
@@ -42,24 +37,34 @@ impl NativeMyGlobal {
 	    message: String::from("hello"),
 	}
     }
-    fn hello(&self) {
-        assert_eq!(self.message, "hello");
-    }
 }
-impl HasClass for NativeMyGlobal {
-    type Class = MyGlobalClass;
+
+#[derive(Clone, Copy, Debug, JSTraceable, JSRootable)]
+struct MyGlobal<'a, C>(JSManaged<'a, C, NativeMyGlobal>);
+
+impl<'a> CreateCompartment<'a> for MyGlobal<'a, SOMEWHERE> {
+    fn init<C, S>(cx: JSContext<S>) -> JSContext<Initialized<C>> where
+        S: CanInitialize + InCompartment<C>,
+	C: Compartment + HasGlobal<MyGlobal<'a, C>>,
+    {
+        // Give the global native data to manage
+        cx.manage_global(NativeMyGlobal::new());
+    }
 }
 
 // Run the example
 pub fn main() {
-    // Create a new JavaScript context,
+    // Create a new JavaScript context.
     let ref mut cx = JSContext::new();
 
+    // Create a compartment in that context.
+    let cx = cx.create_compartment();
+    
     // Create a new global in that context.
     // We have to root the global to stop it being garbage collected.
     // If we don't root it, this code won't compile!
     let ref mut root = cx.new_root();
-    let global = cx.new_global::<MyGlobalClass>().in_root(root);
+    let global = MyGlobal(cx.new_compartment()).in_root(root);
 
     // Check that the global contains the expected "hello" message.
     // We have to unpack the global first, since it is in the wildcard
