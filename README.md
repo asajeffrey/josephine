@@ -43,12 +43,14 @@ impl<'a> MyGlobal<'a, SOMEWHERE> {
         MyGlobal(cx.global().forget_compartment())
     }
 
-    fn assert_is_hello<S>(self, cx: &JSContext<S>) where
+    fn assert_is_hello<S>(self, cx: &mut JSContext<S>) where
         S: CanAccess,
     {
-        // We have to unpack the global first, since it is in the wildcard
-        // `SOMEWHERE` compartment
-        self.0.unpack(|managed| assert_eq!(managed.borrow(cx).message, "hello"))
+        // We have to enter the global first, since it is in the wildcard
+        // `SOMEWHERE` compartment.
+        let ref mut cx = cx.enter_compartment(self.0);
+        let managed = cx.entered();
+        assert_eq!(managed.borrow(cx).message, "hello");
     }
 }
 

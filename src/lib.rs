@@ -458,8 +458,9 @@ pub struct Uninitialized<'a, C> (PhantomData<(&'a(), C)>);
 /// A context state in the middle of initializing a compartment `C` with lifetime `'a` and global class `K`.
 pub struct Initializing<'a, C, K> (PhantomData<(&'a(), C, K)>);
 
-/// A context state that is visiting `C`.
-pub struct Visiting<C> (PhantomData<C>);
+/// A context state that has entered compartment `C` via an object with lifetime `'a` and global class `K`.
+/// The previous context state was `S`.
+pub struct Entered<'a, C, K, S> (PhantomData<(&'a(), C, K, S)>);
 
 /// A context state for JS contexts owned by Rust.
 pub struct Owned (());
@@ -475,28 +476,29 @@ pub struct Snapshotted<'a, S> (PhantomData<(&'a(), S)>);
 pub trait InCompartment<C> {}
 impl<'a, C, K> InCompartment<C> for Initializing<'a, C, K> {}
 impl<'a, C, K> InCompartment<C> for Initialized<'a, C, K> {}
-impl<C> InCompartment<C> for Visiting<C> {}
+impl<'a, C, K, S> InCompartment<C> for Entered<'a, C, K, S> {}
 impl<'a, C, S> InCompartment<C> for Snapshotted<'a, S> where S: InCompartment<C> {}
 
 /// A marker trait for JS contexts that can access native state
 pub trait CanAccess {}
 impl<'a, C, K> CanAccess for Initialized<'a, C, K> {}
-impl<C> CanAccess for Visiting<C> {}
 impl CanAccess for FromJS {}
-impl<'a, S> CanAccess for Snapshotted<'a, S> where S: CanAccess {}
 impl CanAccess for Owned {}
+impl<'a, C, K, S> CanAccess for Entered<'a, C, K, S> where S: CanAccess {}
+impl<'a, S> CanAccess for Snapshotted<'a, S> where S: CanAccess {}
 
 /// A marker trait for JS contexts that can extend the lifetime of objects
 pub trait CanExtend<'a> {}
 impl<'a, S> CanExtend<'a> for Snapshotted<'a, S> {}
+impl<'a, 'b, C, K, S> CanExtend<'a> for Entered<'b, C, K, S> where S: CanExtend<'a> {}
 
 /// A marker trait for JS contexts that can (de)allocate objects
 pub trait CanAlloc {}
 impl<'a, C, K> CanAlloc for Initialized<'a, C, K> {}
 impl<'a, C, K> CanAlloc for Initializing<'a, C, K> {}
-impl<C> CanAlloc for Visiting<C> {}
 impl CanAlloc for FromJS {}
 impl CanAlloc for Owned {}
+impl<'a, C, K, S> CanAlloc for Entered<'a, C, K, S> where S: CanAlloc {}
 
 /// A marker trait for JS contexts that can create new compartments.
 pub trait CanCreateCompartments {}
@@ -509,6 +511,10 @@ impl<'a, C, K> IsInitializing<'a, C, K> for Initializing<'a, C, K> {}
 /// A marker trait for JS contexts that have initialized a global
 pub trait IsInitialized<'a, C, K> {}
 impl<'a, C, K> IsInitialized<'a, C, K> for Initialized<'a, C, K> {}
+
+/// A marker trait for JS contexts that have been entered
+pub trait IsEntered<'a, C, K> {}
+impl<'a, C, K, S> IsEntered<'a, C, K> for Entered<'a, C, K, S> {}
 
 /// A marker trait for JS compartments.
 /// We mark it as `Copy` so that anything that uses `[#derive{Copy)]` will be copyable.
@@ -544,6 +550,20 @@ impl<S> JSContext<S> {
             global_js_object: self.global_js_object,
             global_raw: self.global_raw,
             auto_compartment: None,
+            runtime: None,
+            marker: PhantomData,
+        }
+    }
+
+    /// Enter a compartment.
+    pub fn enter_compartment<'a, C, K>(&'a mut self, managed: JSManaged<'a, C, K>) -> JSContext<Entered<'a, BOUND<'a>, K, S>> {
+        debug!("Entering compartment.");
+        let ac = JSAutoCompartment::new(self.jsapi_context, managed.to_jsobject());
+        JSContext {
+            jsapi_context: self.jsapi_context,
+            global_js_object: managed.js_object,
+            global_raw: managed.raw,
+            auto_compartment: Some(ac),
             runtime: None,
             marker: PhantomData,
         }
@@ -705,7 +725,18 @@ impl<S> JSContext<S> {
         self.create_compartment().global_manage(value)
     }
 
-    /// Get the global of an initialized context.
+    /// Get the object we entered the current compartment via
+    pub fn entered<'a, C, K>(&self) -> JSManaged<'a, C, K> where
+        S: IsEntered<'a, C, K>
+    {
+        JSManaged {
+            js_object: self.global_js_object,
+            raw: self.global_raw,
+            marker: PhantomData,
+        }
+    }
+
+     /// Get the global of an initialized context.
     pub fn global<'a, C, K>(&self) -> JSManaged<'a, C, K> where
         S: IsInitialized<'a, C, K>
     {
