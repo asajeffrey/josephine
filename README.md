@@ -9,31 +9,16 @@ using it, congratulations you found a bug! Please report an issue!
 ## Example
 
 ```rust,skt-linjs
-use linjs::CanCreate;
-use linjs::HasClass;
-use linjs::HasInstance;
-use linjs::HasGlobal;
-use linjs::Initialized;
+use linjs::CanAccess;
+use linjs::CanCreateCompartments;
 use linjs::JSContext;
-use linjs::JSGlobal;
+use linjs::JSManaged;
 use linjs::JSRootable;
+use linjs::SOMEWHERE;
 
-struct MyGlobalClass;
-impl<'a, C> HasInstance<'a, C> for MyGlobalClass {
-    type Instance = NativeMyGlobal;
-}
-impl JSGlobal for MyGlobalClass {
-    fn init<C, S>(cx: JSContext<S>) -> JSContext<Initialized<C>> where
-        S: CanCreate<C>,
-	C: HasGlobal<MyGlobalClass>,
-    {
-        // Create the JavaScript compartment and give the global native data to manage
-        cx.create_global(NativeMyGlobal::new())
-    }
-}
-
-#[derive(Debug, JSTraceable)]
-struct NativeMyGlobal {
+// Some native Rust data which we hand to JS to manage its lifetime.
+#[derive(JSTraceable, JSRootable, HasClass)]
+pub struct NativeMyGlobal {
     message: String,
 }
 impl NativeMyGlobal {
@@ -42,12 +27,29 @@ impl NativeMyGlobal {
 	    message: String::from("hello"),
 	}
     }
-    fn hello(&self) {
-        assert_eq!(self.message, "hello");
-    }
 }
-impl HasClass for NativeMyGlobal {
-    type Class = MyGlobalClass;
+
+// A JS global, with JS-managed lifetime `'a`, in compartment `C`.
+// This global is managing some native data.
+#[derive(Copy, Clone, JSTraceable, JSRootable)]
+struct MyGlobal<'a, C> (JSManaged<'a, C, NativeMyGlobalClass>);
+
+impl<'a> MyGlobal<'a, SOMEWHERE> {
+    fn new<S>(cx: &'a mut JSContext<S>) -> MyGlobal<'a, SOMEWHERE> where
+        S: CanCreateCompartments,
+    {
+        let native = NativeMyGlobal::new();
+        let cx = cx.create_compartment().global_manage(native);
+        MyGlobal(cx.global().forget_compartment())
+    }
+
+    fn assert_is_hello<S>(self, cx: &JSContext<S>) where
+        S: CanAccess,
+    {
+        // We have to unpack the global first, since it is in the wildcard
+        // `SOMEWHERE` compartment
+        self.0.unpack(|managed| assert_eq!(managed.borrow(cx).message, "hello"))
+    }
 }
 
 // Run the example
@@ -59,11 +61,9 @@ pub fn main() {
     // We have to root the global to stop it being garbage collected.
     // If we don't root it, this code won't compile!
     let ref mut root = cx.new_root();
-    let global = cx.new_global::<MyGlobalClass>().in_root(root);
+    let global = MyGlobal::new(cx).in_root(root);
 
     // Check that the global contains the expected "hello" message.
-    // We have to unpack the global first, since it is in the wildcard
-    // `SOMEWHERE` compartment
-    global.unpack(|global| global.borrow(cx).hello());
+    global.assert_is_hello(cx);
 }
 ```

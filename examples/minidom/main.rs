@@ -21,11 +21,11 @@ fn main() {
     env_logger::init().unwrap();
 
     debug!("Creating JSContext.");
-    let mut cx = JSContext::new();
+    let ref mut cx = JSContext::new();
 
-    debug!("Creating compartment");
+    debug!("Creating global.");
     let ref mut root = cx.new_root();
-    let _window = Window(cx.new_global().in_root(root));
+    let _window = Window::new(cx).in_root(root);
 
     debug!("Printing hello");
     cx.evaluate("console.log('hello')").unwrap();

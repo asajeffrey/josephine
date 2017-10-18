@@ -269,8 +269,9 @@
 //! # Globals
 //!
 //! JS contexts require initialization. In particular, each compartment has a global,
-//! which should be JS managed data. The global can be initialized using `cx.init(value)`,
-//! which updates the state of the context from uninitialized to initialized.
+//! which should be JS managed data. The global can be created using `cx.create_compartment()`,
+//! and given native data to manage with `cx.global_manage(data)`. The global can be accessed
+//! with `cx.global()`.
 //!
 //! ```rust
 //! # extern crate linjs;
@@ -280,32 +281,13 @@
 //! pub struct NativeMyGlobal { name: String }
 //! type MyGlobal<'a, C> = JSManaged<'a, C, NativeMyGlobalClass>;
 //!
-//! fn example<'a, C, S>(cx: JSContext<S>) -> JSContext<Initialized<C>> where
-//!    S: CanCreate<C>,
-//!    C: HasGlobal<NativeMyGlobalClass>,
+//! fn example<'a, S>(cx: &'a mut JSContext<S>) -> MyGlobal<'a, SOMEWHERE> where
+//!    S: CanCreateCompartments,
 //! {
 //!    let cx = cx.create_compartment();
 //!    let name = String::from("Alice");
-//!    cx.global_manage(NativeMyGlobal { name: name })
-//! }
-//! # fn main() {}
-//! ```
-//!
-//! The current global can be accessed from the JS context, for example:
-//!
-//! ```rust
-//! # #[macro_use] extern crate linjs;
-//! # #[macro_use] extern crate linjs_derive;
-//! # use linjs::*;
-//! #[derive(HasClass, JSTraceable, JSRootable)]
-//! # pub struct NativeMyGlobal { name: String }
-//! # type MyGlobal<'a, C> = JSManaged<'a, C, NativeMyGlobalClass>;
-//! #
-//! fn example<'a, C, S>(cx: &JSContext<S>) where
-//!    S: CanAccess + InCompartment<C>,
-//!    C: HasGlobal<NativeMyGlobalClass>,
-//! {
-//!    println!("My global is named {}.", cx.global().borrow(cx).name);
+//!    let cx = cx.global_manage(NativeMyGlobal { name: name });
+//!    cx.global().forget_compartment()
 //! }
 //! # fn main() {}
 //! ```
@@ -315,69 +297,28 @@
 //! providing the JS-managed data for the global, for example:
 //!
 //! ```rust
-//! # #[macro_use] extern crate linjs;
+//! # extern crate linjs;
 //! # #[macro_use] extern crate linjs_derive;
 //! # use linjs::*;
-//! #[derive(JSTraceable, JSRootable)]
-//! struct NativeMyGlobal<'a, C> { name: JSManaged<'a, C, String> }
-//! impl<'a, C> HasClass for NativeMyGlobal<'a, C> { type Class = MyGlobalClass; }
+//! #[derive(HasClass, JSTraceable, JSRootable)]
+//! pub struct NativeMyGlobal<'a, C> { name: JSManaged<'a, C, String> }
+//! type MyGlobal<'a, C> = JSManaged<'a, C, NativeMyGlobalClass>;
 //!
-//! struct MyGlobalClass;
-//! impl<'a, C> HasInstance<'a, C> for MyGlobalClass { type Instance = NativeMyGlobal<'a, C>; }
-//!
-//! fn example<'a, C, S>(cx: JSContext<S>) -> JSContext<Initialized<C>> where
-//!    S: CanCreate<C>,
-//!    C: HasGlobal<MyGlobalClass>,
+//! fn example<'a, S>(cx: &'a mut JSContext<S>) -> MyGlobal<'a, SOMEWHERE> where
+//!    S: CanCreateCompartments,
 //! {
 //!    let mut cx = cx.create_compartment();
 //!    let ref mut root = cx.new_root();
 //!    let name = cx.manage(String::from("Alice")).in_root(root);
-//!    cx.global_manage(NativeMyGlobal { name: name })
+//!    let ref cx = cx.global_manage(NativeMyGlobal { name: name });
+//!    cx.global().forget_compartment()
 //! }
 //! # fn main() {}
-//! ```
-//!
-//! During initialization, it is safe to perform allocation, but
-//! not much else, as the global is still uninitialized.
-//! For example:
-//!
-//! ```rust,ignore
-//! # #[macro_use] extern crate linjs;
-//! # #[macro_use] extern crate linjs_derive;
-//! # use linjs::*;
-//! # #[derive(HasClass, JSTraceable, JSRootable)]
-//! # pub struct NativeMyGlobal<'a, C> { name: JSManaged<'a, C, String> }
-//! # type MyGlobal<'a, C> = JSManaged<'a, C, NativeMyGlobalClass>;
-//! #
-//! fn unsafe_example<'a, C, S>(cx: JSContext<S>) -> JSContext<Initialized<C>> where
-//!    S: CanCreate<C>,
-//!    C: HasGlobal<NativeMyGlobalClass>,
-//! {
-//!    let mut cx = cx.create_compartment();
-//!    let oops = cx.global().borrow(&cx).name.borrow(&cx);
-//!    let ref mut root = cx.new_root();
-//!    let name = cx.manage(String::from("Alice")).in_root(root);
-//!    cx.global_manage(NativeMyGlobal { name: name })
-//! }
-//! # fn main() {}
-//! ```
-//!
-//! This code is unsafe, since the global is accessed before it is initialized,
-//! but does not typecheck because the context state does not allow accessing
-//! JS-managed data during initialization.
-//!
-//! ```text
-//! 	error[E0277]: the trait bound `linjs::Initializing<linjs::JSManaged<'_, C, _>>: linjs::CanAccess<C>` is not satisfied
-//!   --> <anon>:14:27
-//!    |
-//! 14 |    let oops = cx.global().borrow(&cx).name.borrow(&cx);
-//!    |                           ^^^ the trait `linjs::CanAccess<C>` is not implemented for `linjs::Initializing<linjs::JSManaged<'_, C, _>>`
 //! ```
 //!
 //! # Bootstrapping
 //!
-//! To bootstrap initialization, a user defines a type which implements the `JSGlobal` trait.
-//! This requires a `init` method, which takes the JS context as an argument.
+//! The JSContext is built using `JSContext::new`.
 //!
 //! ```rust
 //! # extern crate linjs;
@@ -385,119 +326,19 @@
 //! # use linjs::*;
 //! #[derive(HasClass, JSTraceable, JSRootable)]
 //! pub struct NativeMyGlobal { name: String }
+//! type MyGlobal<'a, C> = JSManaged<'a, C, NativeMyGlobalClass>;
 //!
-//! impl JSGlobal for NativeMyGlobalClass {
-//!     fn init<C, S>(cx: JSContext<S>) -> JSContext<Initialized<C>> where
-//!         S: CanCreate<C>,
-//!         C: HasGlobal<NativeMyGlobalClass>,
-//!     {
-//!         let cx = cx.create_compartment();
-//!         let name = String::from("Alice");
-//!         let cx = cx.global_manage(NativeMyGlobal { name: name });
-//!         assert_eq!(cx.global().borrow(&cx).name, "Alice");
-//!         cx
-//!     }
-//! }
-//!
-//! fn main() {
-//!     let mut cx = JSContext::new();
-//!     cx.new_global::<NativeMyGlobalClass>();
-//! }
-//! ```
-//!
-//! #Examples
-//!
-//! This is an example of building a two-node cyclic graph, which is the smallest
-//! example that Rust would need `Rc` and `RefCell` for. Note that this builds
-//! the graph with no need for rooting.
-//!
-//! ```
-//! extern crate linjs;
-//! #[macro_use] extern crate linjs_derive;
-//! use linjs::{CanAlloc, CanAccess, CanCreate, Compartment};
-//! use linjs::{HasClass, HasGlobal, HasInstance, InCompartment};
-//! use linjs::{Initialized, JSContext, JSManaged, JSGlobal, JSRootable};
-//!
-//! // A graph type
-//! type Graph<'a, C> = JSManaged<'a, C, GraphClass>;
-//! #[derive(JSTraceable, JSRootable)]
-//! struct NativeGraph<'a, C> {
-//!     nodes: Vec<Node<'a, C>>,
-//! }
-//! impl<'a, C> HasClass for NativeGraph<'a, C> { type Class = GraphClass; }
-//!
-//! struct GraphClass;
-//! impl<'a, C> HasInstance<'a, C> for GraphClass { type Instance = NativeGraph<'a, C>; }
-//!
-//! // A node type
-//! type Node<'a, C> = JSManaged<'a, C, NodeClass>;
-//! #[derive(JSTraceable, JSRootable)]
-//! struct NativeNode<'a, C> {
-//!     data: usize,
-//!     edges: Vec<Node<'a, C>>,
-//! }
-//! impl<'a, C> HasClass for NativeNode<'a, C> { type Class = NodeClass; }
-//!
-//! struct NodeClass;
-//! impl<'a, C> HasInstance<'a, C> for NodeClass { type Instance = NativeNode<'a, C>; }
-//!
-//! // Build a cyclic graph
-//! impl JSGlobal for GraphClass {
-//!     fn init<C, S>(cx: JSContext<S>) -> JSContext<Initialized<C>> where
-//!         S: CanCreate<C>,
-//!         C: HasGlobal<GraphClass>,
-//!     {
-//!         let cx = cx.create_compartment();
-//!         let mut cx = cx.global_manage(NativeGraph { nodes: vec![] });
-//!         let ref mut root = cx.new_root();
-//!         let graph = cx.global().in_root(root);
-//!         add_node1(&mut cx, graph);
-//!         add_node2(&mut cx, graph);
-//!         assert_eq!(graph.borrow(&cx).nodes[0].borrow(&cx).data, 1);
-//!         assert_eq!(graph.borrow(&cx).nodes[1].borrow(&cx).data, 2);
-//!         add_edges(&mut cx, graph);
-//!         assert_eq!(graph.borrow(&cx).nodes[0].borrow(&cx).edges[0].borrow(&cx).data, 2);
-//!         assert_eq!(graph.borrow(&cx).nodes[1].borrow(&cx).edges[0].borrow(&cx).data, 1);
-//!         cx
-//!     }
-//! }
-//!
-//! fn add_node1<S, C>(cx: &mut JSContext<S>, graph: Graph<C>) where
-//!     S: CanAccess + CanAlloc + InCompartment<C>,
-//!     C: Compartment,
+//! fn example<'a, S>(cx: &'a mut JSContext<S>) -> MyGlobal<'a, SOMEWHERE> where
+//!    S: CanCreateCompartments,
 //! {
-//!     // Creating nodes does memory allocation, which may trigger GC,
-//!     // so we need to be careful about lifetimes while they are being added.
-//!     // Approach 1 is to root the node.
-//!     let ref mut root = cx.new_root();
-//!     let node1 = cx.manage(NativeNode { data: 1, edges: vec![] }).in_root(root);
-//!     graph.borrow_mut(cx).nodes.push(node1);
+//!    let cx = cx.create_compartment();
+//!    let name = String::from("Alice");
+//!    let cx = cx.global_manage(NativeMyGlobal { name: name });
+//!    cx.global().forget_compartment()
 //! }
-//!
-//! fn add_node2<S, C>(cx: &mut JSContext<S>, graph: Graph<C>) where
-//!     S: CanAccess + CanAlloc + InCompartment<C>,
-//!     C: Compartment,
-//!  {
-//!     // Approach 2 is to take a snapshot of the context right after allocation.
-//!     let (ref mut cx, node2) = cx.snapshot_manage(NativeNode { data: 2, edges: vec![] });
-//!     graph.borrow_mut(cx).nodes.push(node2);
-//! }
-//!
-//! fn add_edges<S, C>(cx: &mut JSContext<S>, graph: Graph<C>) where
-//!     S: CanAccess,
-//!     C: Compartment,
-//!  {
-//!     let ref mut cx = cx.snapshot();
-//!     // Note that there's no rooting here.
-//!     let node1 = graph.borrow(cx).nodes[0].extend_lifetime(cx);
-//!     let node2 = graph.borrow(cx).nodes[1].extend_lifetime(cx);
-//!     node1.borrow_mut(cx).edges.push(node2);
-//!     node2.borrow_mut(cx).edges.push(node1);
-//! }
-//!
 //! fn main() {
-//!     let mut cx = JSContext::new();
-//!     cx.new_global::<GraphClass>();
+//!    let ref mut cx = JSContext::new();
+//!    example(cx);
 //! }
 //! ```
 
@@ -608,14 +449,14 @@ pub struct JSContext<S> {
     marker: PhantomData<S>,
 }
 
-/// A context state in an initialized compartment `C`.
-pub struct Initialized<C> (PhantomData<C>);
+/// A context state in an initialized compartment `C` with lifetime `'a` and global class `K`.
+pub struct Initialized<'a, C, K> (PhantomData<(&'a(), C, K)>);
 
-/// A context state which can initialize compartment `C`.
-pub struct Uninitialized<C> (PhantomData<C>);
+/// A context state which can initialize compartment `C` with lifetime `'a`.
+pub struct Uninitialized<'a, C> (PhantomData<(&'a(), C)>);
 
-/// A context state in the middle of initializing a compartment `C`.
-pub struct Initializing<C> (PhantomData<C>);
+/// A context state in the middle of initializing a compartment `C` with lifetime `'a` and global class `K`.
+pub struct Initializing<'a, C, K> (PhantomData<(&'a(), C, K)>);
 
 /// A context state that is visiting `C`.
 pub struct Visiting<C> (PhantomData<C>);
@@ -632,14 +473,14 @@ pub struct Snapshotted<'a, S> (PhantomData<(&'a(), S)>);
 
 /// A marker trait for JS contexts in compartment `C`
 pub trait InCompartment<C> {}
-impl<C> InCompartment<C> for Initializing<C> {}
-impl<C> InCompartment<C> for Initialized<C> {}
+impl<'a, C, K> InCompartment<C> for Initializing<'a, C, K> {}
+impl<'a, C, K> InCompartment<C> for Initialized<'a, C, K> {}
 impl<C> InCompartment<C> for Visiting<C> {}
 impl<'a, C, S> InCompartment<C> for Snapshotted<'a, S> where S: InCompartment<C> {}
 
 /// A marker trait for JS contexts that can access native state
 pub trait CanAccess {}
-impl<C> CanAccess for Initialized<C> {}
+impl<'a, C, K> CanAccess for Initialized<'a, C, K> {}
 impl<C> CanAccess for Visiting<C> {}
 impl CanAccess for FromJS {}
 impl<'a, S> CanAccess for Snapshotted<'a, S> where S: CanAccess {}
@@ -651,31 +492,28 @@ impl<'a, S> CanExtend<'a> for Snapshotted<'a, S> {}
 
 /// A marker trait for JS contexts that can (de)allocate objects
 pub trait CanAlloc {}
-impl<C> CanAlloc for Initialized<C> {}
-impl<C> CanAlloc for Initializing<C> {}
+impl<'a, C, K> CanAlloc for Initialized<'a, C, K> {}
+impl<'a, C, K> CanAlloc for Initializing<'a, C, K> {}
 impl<C> CanAlloc for Visiting<C> {}
 impl CanAlloc for FromJS {}
 impl CanAlloc for Owned {}
-
-/// A marker trait for JS contexts that can create compartment `C`.
-pub trait CanCreate<C> {}
-impl<C> CanCreate<C> for Uninitialized<C> {}
 
 /// A marker trait for JS contexts that can create new compartments.
 pub trait CanCreateCompartments {}
 impl CanCreateCompartments for Owned {}
 
 /// A marker trait for JS contexts that are in the middle of initializing
-pub trait IsInitializing {}
-impl<C> IsInitializing for Initializing<C> {}
+pub trait IsInitializing<'a, C, K> {}
+impl<'a, C, K> IsInitializing<'a, C, K> for Initializing<'a, C, K> {}
+
+/// A marker trait for JS contexts that have initialized a global
+pub trait IsInitialized<'a, C, K> {}
+impl<'a, C, K> IsInitialized<'a, C, K> for Initialized<'a, C, K> {}
 
 /// A marker trait for JS compartments.
 /// We mark it as `Copy` so that anything that uses `[#derive{Copy)]` will be copyable.
 /// Ditto `Eq` and `Hash`.
 pub trait Compartment: Copy + Debug + Eq + Hash {}
-
-/// A marker trait for JS compartments that have a global of class `K`.
-pub trait HasGlobal<K>: Compartment {}
 
 impl JSContext<Owned> {
     /// Create a new JSContext.
@@ -780,11 +618,10 @@ impl<S> JSContext<S> {
     }
 
     /// Create a compartment
-    pub fn create_compartment<'a, C, K, T>(self) -> JSContext<Initializing<C>> where
-        S: CanCreate<C>,
-        C: HasGlobal<K>,
+    pub fn create_compartment<'a, K, T>(&'a mut self) -> JSContext<Initializing<'a, BOUND<'a>, K>> where
+        S: CanCreateCompartments,
         T: JSTraceable + HasClass<Class = K>,
-        K: HasInstance<'a, C, Instance = T>,
+        K: HasInstance<'a, BOUND<'a>, Instance = T>,
     {
         debug!("Creating compartment.");
         let value: Option<T> = None;
@@ -832,17 +669,16 @@ impl<S> JSContext<S> {
             global_js_object: Box::into_raw(boxed_jsobject),
             global_raw: fat_value[0] as *mut (),
             auto_compartment: Some(ac),
-            runtime: self.runtime,
+            runtime: None,
             marker: PhantomData,
         }
     }
 
     /// Finish initializing a JS Context
-    pub fn global_manage<'a, C, K, T>(self, value: T) -> JSContext<Initialized<C>> where
-        S: IsInitializing + InCompartment<C>,
-        C: HasGlobal<K>,
-        K: HasInstance<'a, C, Instance = T>,
+    pub fn global_manage<'a, C, K, T>(self, value: T) -> JSContext<Initialized<'a, C, K>> where
+        S: IsInitializing<'a, C, K>,
         T: JSTraceable + HasClass<Class = K>,
+        K: HasInstance<'a, C>,
     {
         debug!("Managing native global.");
         let raw = self.global_raw as *mut Option<T>;
@@ -861,19 +697,17 @@ impl<S> JSContext<S> {
     }
 
     /// Shortcut to create a compartmetn and finish initializing in one go.
-    pub fn create_global<'a, C, K, T>(self, value: T) -> JSContext<Initialized<C>> where
-        S: CanCreate<C>,
-        C: HasGlobal<K>,
-        K: HasInstance<'a, C, Instance = T>,
+    pub fn create_global<'a, K, T>(&'a mut self, value: T) -> JSContext<Initialized<'a, BOUND<'a>, K>> where
+        S: CanCreateCompartments,
         T: JSTraceable + HasClass<Class = K>,
+        K: HasInstance<'a, BOUND<'a>, Instance = T>,
     {
         self.create_compartment().global_manage(value)
     }
 
     /// Get the global of an initialized context.
-    pub fn global<'a, C, G>(&'a self) -> JSManaged<'a, C, G> where
-        S: InCompartment<C>,
-        C: HasGlobal<G>,
+    pub fn global<'a, C, K>(&self) -> JSManaged<'a, C, K> where
+        S: IsInitialized<'a, C, K>
     {
         JSManaged {
             js_object: self.global_js_object,
@@ -882,23 +716,6 @@ impl<S> JSContext<S> {
         }
     }
 
-    /// Create a new global.
-    /// TODO: return a JSManaged with a wildcard compartment.
-    pub fn new_global<'a, K>(&'a mut self) -> JSManaged<'a, SOMEWHERE, K> where
-        S: CanCreateCompartments,
-        K: JSGlobal,
-    {
-        let cx: JSContext<Uninitialized<UNSAFE>> = JSContext {
-            jsapi_context: self.jsapi_context,
-            global_js_object: ptr::null_mut(),
-            global_raw: ptr::null_mut(),
-            auto_compartment: None,
-            runtime: None,
-            marker: PhantomData,
-        };
-        unsafe { K::init(cx).global().forget_compartment().change_lifetime() }
-    }
-    
     /// Create a new root.
     pub fn new_root<'a, 'b, T>(&'b mut self) -> JSRoot<'a, T> {
         JSRoot {
@@ -1323,14 +1140,6 @@ pub trait HasJSClass {
     fn js_class() -> &'static JSClass;
 }
 
-/// A trait for classes that can be used as a global.
-pub trait JSGlobal: Sized {
-    /// This callback is called with a fresh JS compartment type `C`.
-    fn init<C, S>(cx: JSContext<S>) -> JSContext<Initialized<C>> where
-        S: CanCreate<C>,
-        C: HasGlobal<Self>;
-}
-
 /// The type of JS-managed strings in the same zone as compartment `C`, with lifetime `a`.
 /// Rust is much happier with flat string representations, so we flatten
 /// strings when they come into Rust.
@@ -1573,7 +1382,6 @@ impl<'a> Compartment for BOUND<'a> {}
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Hash)]
 pub struct UNSAFE(());
 impl Compartment for UNSAFE {}
-impl<K> HasGlobal<K> for UNSAFE {}
 
 /// A stack allocated root containing data of type `T` with lifetime `'a`.
 pub struct JSRoot<'a, T: 'a> {

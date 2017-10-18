@@ -1,17 +1,15 @@
 use linjs::CanAccess;
 use linjs::CanAlloc;
-use linjs::CanCreate;
 use linjs::Compartment;
+use linjs::CanCreateCompartments;
 use linjs::HasClass;
 use linjs::HasInstance;
-use linjs::HasGlobal;
 use linjs::InCompartment;
-use linjs::Initialized;
 use linjs::JSContext;
-use linjs::JSGlobal;
 use linjs::JSManaged;
 use linjs::JSRootable;
 use linjs::JSString;
+use linjs::SOMEWHERE;
 
 use fake_codegen::ConsoleInitializer;
 use fake_codegen::ConsoleMethods;
@@ -31,23 +29,6 @@ pub struct NativeWindow<'a, C> {
     document: Document<'a, C>,
 }
 
-impl JSGlobal for WindowClass {
-    fn init<C, S>(cx: JSContext<S>) -> JSContext<Initialized<C>> where
-        S: CanCreate<C>,
-        C: HasGlobal<WindowClass>,
-    {
-        let mut cx = cx.create_compartment();
-        let ref mut console_root = cx.new_root();
-        let ref mut document_root = cx.new_root();
-        let console = Console::new(&mut cx).in_root(console_root);
-        let document = Document::new(&mut cx).in_root(document_root);
-        cx.global_manage(NativeWindow {
-            console: console,
-            document: document,
-        })
-    }
-}
-
 pub struct WindowClass;
 
 impl<'a, C> HasClass for NativeWindow<'a, C> {
@@ -57,6 +38,24 @@ impl<'a, C> HasClass for NativeWindow<'a, C> {
 
 impl<'a, C> HasInstance<'a, C> for WindowClass {
     type Instance = NativeWindow<'a, C>;
+}
+
+impl<'a> Window<'a, SOMEWHERE> {
+    pub fn new<S>(cx: &'a mut JSContext<S>) -> Window<'a, SOMEWHERE> where
+        S: CanAlloc + CanCreateCompartments,
+    {
+        let mut cx = cx.create_compartment();
+        let ref mut console_root = cx.new_root();
+        let ref mut document_root = cx.new_root();
+        let console = Console::new(&mut cx).in_root(console_root);
+        let document = Document::new(&mut cx).in_root(document_root);
+        let cx = cx.global_manage(NativeWindow {
+            console: console,
+            document: document,
+        });
+        let global: JSManaged<'a, _, _> = cx.global();
+        Window(global.forget_compartment())
+    }
 }
 
 impl<'a, C> WindowMethods<'a, C> for Window<'a, C> where C: 'a {
