@@ -2,16 +2,16 @@ use linjs::CanAccess;
 use linjs::CanAlloc;
 use linjs::CanCreate;
 use linjs::Compartment;
-use linjs::HasClass;
-use linjs::HasInstance;
 use linjs::HasGlobal;
 use linjs::InCompartment;
 use linjs::Initialized;
 use linjs::JSContext;
 use linjs::JSGlobal;
+use linjs::JSInitializable;
 use linjs::JSManaged;
 use linjs::JSRootable;
 use linjs::JSString;
+use linjs::SOMEWHERE;
 
 use fake_codegen::ConsoleInitializer;
 use fake_codegen::ConsoleMethods;
@@ -23,7 +23,7 @@ use fake_codegen::WindowMethods;
 // TODO: the contents are pub so that codegen can get at it, this should be fixed!
 // https://github.com/asajeffrey/linjs/issues/27
 #[derive(Copy, Clone, Debug, Eq, PartialEq, JSTraceable, JSRootable)]
-pub struct Window<'a, C> (pub JSManaged<'a, C, WindowClass>);
+pub struct Window<'a, C> (pub JSManaged<'a, C, NativeWindow<'a, C>>);
 
 #[derive(JSTraceable, JSRootable)]
 pub struct NativeWindow<'a, C> {
@@ -31,10 +31,10 @@ pub struct NativeWindow<'a, C> {
     document: Document<'a, C>,
 }
 
-impl JSGlobal for WindowClass {
+impl<'a> JSGlobal for NativeWindow<'a, SOMEWHERE> {
     fn init<C, S>(cx: JSContext<S>) -> JSContext<Initialized<C>> where
         S: CanCreate<C>,
-        C: HasGlobal<WindowClass>,
+        C: HasGlobal<NativeWindow<'a, C>>,
     {
         let mut cx = cx.create_compartment();
         let ref mut console_root = cx.new_root();
@@ -50,13 +50,8 @@ impl JSGlobal for WindowClass {
 
 pub struct WindowClass;
 
-impl<'a, C> HasClass for NativeWindow<'a, C> {
-    type Class = WindowClass;
+impl<'a, C> JSInitializable for NativeWindow<'a, C> {
     type Init = WindowInitializer;
-}
-
-impl<'a, C> HasInstance<'a, C> for WindowClass {
-    type Instance = NativeWindow<'a, C>;
 }
 
 impl<'a, C> WindowMethods<'a, C> for Window<'a, C> where C: 'a {
@@ -82,20 +77,15 @@ impl<'a, C> WindowMethods<'a, C> for Window<'a, C> where C: 'a {
 // -------------------------------------------------------------------
 
 #[derive(Copy, Clone, JSTraceable, JSRootable)]
-pub struct Console<'a, C> (pub JSManaged<'a, C, ConsoleClass>);
+pub struct Console<'a, C> (pub JSManaged<'a, C, NativeConsole>);
 
 #[derive(JSTraceable, JSRootable)]
 pub struct NativeConsole(());
 
 pub struct ConsoleClass;
 
-impl HasClass for NativeConsole {
-    type Class = ConsoleClass;
+impl JSInitializable for NativeConsole {
     type Init = ConsoleInitializer;
-}
-
-impl<'a, C> HasInstance<'a, C> for ConsoleClass {
-    type Instance = NativeConsole;
 }
 
 impl<'a, C> Console<'a, C> {
@@ -117,9 +107,9 @@ impl<'a, C> ConsoleMethods<'a, C> for Console<'a, C> {
 // -------------------------------------------------------------------
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq, JSTraceable, JSRootable)]
-pub struct Document<'a, C> (pub JSManaged<'a, C, NativeDocumentClass>);
+pub struct Document<'a, C> (pub JSManaged<'a, C, NativeDocument<'a, C>>);
 
-#[derive(HasClass, JSTraceable, JSRootable)]
+#[derive(JSTraceable, JSRootable)]
 pub struct NativeDocument<'a, C> {
     body: Element<'a, C>,
 }
@@ -140,9 +130,9 @@ impl<'a, C> Document<'a, C> {
 // -------------------------------------------------------------------
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq, JSTraceable, JSRootable)]
-pub struct Element<'a, C> (pub JSManaged<'a, C, NativeElementClass>);
+pub struct Element<'a, C> (pub JSManaged<'a, C, NativeElement<'a, C>>);
 
-#[derive(HasClass, JSTraceable, JSRootable)]
+#[derive(JSTraceable, JSRootable)]
 pub struct NativeElement<'a, C> {
     parent: Option<Element<'a, C>>,
     children: Vec<Element<'a, C>>,

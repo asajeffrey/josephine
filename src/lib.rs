@@ -755,7 +755,7 @@ impl<S> JSContext<S> {
 
     /// Give ownership of data to JS.
     /// This allocates JS heap, which may trigger GC.
-    pub fn snapshot_manage<'a, C, T>(&'a mut self, value: T) -> (JSContext<Snapshotted<'a, S>>, JSManaged<'a, C, T>) where
+    pub fn snapshot_manage<'a, C, T>(&'a mut self, value: T) -> (JSContext<Snapshotted<'a, S>>, JSManaged<'a, C, T::Aged>) where
         S: CanAlloc + InCompartment<C>,
         C: Compartment,
         T: JSInitializable + JSTraceable + JSRootable<'a>,
@@ -778,10 +778,10 @@ impl<S> JSContext<S> {
     }
 
     /// Create a compartment
-    pub fn create_compartment<C, K, T>(self) -> JSContext<Initializing<C>> where
+    pub fn create_compartment<C, T>(self) -> JSContext<Initializing<C>> where
         S: CanCreate<C>,
         C: HasGlobal<T>,
-        T: JSTraceable,
+        T: JSInitializable + JSTraceable,
     {
         debug!("Creating compartment.");
         let value: Option<T> = None;
@@ -858,16 +858,18 @@ impl<S> JSContext<S> {
 
     /// Shortcut to create a compartmetn and finish initializing in one go.
     pub fn create_global<C, T>(self, value: T) -> JSContext<Initialized<C>> where
-        S: IsInitializing + InCompartment<C>,
+        S: CanCreate<C>,
         C: Compartment + HasGlobal<T>,
-        T: JSTraceable,
+        T: JSInitializable + JSTraceable,
     {
         self.create_compartment().global_manage(value)
     }
 
     /// Get the global.
-    pub fn global<C>(&'a self) -> C::Global where
-        S: InCompartment<Compartment = C>,
+    pub fn global<'a, C, T>(&'a self) -> JSManaged<'a, C, T::Aged> where
+        S: InCompartment<C>,
+        C: Compartment + HasGlobal<T>,
+        T: JSRootable<'a>,
     {
         JSManaged {
             js_object: self.global_js_object,
@@ -877,10 +879,9 @@ impl<S> JSContext<S> {
     }
 
     /// Create a new global.
-    /// TODO: return a JSManaged with a wildcard compartment.
-    pub fn new_global<'a, K>(&'a mut self) -> JSManaged<'a, SOMEWHERE, K> where
+    pub fn new_global<'a, T>(&'a mut self) -> JSManaged<'a, SOMEWHERE, T> where
         S: CanCreateCompartments,
-        K: JSGlobal,
+        T: JSGlobal + JSTransplantable<SOMEWHERE, Transplanted = T> + JSRootable<'a, Aged = T>
     {
         let cx: JSContext<Uninitialized<UNSAFE>> = JSContext {
             jsapi_context: self.jsapi_context,
@@ -890,7 +891,12 @@ impl<S> JSContext<S> {
             runtime: None,
             marker: PhantomData,
         };
-        unsafe { K::init(cx).global().forget_compartment().change_lifetime() }
+        let cx: JSContext<Initialized<UNSAFE>> = T::init(cx);
+        JSManaged {
+            js_object: cx.global_js_object,
+            raw: cx.global_raw,
+            marker: PhantomData,
+        }
     }
     
     /// Create a new root.
@@ -1049,11 +1055,11 @@ pub trait JSInitializable {
 
 /// A trait for Rust data which can be managed
 
-pub trait JSManageable: JSTraceable {
+trait JSManageable: JSTraceable {
     unsafe fn class_id(&self) -> TypeId;
 }
 
-impl<T> JSManageable for T where
+impl<T> JSManageable for Option<T> where
     T: JSTraceable + JSInitializable
 {
     unsafe fn class_id(&self) -> TypeId {
@@ -1063,7 +1069,7 @@ impl<T> JSManageable for T where
 
 /// Initialize JS data
 
-pub trait JSInitializer {
+pub trait JSInitializer: 'static {
     unsafe fn parent_prototype(cx: *mut jsapi::JSContext, global: jsapi::HandleObject) -> *mut JSObject {
         JS_GetObjectPrototype(cx, global)
     }
@@ -1308,7 +1314,7 @@ pub trait JSGlobal: Sized {
     /// This callback is called with a fresh JS compartment type `C`.
     fn init<C, S>(cx: JSContext<S>) -> JSContext<Initialized<C>> where
         S: CanCreate<C>,
-        C: HasGlobal<Self>;
+        C: Compartment + HasGlobal<Self>;
 }
 
 /// The type of JS-managed strings in the same zone as compartment `C`, with lifetime `a`.
@@ -1488,7 +1494,9 @@ impl<'a, C, T> JSManaged<'a, C, T> {
     }
 
     /// Change the compartment of JS-managed data.
-    pub unsafe fn change_compartment<D>(self) -> JSManaged<'a, D, T::Transplanted> {
+    pub unsafe fn change_compartment<D>(self) -> JSManaged<'a, D, T::Transplanted> where
+        T: JSTransplantable<D>,
+    {
         JSManaged {
             js_object: self.js_object,
             raw: self.raw,
@@ -1530,7 +1538,8 @@ impl<'a, C, T> JSManaged<'a, C, T> {
 
     /// Bind the compartment of this object.
     pub fn unpack<F, R>(self, f: F) -> R where
-        F: FnOnce(JSManaged<'a, BOUND, K>) -> R,
+        F: for<'b> FnOnce(JSManaged<'a, BOUND<'b>, <T as JSTransplantable<BOUND<'b>>>::Transplanted>) -> R,
+        T: for<'b> JSTransplantable<BOUND<'b>>,
     {
         unsafe { f(self.change_compartment()) }
     }
@@ -1712,3 +1721,15 @@ unsafe impl<#[may_dangle] 'a, #[may_dangle] T> Drop for JSRoot<'a, T> {
         unsafe { self.unpin() }
     }
 }
+
+/// Data which can be transplanted into compartment C.
+
+pub unsafe trait JSTransplantable<C> {
+    type Transplanted;
+}
+
+unsafe impl<C> JSTransplantable<C> for String { type Transplanted = String; }
+unsafe impl<C> JSTransplantable<C> for usize { type Transplanted = usize; }
+unsafe impl<C, T> JSTransplantable<C> for Option<T> where T: JSTransplantable<C> { type Transplanted = Option<T::Transplanted>; }
+unsafe impl<C, T> JSTransplantable<C> for Vec<T> where T: JSTransplantable<C> { type Transplanted = Vec<T::Transplanted>; }
+unsafe impl<'a, C, D, T> JSTransplantable<C> for JSManaged<'a, D, T> where T: JSTransplantable<C> { type Transplanted = JSManaged<'a, C, T::Transplanted>; }
