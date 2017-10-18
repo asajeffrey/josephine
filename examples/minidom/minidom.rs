@@ -19,10 +19,10 @@ use fake_codegen::WindowMethods;
 
 // TODO: the contents are pub so that codegen can get at it, this should be fixed!
 // https://github.com/asajeffrey/linjs/issues/27
-#[derive(Copy, Clone, Debug, Eq, PartialEq, JSTraceable, JSRootable)]
+#[derive(Copy, Clone, Debug, Eq, PartialEq, JSTraceable, JSRootable, JSTransplantable)]
 pub struct Window<'a, C> (pub JSManaged<'a, C, NativeWindow<'a, C>>);
 
-#[derive(JSTraceable, JSRootable)]
+#[derive(JSTraceable, JSRootable, JSTransplantable)]
 pub struct NativeWindow<'a, C> {
     console: Console<'a, C>,
     document: Document<'a, C>,
@@ -74,10 +74,10 @@ impl<'a, C> WindowMethods<'a, C> for Window<'a, C> where C: 'a {
 
 // -------------------------------------------------------------------
 
-#[derive(Copy, Clone, JSTraceable, JSRootable)]
+#[derive(Copy, Clone, JSTraceable, JSRootable, JSTransplantable)]
 pub struct Console<'a, C> (pub JSManaged<'a, C, NativeConsole>);
 
-#[derive(JSTraceable, JSRootable)]
+#[derive(JSTraceable, JSRootable, JSTransplantable)]
 pub struct NativeConsole(());
 
 pub struct ConsoleClass;
@@ -104,17 +104,17 @@ impl<'a, C> ConsoleMethods<'a, C> for Console<'a, C> {
 
 // -------------------------------------------------------------------
 
-#[derive(Copy, Clone, Debug, Eq, PartialEq, JSTraceable, JSRootable)]
+#[derive(Copy, Clone, Debug, Eq, PartialEq, JSTraceable, JSRootable, JSTransplantable)]
 pub struct Document<'a, C> (pub JSManaged<'a, C, NativeDocument<'a, C>>);
 
-#[derive(JSTraceable, JSRootable)]
+#[derive(JSTraceable, JSRootable, JSTransplantable)]
 pub struct NativeDocument<'a, C> {
     body: Element<'a, C>,
 }
 
 impl<'a, C> JSInitializable for NativeDocument<'a, C> {}
 
-impl<'a, C> Document<'a, C> {
+impl<'a, C:'a> Document<'a, C> {
     pub fn new<S>(cx: &'a mut JSContext<S>) -> Document<'a, C> where
         S: CanAlloc + InCompartment<C>,
         C: Compartment,
@@ -129,10 +129,10 @@ impl<'a, C> Document<'a, C> {
 
 // -------------------------------------------------------------------
 
-#[derive(Copy, Clone, Debug, Eq, PartialEq, JSTraceable, JSRootable)]
+#[derive(Copy, Clone, Debug, Eq, PartialEq, JSTraceable, JSRootable, JSTransplantable)]
 pub struct Element<'a, C> (pub JSManaged<'a, C, NativeElement<'a, C>>);
 
-#[derive(JSTraceable, JSRootable)]
+#[derive(JSTraceable, JSRootable, JSTransplantable)]
 pub struct NativeElement<'a, C> {
     parent: Option<Element<'a, C>>,
     children: Vec<Element<'a, C>>,
@@ -141,7 +141,7 @@ pub struct NativeElement<'a, C> {
 
 impl<'a, C> JSInitializable for NativeElement<'a, C> {}
 
-impl<'a, C> Element<'a, C> {
+impl<'a, C:'a> Element<'a, C> {
     pub fn new<S>(cx: &'a mut JSContext<S>) -> Element<'a, C> where
         S: CanAlloc + InCompartment<C>,
         C: Compartment,

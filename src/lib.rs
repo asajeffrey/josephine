@@ -176,14 +176,14 @@
 //! Mutable update allows the construction of cyclic structures, for example:
 //!
 //! ```rust
-//! # #[macro_use] extern crate linjs;
+//! # extern crate linjs;
 //! # #[macro_use] extern crate linjs_derive;
 //! # use linjs::*;
-//! #[derive(HasClass, JSTraceable, JSRootable)]
+//! #[derive(JSInitializable, JSTraceable, JSRootable)]
 //! pub struct NativeLoop<'a, C> {
 //!    next: Option<Loop<'a, C>>,
 //! }
-//! type Loop<'a, C> = JSManaged<'a, C, NativeLoopClass>;
+//! type Loop<'a, C> = JSManaged<'a, C, NativeLoop<'a, C>>;
 //! fn example<C, S>(cx: &mut JSContext<S>) where
 //!     S: CanAccess + CanAlloc + InCompartment<C>,
 //!     C: Compartment,
@@ -209,11 +209,11 @@
 //! # extern crate linjs;
 //! # #[macro_use] extern crate linjs_derive;
 //! # use linjs::*;
-//! # #[derive(HasClass, JSTraceable, JSRootable)]
+//! # #[derive(JSInitializable, JSTraceable, JSRootable)]
 //! # pub struct NativeLoop<'a, C> {
 //! #    next: Option<Loop<'a, C>>,
 //! # }
-//! # type Loop<'a, C> = JSManaged<'a, C, NativeLoopClass>;
+//! # type Loop<'a, C> = JSManaged<'a, C, NativeLoop<'a, C>>;
 //! fn example<C, S>(cx: &mut JSContext<S>) where
 //!     S: CanAccess + CanAlloc + InCompartment<C>,
 //!     C: Compartment,
@@ -277,9 +277,9 @@
 //! # extern crate linjs;
 //! # #[macro_use] extern crate linjs_derive;
 //! # use linjs::*;
-//! #[derive(HasClass, JSTraceable, JSRootable)]
+//! #[derive(JSInitializable, JSTraceable, JSRootable, JSTransplantable)]
 //! pub struct NativeMyGlobal { name: String }
-//! type MyGlobal<'a, C> = JSManaged<'a, C, NativeMyGlobalClass>;
+//! type MyGlobal<'a, C> = JSManaged<'a, C, NativeMyGlobal>;
 //!
 //! fn example<'a, S>(cx: &'a mut JSContext<S>) -> MyGlobal<'a, SOMEWHERE> where
 //!    S: CanCreateCompartments,
@@ -300,9 +300,9 @@
 //! # extern crate linjs;
 //! # #[macro_use] extern crate linjs_derive;
 //! # use linjs::*;
-//! #[derive(HasClass, JSTraceable, JSRootable)]
+//! #[derive(JSInitializable, JSTraceable, JSRootable, JSTransplantable)]
 //! pub struct NativeMyGlobal<'a, C> { name: JSManaged<'a, C, String> }
-//! type MyGlobal<'a, C> = JSManaged<'a, C, NativeMyGlobalClass>;
+//! type MyGlobal<'a, C> = JSManaged<'a, C, NativeMyGlobal<'a, C>>;
 //!
 //! fn example<'a, S>(cx: &'a mut JSContext<S>) -> MyGlobal<'a, SOMEWHERE> where
 //!    S: CanCreateCompartments,
@@ -324,9 +324,9 @@
 //! # extern crate linjs;
 //! # #[macro_use] extern crate linjs_derive;
 //! # use linjs::*;
-//! #[derive(HasClass, JSTraceable, JSRootable)]
+//! #[derive(JSInitializable, JSTraceable, JSRootable, JSTransplantable)]
 //! pub struct NativeMyGlobal { name: String }
-//! type MyGlobal<'a, C> = JSManaged<'a, C, NativeMyGlobalClass>;
+//! type MyGlobal<'a, C> = JSManaged<'a, C, NativeMyGlobal>;
 //!
 //! fn example<'a, S>(cx: &'a mut JSContext<S>) -> MyGlobal<'a, SOMEWHERE> where
 //!    S: CanCreateCompartments,
@@ -1494,6 +1494,11 @@ pub unsafe trait JSRootable<'a> {
         root.set(self)
     }
 }
+
+unsafe impl<'a> JSRootable<'a> for String { type Aged = String; }
+unsafe impl<'a> JSRootable<'a> for usize { type Aged = usize; }
+unsafe impl<'a, T> JSRootable<'a> for Option<T> where T: JSRootable<'a> { type Aged = Option<T::Aged>; }
+unsafe impl<'a, T> JSRootable<'a> for Vec<T> where T: JSRootable<'a> { type Aged = Vec<T::Aged>; }
 
 unsafe impl<'a, 'b, C, T> JSRootable<'a> for JSManaged<'b, C, T> where
     T: JSRootable<'a>,

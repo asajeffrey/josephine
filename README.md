@@ -17,7 +17,7 @@ use linjs::JSRootable;
 use linjs::SOMEWHERE;
 
 // Some native Rust data which we hand to JS to manage its lifetime.
-#[derive(JSTraceable, JSRootable, HasClass)]
+#[derive(JSTraceable, JSRootable, JSTransplantable, JSInitializable)]
 pub struct NativeMyGlobal {
     message: String,
 }
@@ -31,8 +31,8 @@ impl NativeMyGlobal {
 
 // A JS global, with JS-managed lifetime `'a`, in compartment `C`.
 // This global is managing some native data.
-#[derive(Copy, Clone, JSTraceable, JSRootable)]
-struct MyGlobal<'a, C> (JSManaged<'a, C, NativeMyGlobalClass>);
+#[derive(Copy, Clone, JSTraceable, JSRootable, JSTransplantable)]
+struct MyGlobal<'a, C> (JSManaged<'a, C, NativeMyGlobal>);
 
 impl<'a> MyGlobal<'a, SOMEWHERE> {
     fn new<S>(cx: &'a mut JSContext<S>) -> MyGlobal<'a, SOMEWHERE> where

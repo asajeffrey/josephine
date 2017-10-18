@@ -10,6 +10,7 @@ extern crate synstructure;
 extern crate quote;
 
 use proc_macro::TokenStream;
+use std::iter;
 
 //  -------------------------------------------------------------------------------------------------------
 
@@ -86,15 +87,18 @@ pub fn derive_js_transplantable(input: TokenStream) -> TokenStream {
 
 fn impl_js_transplantable(ast: &syn::DeriveInput) -> quote::Tokens {
     let name = &ast.ident;
-    let (impl_generics, ty_generics, where_clause) = ast.generics.split_for_impl();
+    let (_, ty_generics, where_clause) = ast.generics.split_for_impl();
+    let ref lifetimes_and_z: Vec<_> = ast.generics.lifetimes.iter().map(|lifetime| lifetime.lifetime.ident.clone())
+        .chain(iter::once(syn::Ident::from("Z")))
+        .collect::<Vec<_>>();
 
     // For types without any generic parameters, we provide a trivial
     // implementation of `JSTransplantable`.
     if ast.generics.ty_params.is_empty() {
         return quote! {
             #[allow(unsafe_code)]
-            unsafe impl<#impl_lifetimes, Z> ::linjs::JSTransplantable<Z> for #name #ty_generics #where_clause {
-                type Aged = #name #ty_generics;
+            unsafe impl<#(#lifetimes_and_z),*> ::linjs::JSTransplantable<Z> for #name #ty_generics #where_clause {
+                type Transplanted = #name #ty_generics;
             }
         }
     }
@@ -103,66 +107,32 @@ fn impl_js_transplantable(ast: &syn::DeriveInput) -> quote::Tokens {
     assert!(ast.generics.ty_params.len() == 1, "deriving JSTransplantable requires a single type parameter");
 
     let impl_ty_param = &ast.generics.ty_params[0].ident;
-    assert!(impl_lifetime != "Z", "deriving JSTransplantable requires the type parameter to not be named Z");
+    assert!(impl_ty_param != "Z", "deriving JSTransplantable requires the type parameter to not be named Z");
 
-    let lifetimes = ast.generics.lifetimes.iter().map(|lifetime| lifetime.ident.collect());
-    
     quote! {
         #[allow(unsafe_code)]
-        unsafe impl<#lifetimes, #impl_ty_param, Z> ::linjs::JSTransplantable<Z> for #name #ty_generics #where_clause {
-            type Transplanted = #name<#(#lifetimes),*, Z>;
+        unsafe impl<#(#lifetimes_and_z),*, #impl_ty_param> ::linjs::JSTransplantable<Z> for #name #ty_generics #where_clause {
+            type Transplanted = #name<#(#lifetimes_and_z),*>;
         }
     }
 }
 
 //  -------------------------------------------------------------------------------------------------------
 
-#[proc_macro_derive(HasClass)]
-pub fn derive_has_class(input: TokenStream) -> TokenStream {
+#[proc_macro_derive(JSInitializable)]
+pub fn derive_js_initializable(input: TokenStream) -> TokenStream {
     let s = input.to_string();
     let ast = syn::parse_derive_input(&s).unwrap();
-    let gen = impl_has_class(&ast);
+    let gen = impl_js_initializable(&ast);
     gen.parse().unwrap()
 }
 
-fn impl_has_class(ast: &syn::DeriveInput) -> quote::Tokens {
+fn impl_js_initializable(ast: &syn::DeriveInput) -> quote::Tokens {
     let name = &ast.ident;
     let (impl_generics, ty_generics, where_clause) = ast.generics.split_for_impl();
 
-    let class_name = syn::Ident::new(format!("{}Class", name));
-
-    let default_lifetimes = [ syn::LifetimeDef::new("'a") ];    
-    let instance_lifetimes = if ast.generics.lifetimes.is_empty() {
-        &default_lifetimes[..]
-    } else {
-        &*ast.generics.lifetimes
-    };
-    let instance_lifetime = &instance_lifetimes[0];
-    let class_lifetimes = &instance_lifetimes[1..];
-
-    let default_ty_params = [ syn::TyParam::from(syn::Ident::new("C")) ];
-    let instance_ty_params = if ast.generics.ty_params.is_empty() {
-        &default_ty_params[..]
-    } else {
-        &*ast.generics.ty_params
-    };
-    let instance_ty_param = &instance_ty_params[0];
-    let class_ty_params = &instance_ty_params[1..];
-
-    let class_generics = if class_lifetimes.is_empty() && class_ty_params.is_empty() {
-        quote! {}
-    } else {
-        quote! { <#(#class_lifetimes),* , #(class_ty_params),*> }
-    };
-
     quote! {
-        pub struct #class_name;
-        impl #impl_generics ::linjs::HasClass for #name #ty_generics #where_clause {
-            type Class = #class_name #class_generics;
-        }
-        impl <#(#instance_lifetimes),* , #(#instance_ty_params),*> ::linjs::HasInstance<#instance_lifetime, #instance_ty_param> for #class_name #class_generics #where_clause {
-            type Instance = #name #ty_generics;
-        }
+        impl #impl_generics ::linjs::JSInitializable for #name #ty_generics #where_clause {}
     }
 }
 
