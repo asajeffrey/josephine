@@ -768,7 +768,9 @@ impl<S> JSContext<S> {
         unsafe { JS_GC(self.rt()); }
     }
 
-    pub fn evaluate(&mut self, code: &str) -> Result<JSVal, JSEvaluateErr> {
+    pub fn evaluate<C>(&mut self, code: &str) -> Result<JSVal, JSEvaluateErr> where
+        S: InCompartment<C>,
+    {
         let cx = self.jsapi_context;
 
         let options = unsafe { NewCompileOptions(cx, &0, 0) };

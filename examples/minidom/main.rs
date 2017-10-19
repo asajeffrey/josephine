@@ -25,7 +25,10 @@ fn main() {
 
     debug!("Creating global.");
     let ref mut root = cx.new_root();
-    let _window = Window::new(cx).in_root(root);
+    let window = Window::new(cx).in_root(root);
+
+    debug!("Entering compartment.");
+    let ref mut cx = cx.enter_compartment(window.0);
 
     debug!("Printing hello");
     cx.evaluate("console.log('hello')").unwrap();
