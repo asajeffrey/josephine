@@ -357,6 +357,7 @@ use js::JSCLASS_IS_GLOBAL;
 use js::JSCLASS_RESERVED_SLOTS_MASK;
 
 use js::glue::CallObjectTracer;
+use js::glue::CallStringTracer;
 use js::glue::NewCompileOptions;
 
 use js::jsapi;
@@ -402,6 +403,8 @@ use js::jsapi::JS_IsNative;
 use js::jsapi::JS_NewRuntime;
 use js::jsapi::JS_NewGlobalObject;
 use js::jsapi::JS_NewObjectWithGivenProto;
+use js::jsapi::JS_NewStringCopyN;
+use js::jsapi::JS_NewUCStringCopyN;
 use js::jsapi::JS_SetReservedSlot;
 use js::jsapi::JS_ShutDown;
 use js::jsapi::JS_StringHasLatin1Chars;
@@ -1162,7 +1165,8 @@ pub trait HasJSClass {
 /// Rust is much happier with flat string representations, so we flatten
 /// strings when they come into Rust.
 pub struct JSString<'a, C> {
-    js_string: *mut jsapi::JSFlatString,
+    // This string is always flattened, but we're not allowed to build a `Heap<*mut JSFlatString>`.
+    js_string: *mut Heap<*mut jsapi::JSString>,
     marker: PhantomData<(&'a(), C)>,
 }
 
@@ -1178,8 +1182,35 @@ impl<'a, C> Clone for JSString<'a, C> {
 impl<'a, C> Copy for JSString<'a, C> {}
 
 impl<'a, C> JSString<'a, C> {
+    pub fn new<S>(cx: &'a mut JSContext<S>, string: &str) -> JSString<'a, C> where
+        S: CanAlloc + InCompartment<C>,
+    {
+        let bytes = string.as_bytes();
+        let js_string = if bytes.iter().all(|&byte| byte < 128) {
+            // The string is Latin1, so we can copy it directly.
+            unsafe { JS_NewStringCopyN(cx.jsapi_context, &bytes[0] as *const u8 as *const i8, bytes.len()) }
+        } else {
+            // The string is UTF-8, so we have to convert it to UTF-16.
+            let utf16: Vec<u16> = string.encode_utf16().collect();
+            unsafe { JS_NewUCStringCopyN(cx.jsapi_context, &utf16[0] as *const u16, utf16.len()) }
+        };
+
+        // TODO: these boxes never get deallocated, which is a space leak!
+        let boxed = Box::new(Heap::default());
+        boxed.set(js_string);
+
+        JSString {
+            js_string: Box::into_raw(boxed),
+            marker: PhantomData,
+        }
+    }
+
     pub fn to_jsstring(self) -> *mut jsapi::JSString {
-        self.js_string as *mut jsapi::JSString
+        unsafe { &*self.js_string }.get()
+    }
+
+    pub fn to_jsflatstring(self) -> *mut jsapi::JSFlatString {
+        self.to_jsstring() as *mut jsapi::JSFlatString
     }
 
     pub fn to_jsval(self) -> JSVal {
@@ -1196,13 +1227,13 @@ impl<'a, C> JSString<'a, C> {
 
     pub unsafe fn get_latin1_chars(self) -> &'a str {
         let nogc = ptr::null_mut(); // TODO: build an AutoCheckCannotGC?
-        let raw = JS_GetLatin1FlatStringChars(nogc, self.js_string);
+        let raw = JS_GetLatin1FlatStringChars(nogc, self.to_jsflatstring());
         str::from_utf8_unchecked(slice::from_raw_parts(raw, self.len()))
     }
 
     pub unsafe fn get_two_byte_chars(self) -> &'a [u16] {
         let nogc = ptr::null_mut(); // TODO: build an AutoCheckCannotGC?
-        let raw = JS_GetTwoByteFlatStringChars(nogc, self.js_string);
+        let raw = JS_GetTwoByteFlatStringChars(nogc, self.to_jsflatstring());
         slice::from_raw_parts(raw, self.len())
     }
 
@@ -1219,6 +1250,17 @@ impl<'a, C> Display for JSString<'a, C> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         self.contents().fmt(f)
     }
+}
+
+unsafe impl<'a, C> JSTraceable for JSString<'a, C> {
+    unsafe fn trace(&self, trc: *mut JSTracer) {
+        debug!("Tracing JSString {:p}.", self.js_string);
+        CallStringTracer(trc, self.js_string, GCTraceKindToAscii(TraceKind::String));
+    }
+}
+
+unsafe impl<'a, 'b, C> JSRootable<'a> for JSString<'b, C> {
+    type Aged = JSString<'a, C>;
 }
 
 pub enum JSStringContents<'a> {
@@ -1240,14 +1282,20 @@ impl<'a> Display for JSStringContents<'a> {
 }
 
 pub unsafe fn jsstring_called_from_js<'a>(cx: *mut jsapi::JSContext, value: HandleValue) -> Result<JSString<'a, UNSAFE>, JSEvaluateErr> {
-    if value.is_string() {
-        Ok(JSString {
-            js_string: JS_FlattenString(cx, value.to_string()),
-            marker: PhantomData,
-        })
-    } else {
-        Err(JSEvaluateErr::NotAString)
+    if !value.is_string() {
+        return Err(JSEvaluateErr::NotAString);
     }
+
+    let flattened = JS_FlattenString(cx, value.to_string());
+
+    // TODO: these boxes never get deallocated, which is a space leak!
+    let boxed = Box::new(Heap::default());
+    boxed.set(flattened as *mut jsapi::JSString);
+
+    Ok(JSString {
+        js_string: Box::into_raw(boxed),
+        marker: PhantomData,
+    })
 }
 
 /// The type of JS-managed data in a JS compartment `C`, with lifetime `'a` and type `T`.
