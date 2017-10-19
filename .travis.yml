@@ -8,6 +8,7 @@ script:
   - ccache -z
   - CCACHE=$(which ccache) cargo build -vv
   - CCACHE=$(which ccache) cargo test
+  - CCACHE=$(which ccache) cargo run --example minidom
   - ccache -s
 
 cache:
