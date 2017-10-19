@@ -11,12 +11,17 @@ using it, congratulations you found a bug! Please report an issue!
 ```rust,skt-linjs
 use linjs::JSContext;
 
-// Giving JS some data to manage
+// Giving JavaScript some data to manage.
 pub fn main() {
-    // Create a new JavaScript context,
+    // Create a new JavaScript context.
+    // All interaction with JavaScript takes place in a context.
     let ref mut cx = JSContext::new();
 
-    // Create a new compartment in that context, and give it some native data to manage.
+    // Create a new compartment in that context.
+    // All memory managed by JavaScript is divided into compartments,
+    // which do not directly refer to each other.
+    // Each compartment has a global object, which we can
+    // give some Rust data to manage.
     let native = String::from("hello");
     let ref cx = cx.create_compartment().global_manage(native);
 
