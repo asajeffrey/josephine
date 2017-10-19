@@ -12,6 +12,10 @@ use linjs::SOMEWHERE;
 
 use fake_codegen::ConsoleInitializer;
 use fake_codegen::ConsoleMethods;
+use fake_codegen::DocumentInitializer;
+use fake_codegen::DocumentMethods;
+use fake_codegen::ElementInitializer;
+use fake_codegen::ElementMethods;
 use fake_codegen::WindowInitializer;
 use fake_codegen::WindowMethods;
 
@@ -107,18 +111,31 @@ pub struct NativeDocument<'a, C> {
     body: Element<'a, C>,
 }
 
-impl<'a, C> JSInitializable for NativeDocument<'a, C> {}
+impl<'a, C> JSInitializable for NativeDocument<'a, C> {
+    type Init = DocumentInitializer;
+}
 
 impl<'a, C:'a> Document<'a, C> {
     pub fn new<S>(cx: &'a mut JSContext<S>) -> Document<'a, C> where
         S: CanAlloc + InCompartment<C>,
         C: Compartment,
     {
-        let ref mut root = cx.new_root();
-        let body = Element::new(cx).in_root(root);
+        let ref mut root1 = cx.new_root();
+        let ref mut root2 = cx.new_root();
+        let name = JSString::new(cx, "body").in_root(root1);
+        let body = Element::new(cx, name).in_root(root2);
         Document(cx.manage(NativeDocument {
             body: body,
         }))
+    }
+}
+
+impl<'a, C> DocumentMethods<'a, C> for Document<'a, C> where C: 'a {
+    fn Body<S>(self, cx: &'a mut JSContext<S>) -> Element<'a, C> where
+        S: CanAccess,
+        C: Compartment,
+    {
+        self.0.borrow(cx).body
     }
 }
 
@@ -129,21 +146,40 @@ pub struct Element<'a, C> (pub JSManaged<'a, C, NativeElement<'a, C>>);
 
 #[derive(JSTraceable, JSRootable, JSTransplantable)]
 pub struct NativeElement<'a, C> {
+    name: JSString<'a, C>,
     parent: Option<Element<'a, C>>,
     children: Vec<Element<'a, C>>,
 }
 
-
-impl<'a, C> JSInitializable for NativeElement<'a, C> {}
+impl<'a, C> JSInitializable for NativeElement<'a, C> {
+    type Init = ElementInitializer;
+}
 
 impl<'a, C:'a> Element<'a, C> {
-    pub fn new<S>(cx: &'a mut JSContext<S>) -> Element<'a, C> where
+    pub fn new<S>(cx: &'a mut JSContext<S>, name: JSString<C>) -> Element<'a, C> where
         S: CanAlloc + InCompartment<C>,
         C: Compartment,
     {
         Element(cx.manage(NativeElement {
+            name: name,
             parent: None,
             children: Vec::new(),
         }))
+    }
+}
+
+impl<'a, C> ElementMethods<'a, C> for Element<'a, C> where C: 'a {
+    fn Parent<S>(self, cx: &'a mut JSContext<S>) -> Option<Element<'a, C>> where
+        S: CanAccess,
+        C: Compartment,
+    {
+        self.0.borrow(cx).parent
+    }
+
+    fn TagName<S>(self, cx: &'a mut JSContext<S>) -> JSString<'a, C> where
+        S: CanAccess,
+        C: Compartment,
+    {
+        self.0.borrow(cx).name
     }
 }

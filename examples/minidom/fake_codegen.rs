@@ -23,6 +23,7 @@ use linjs::JSInitializer;
 use linjs::JSString;
 use linjs::finalize_jsobject_with_native_data;
 use linjs::jsclass_global_flags_with_slots;
+use linjs::jsclass_has_reserved_slots;
 use linjs::jscontext_called_from_js;
 use linjs::jsmanaged_called_from_js;
 use linjs::jsstring_called_from_js;
@@ -33,6 +34,7 @@ use linjs::trace_jsobject_with_native_data;
 
 use minidom::Console;
 use minidom::Document;
+use minidom::Element;
 use minidom::Window;
 
 use std::panic;
@@ -184,7 +186,7 @@ pub trait ConsoleMethods<'a, C> {
 
 static CONSOLE_CLASS: JSClass = JSClass {
     name: b"Console\0" as *const u8 as *const c_char,
-    flags: jsclass_global_flags_with_slots(2),
+    flags: jsclass_has_reserved_slots(2),
     cOps: &JSClassOps {
         addProperty: None,
         call: None,
@@ -220,7 +222,7 @@ pub struct ConsoleInitializer;
 
 impl JSInitializer for ConsoleInitializer {
     #[allow(unsafe_code)]
-    unsafe fn global_classp() -> *const JSClass {
+    unsafe fn classp() -> *const JSClass {
         &CONSOLE_CLASS
     }
 
@@ -249,5 +251,183 @@ unsafe fn console_log(cx: *mut jsapi::JSContext, args: CallArgs) -> Result<JSVal
     let ref mut cx = jscontext_called_from_js(cx);
     this.Log(cx, arg);
     Ok(UndefinedValue())
+}
+
+// Document
+
+#[allow(non_snake_case)]
+pub trait DocumentMethods<'a, C> {
+    fn Body<S>(self, cx: &'a mut JSContext<S>) -> Element<'a, C> where S: CanAccess + CanAlloc, C: Compartment;
+}
+
+static DOCUMENT_CLASS: JSClass = JSClass {
+    name: b"Document\0" as *const u8 as *const c_char,
+    flags: jsclass_has_reserved_slots(2),
+    cOps: &JSClassOps {
+        addProperty: None,
+        call: None,
+        construct: None,
+        delProperty: None,
+        enumerate: None,
+        finalize: Some(finalize_jsobject_with_native_data),
+        getProperty: None,
+        hasInstance: None,
+        mayResolve: None,
+        resolve: None,
+        setProperty: None,
+        trace: Some(trace_jsobject_with_native_data),
+    },
+    reserved: [0 as *mut _; 3],
+};
+
+const DOCUMENT_PROPERTIES: &[JSPropertySpec] = &[
+    JSPropertySpec {
+        name: b"body\0" as *const u8 as *const c_char,
+        flags: 0,
+        getter: JSNativeWrapper {
+            op: Some(document_body_getter_op),
+            info: ptr::null(),
+        },
+        setter: null_wrapper(),
+    },
+    null_property(),
+];
+
+pub struct DocumentInitializer;
+
+impl JSInitializer for DocumentInitializer {
+    #[allow(unsafe_code)]
+    unsafe fn classp() -> *const JSClass {
+        &DOCUMENT_CLASS
+    }
+
+    #[allow(unsafe_code)]
+    unsafe fn properties() -> *const JSPropertySpec {
+        &DOCUMENT_PROPERTIES[0]
+    }
+}
+
+#[allow(unsafe_code)]
+unsafe extern "C" fn document_body_getter_op(cx: *mut jsapi::JSContext, argc: c_uint, vp: *mut JSVal) -> bool {
+    wrap_panic(panic::AssertUnwindSafe(|| {
+        let args = CallArgs::from_vp(vp, argc);
+        match document_body_getter(cx, args) {
+            Ok(result) => { args.rval().set(result); true },
+            Err(_err) => { false } // TODO: set the exception
+        }
+    }), false)
+}
+
+#[allow(unsafe_code)]
+unsafe fn document_body_getter(cx: *mut jsapi::JSContext, args: CallArgs) -> Result<JSVal, JSEvaluateErr> {
+    debug!("Getting body.");
+    let this = Document(jsmanaged_called_from_js(args.thisv())?);
+    let ref mut cx = jscontext_called_from_js(cx);
+    let result = this.Body(cx);
+    Ok(result.0.to_jsval())
+}
+
+// Element
+
+#[allow(non_snake_case)]
+pub trait ElementMethods<'a, C> {
+    fn Parent<S>(self, cx: &'a mut JSContext<S>) -> Option<Element<'a, C>> where S: CanAccess + CanAlloc, C: Compartment;
+    fn TagName<S>(self, cx: &'a mut JSContext<S>) -> JSString<'a, C> where S: CanAccess + CanAlloc, C: Compartment;
+}
+
+static ELEMENT_CLASS: JSClass = JSClass {
+    name: b"Element\0" as *const u8 as *const c_char,
+    flags: jsclass_has_reserved_slots(2),
+    cOps: &JSClassOps {
+        addProperty: None,
+        call: None,
+        construct: None,
+        delProperty: None,
+        enumerate: None,
+        finalize: Some(finalize_jsobject_with_native_data),
+        getProperty: None,
+        hasInstance: None,
+        mayResolve: None,
+        resolve: None,
+        setProperty: None,
+        trace: Some(trace_jsobject_with_native_data),
+    },
+    reserved: [0 as *mut _; 3],
+};
+
+const ELEMENT_PROPERTIES: &[JSPropertySpec] = &[
+    JSPropertySpec {
+        name: b"parent\0" as *const u8 as *const c_char,
+        flags: 0,
+        getter: JSNativeWrapper {
+            op: Some(element_parent_getter_op),
+            info: ptr::null(),
+        },
+        setter: null_wrapper(),
+    },
+    JSPropertySpec {
+        name: b"tagName\0" as *const u8 as *const c_char,
+        flags: 0,
+        getter: JSNativeWrapper {
+            op: Some(element_tagName_getter_op),
+            info: ptr::null(),
+        },
+        setter: null_wrapper(),
+    },
+    null_property(),
+];
+
+pub struct ElementInitializer;
+
+impl JSInitializer for ElementInitializer {
+    #[allow(unsafe_code)]
+    unsafe fn classp() -> *const JSClass {
+        &ELEMENT_CLASS
+    }
+
+    #[allow(unsafe_code)]
+    unsafe fn properties() -> *const JSPropertySpec {
+        &ELEMENT_PROPERTIES[0]
+    }
+}
+
+#[allow(unsafe_code)]
+unsafe extern "C" fn element_parent_getter_op(cx: *mut jsapi::JSContext, argc: c_uint, vp: *mut JSVal) -> bool {
+    wrap_panic(panic::AssertUnwindSafe(|| {
+        let args = CallArgs::from_vp(vp, argc);
+        match element_parent_getter(cx, args) {
+            Ok(result) => { args.rval().set(result); true },
+            Err(_err) => { false } // TODO: set the exception
+        }
+    }), false)
+}
+
+#[allow(unsafe_code)]
+unsafe fn element_parent_getter(cx: *mut jsapi::JSContext, args: CallArgs) -> Result<JSVal, JSEvaluateErr> {
+    debug!("Getting parent.");
+    let this = Element(jsmanaged_called_from_js(args.thisv())?);
+    let ref mut cx = jscontext_called_from_js(cx);
+    let result = this.Parent(cx);
+    Ok(result.map(|result| result.0.to_jsval()).unwrap_or(UndefinedValue()))
+}
+
+#[allow(unsafe_code,non_snake_case)]
+unsafe extern "C" fn element_tagName_getter_op(cx: *mut jsapi::JSContext, argc: c_uint, vp: *mut JSVal) -> bool {
+    wrap_panic(panic::AssertUnwindSafe(|| {
+        let args = CallArgs::from_vp(vp, argc);
+        match element_tagName_getter(cx, args) {
+            Ok(result) => { args.rval().set(result); true },
+            Err(_err) => { false } // TODO: set the exception
+        }
+    }), false)
+}
+
+#[allow(unsafe_code,non_snake_case)]
+unsafe fn element_tagName_getter(cx: *mut jsapi::JSContext, args: CallArgs) -> Result<JSVal, JSEvaluateErr> {
+    debug!("Getting tagName.");
+    let this = Element(jsmanaged_called_from_js(args.thisv())?);
+    let ref mut cx = jscontext_called_from_js(cx);
+    let result = this.TagName(cx);
+    Ok(result.to_jsval())
 }
 

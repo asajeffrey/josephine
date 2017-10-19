@@ -31,7 +31,10 @@ fn main() {
     let ref mut cx = cx.enter_compartment(window.0);
 
     debug!("Printing hello");
-    cx.evaluate("console.log('hello')").unwrap();
+    cx.evaluate("console.log('Hello World. 😃')").unwrap();
+
+    debug!("Printing body");
+    cx.evaluate("console.log(document.body.tagName)").unwrap();
 
     debug!("Done.");
 }
