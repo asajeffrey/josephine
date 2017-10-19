@@ -101,8 +101,6 @@ const WINDOW_PROPERTIES: &[JSPropertySpec] = &[
     null_property(),
 ];
 
-// Just stub methods for now.
-
 #[allow(unsafe_code)]
 unsafe extern "C" fn window_window_getter_op(cx: *mut jsapi::JSContext, argc: c_uint, vp: *mut JSVal) -> bool {
     wrap_panic(panic::AssertUnwindSafe(|| {

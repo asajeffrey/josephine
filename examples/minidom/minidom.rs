@@ -28,8 +28,6 @@ pub struct NativeWindow<'a, C> {
     document: Document<'a, C>,
 }
 
-pub struct WindowClass;
-
 impl<'a, C> JSInitializable for NativeWindow<'a, C> {
     type Init = WindowInitializer;
 }
@@ -47,8 +45,7 @@ impl<'a> Window<'a, SOMEWHERE> {
             console: console,
             document: document,
         });
-        let global: JSManaged<'a, _, _> = cx.global();
-        Window(global.forget_compartment())
+        Window(cx.global().forget_compartment())
     }
 }
 
@@ -79,8 +76,6 @@ pub struct Console<'a, C> (pub JSManaged<'a, C, NativeConsole>);
 
 #[derive(JSTraceable, JSRootable, JSTransplantable)]
 pub struct NativeConsole(());
-
-pub struct ConsoleClass;
 
 impl JSInitializable for NativeConsole {
     type Init = ConsoleInitializer;
