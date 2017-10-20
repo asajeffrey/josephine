@@ -23,3 +23,7 @@ skeptic = "0.13"
 [[example]]
 name = "minidom"
 path = "examples/minidom/main.rs"
+
+[[example]]
+name = "dbllist"
+path = "examples/dbllist/main.rs"
