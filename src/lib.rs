@@ -558,6 +558,23 @@ impl<S> JSContext<S> {
         }
     }
 
+    /// Enter a known compartment.
+    pub fn enter_known_compartment<'a, 'b, C, T>(&'a mut self, managed: JSManaged<'b, C, T>) -> JSContext<Entered<'a, C, T::Aged, S>> where
+        T: JSRootable<'a>,
+        C: Compartment,
+    {
+        debug!("Entering compartment.");
+        let ac = JSAutoCompartment::new(self.jsapi_context, managed.to_jsobject());
+        JSContext {
+            jsapi_context: self.jsapi_context,
+            global_js_object: managed.js_object,
+            global_raw: managed.raw,
+            auto_compartment: Some(ac),
+            runtime: None,
+            marker: PhantomData,
+        }
+    }
+
     /// Enter a compartment.
     pub fn enter_compartment<'a, 'b, C, T>(&'a mut self, managed: JSManaged<'b, C, T>) -> JSContext<Entered<'a, BOUND<'a>, T::Aged, S>> where
         T: JSRootable<'a>,
