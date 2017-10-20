@@ -716,7 +716,7 @@ impl<S> JSContext<S> {
     /// Finish initializing a JS Context
     pub fn global_manage<'a, C, T>(self, value: T) -> JSContext<Initialized<'a, C, T::Aged>> where
         S: IsInitializing<'a, C, T>,
-        T: JSTraceable + JSRootable<'a>,
+        T: JSTraceable + JSRootable<'a> + JSTransplantable<C, Transplanted = T>,
     {
         debug!("Managing native global.");
         let raw = self.global_raw as *mut Option<T>;
@@ -737,7 +737,7 @@ impl<S> JSContext<S> {
     /// Shortcut to create a compartment and finish initializing in one go.
     pub fn create_global<'a, T>(&'a mut self, value: T) -> JSContext<Initialized<'a, BOUND<'a>, T::Aged>> where
         S: CanCreateCompartments,
-        T: JSInitializable + JSTraceable + JSRootable<'a>,
+        T: JSInitializable + JSTraceable + JSRootable<'a> + JSTransplantable<BOUND<'a>, Transplanted = T>,
     {
         self.create_compartment().global_manage(value)
     }
