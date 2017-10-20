@@ -418,6 +418,9 @@ use js::jsval::PrivateValue;
 use js::jsval::StringValue;
 use js::jsval::UndefinedValue;
 
+use js::rust::get_context_compartment;
+use js::rust::get_object_compartment;
+
 pub use js::jsapi::JSTracer;
 
 use libc::c_char;
@@ -1419,6 +1422,20 @@ impl<'a, C, T> JSManaged<'a, C, T> {
         T: JSTransplantable<SOMEWHERE>,
     {
         unsafe { self.change_compartment() }
+    }
+
+    /// Check to see if the current object is in the same compartment as another.
+    pub fn in_compartment<S, D>(self, cx: &JSContext<S>) -> Option<JSManaged<'a, D, T::Transplanted>> where
+        T: JSTransplantable<D>,
+        S: InCompartment<D>,
+    {
+        let self_compartment = unsafe { get_object_compartment(self.to_jsobject()) };
+        let cx_compartment = unsafe { get_context_compartment(cx.cx()) };
+        if self_compartment == cx_compartment {
+            Some(unsafe { self.change_compartment() })
+        } else {
+            None
+        }
     }
 
     pub fn to_jsobject(self) -> *mut JSObject {
