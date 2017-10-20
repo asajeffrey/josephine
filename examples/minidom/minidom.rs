@@ -122,7 +122,7 @@ impl<'a, C:'a> Document<'a, C> {
     {
         let ref mut root1 = cx.new_root();
         let ref mut root2 = cx.new_root();
-        let name = JSString::new(cx, "body").in_root(root1);
+        let name = JSString::from_str(cx, "body").in_root(root1);
         let body = Element::new(cx, name).in_root(root2);
         Document(cx.manage(NativeDocument {
             body: body,
@@ -166,9 +166,75 @@ impl<'a, C:'a> Element<'a, C> {
             children: Vec::new(),
         }))
     }
+
+    fn shallow_clone<S, D:'a>(self, cx: &'a mut JSContext<S>) -> Element<'a, D> where
+        S: CanAccess + CanAlloc + InCompartment<D>,
+        C: Compartment,
+        D: Compartment,
+    {
+        let ref mut root1 = cx.new_root();
+        let ref mut root2 = cx.new_root();
+        let name = self.0.borrow(cx).name.in_root(root1).clone_in(cx).in_root(root2);
+        Element::new(cx, name)
+    }
+
+    fn clone_children_from<S, D:'a>(self, cx: &mut JSContext<S>, element: Element<D>) where
+        S: CanAccess + CanAlloc + InCompartment<C>,
+        C: Compartment,
+        D: Compartment,
+    {
+        let mut i = 0;
+        loop {
+            let ref mut root = cx.new_root();
+            let child = match element.0.borrow(cx).children.get(i).cloned().in_root(root) {
+                None => return,
+                Some(child) => child,
+            };
+            self.append_clone(cx, child);
+            i = i+1;
+        }
+    }
+
+    fn append_clone<S, D:'a>(self, cx: &mut JSContext<S>, child: Element<D>) where
+        S: CanAccess + CanAlloc + InCompartment<C>,
+        C: Compartment,
+        D: Compartment,
+    {
+        let ref mut root = cx.new_root();
+        let clone = child.shallow_clone(cx).in_root(root);
+        clone.clone_children_from(cx, child);
+        self.append_child(cx, clone);
+    }
+
+    fn append_child<S>(self, cx: &'a mut JSContext<S>, child: Element<'a, C>) where
+        S: CanAccess + CanAlloc + InCompartment<C>,
+        C: Compartment,
+    {
+        self.0.borrow_mut(cx).children.push(child);
+        child.0.borrow_mut(cx).parent = Some(self);
+    }
+
+    fn in_compartment<S, D>(self, cx: &JSContext<S>) -> Option<Element<'a, D>> where
+        S: InCompartment<D>,
+    {
+        self.0.in_compartment(cx).map(Element)
+    }
 }
 
 impl<'a, C> ElementMethods<'a, C> for Element<'a, C> where C: 'a {
+    fn Append<S, D>(self, cx: &'a mut JSContext<S>, child: Element<'a, D>) where
+        S: CanAccess + CanAlloc,
+        C: Compartment,
+        D: Compartment,
+    {
+        let ref mut cx = cx.enter_known_compartment(self.0);
+        if let Some(child) = child.in_compartment(cx) {
+            self.append_child(cx, child);
+        } else {
+            self.append_clone(cx, child);
+        }
+    }
+
     fn Parent<S>(self, cx: &'a mut JSContext<S>) -> Option<Element<'a, C>> where
         S: CanAccess,
         C: Compartment,

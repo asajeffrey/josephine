@@ -333,6 +333,7 @@ unsafe fn document_body_getter(cx: *mut jsapi::JSContext, args: CallArgs) -> Res
 pub trait ElementMethods<'a, C> {
     fn Parent<S>(self, cx: &'a mut JSContext<S>) -> Option<Element<'a, C>> where S: CanAccess + CanAlloc, C: Compartment;
     fn TagName<S>(self, cx: &'a mut JSContext<S>) -> JSString<'a, C> where S: CanAccess + CanAlloc, C: Compartment;
+    fn Append<S, D>(self, cx: &'a mut JSContext<S>, child: Element<'a, D>) where S: CanAccess + CanAlloc, C: Compartment, D: Compartment;
 }
 
 static ELEMENT_CLASS: JSClass = JSClass {

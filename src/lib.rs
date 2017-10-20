@@ -1202,29 +1202,6 @@ impl<'a, C> Clone for JSString<'a, C> {
 impl<'a, C> Copy for JSString<'a, C> {}
 
 impl<'a, C> JSString<'a, C> {
-    pub fn new<S>(cx: &'a mut JSContext<S>, string: &str) -> JSString<'a, C> where
-        S: CanAlloc + InCompartment<C>,
-    {
-        let bytes = string.as_bytes();
-        let js_string = if bytes.iter().all(|&byte| byte < 128) {
-            // The string is Latin1, so we can copy it directly.
-            unsafe { JS_NewStringCopyN(cx.jsapi_context, &bytes[0] as *const u8 as *const i8, bytes.len()) }
-        } else {
-            // The string is UTF-8, so we have to convert it to UTF-16.
-            let utf16: Vec<u16> = string.encode_utf16().collect();
-            unsafe { JS_NewUCStringCopyN(cx.jsapi_context, &utf16[0] as *const u16, utf16.len()) }
-        };
-
-        // TODO: these boxes never get deallocated, which is a space leak!
-        let boxed = Box::new(Heap::default());
-        boxed.set(js_string);
-
-        JSString {
-            js_string: Box::into_raw(boxed),
-            marker: PhantomData,
-        }
-    }
-
     pub fn to_jsstring(self) -> *mut jsapi::JSString {
         unsafe { &*self.js_string }.get()
     }
@@ -1262,6 +1239,58 @@ impl<'a, C> JSString<'a, C> {
             JSStringContents::Latin1(unsafe { self.get_latin1_chars() })
         } else {
             JSStringContents::TwoByte(unsafe { self.get_two_byte_chars() })
+        }
+    }
+
+    pub unsafe fn from_jsstring(js_string: *mut jsapi::JSString) -> JSString<'a, C> {
+        // TODO: these boxes never get deallocated, which is a space leak!
+        let boxed = Box::new(Heap::default());
+        boxed.set(js_string);
+        JSString {
+            js_string: Box::into_raw(boxed),
+            marker: PhantomData,
+        }
+    }
+
+    pub unsafe fn from_latin1_unchecked<S>(cx: &'a mut JSContext<S>, string: &str) -> JSString<'a, C> where
+        S: CanAlloc + InCompartment<C>,
+    {
+        JSString::from_jsstring(JS_NewStringCopyN(cx.jsapi_context, string as *const str as *const i8, string.len()))
+    }
+
+    pub fn from_latin1<S>(cx: &'a mut JSContext<S>, string: &str) -> Option<JSString<'a, C>> where
+        S: CanAlloc + InCompartment<C>,
+    {
+        if string.bytes().all(|byte| byte < 128) {
+            Some(unsafe { JSString::from_latin1_unchecked(cx, string) })
+        } else {
+            None
+        }
+    }
+
+    pub fn from_twobyte<S>(cx: &'a mut JSContext<S>, slice: &[u16]) -> JSString<'a, C> where
+        S: CanAlloc + InCompartment<C>,
+    {
+        unsafe { JSString::from_jsstring(JS_NewUCStringCopyN(cx.jsapi_context, &slice[0] as *const u16, slice.len())) }
+    }
+
+    pub fn from_str<S>(cx: &'a mut JSContext<S>, string: &str) -> JSString<'a, C> where
+        S: CanAlloc + InCompartment<C>,
+    {
+        if string.bytes().all(|byte| byte < 128) {
+            unsafe { JSString::from_latin1_unchecked(cx, string) }
+        } else {
+            let utf16: Vec<u16> = string.encode_utf16().collect();
+            JSString::from_twobyte(cx, &*utf16)
+        }
+    }
+
+    pub fn clone_in<S, D>(self, cx: &'a mut JSContext<S>) -> JSString<'a, D> where
+        S: CanAlloc + InCompartment<D>,
+    {
+        match self.contents() {
+            JSStringContents::Latin1(string) => unsafe { JSString::from_latin1_unchecked(cx, string) },
+            JSStringContents::TwoByte(slice) => JSString::from_twobyte(cx, slice),
         }
     }
 }
