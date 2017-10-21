@@ -1,14 +1,14 @@
-use linjs::CanAccess;
-use linjs::CanAlloc;
-use linjs::Compartment;
-use linjs::CanCreateCompartments;
-use linjs::InCompartment;
-use linjs::JSContext;
-use linjs::JSInitializable;
-use linjs::JSManaged;
-use linjs::JSRootable;
-use linjs::JSString;
-use linjs::SOMEWHERE;
+use josephine::CanAccess;
+use josephine::CanAlloc;
+use josephine::Compartment;
+use josephine::CanCreateCompartments;
+use josephine::InCompartment;
+use josephine::JSContext;
+use josephine::JSInitializable;
+use josephine::JSManaged;
+use josephine::JSRootable;
+use josephine::JSString;
+use josephine::SOMEWHERE;
 
 use fake_codegen::ConsoleInitializer;
 use fake_codegen::ConsoleMethods;
@@ -22,7 +22,7 @@ use fake_codegen::WindowMethods;
 // -------------------------------------------------------------------
 
 // TODO: the contents are pub so that codegen can get at it, this should be fixed!
-// https://github.com/asajeffrey/linjs/issues/27
+// https://github.com/asajeffrey/josephine/issues/27
 #[derive(Copy, Clone, Debug, Eq, PartialEq, JSTraceable, JSRootable, JSTransplantable)]
 pub struct Window<'a, C> (pub JSManaged<'a, C, NativeWindow<'a, C>>);
 

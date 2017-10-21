@@ -1,15 +1,15 @@
 //! A simple doubly linked list class.
 
-use linjs::CanAccess;
-use linjs::CanAlloc;
-use linjs::Compartment;
-use linjs::InCompartment;
-use linjs::Initialized;
-use linjs::IsInitialized;
-use linjs::IsInitializing;
-use linjs::JSContext;
-use linjs::JSManaged;
-use linjs::JSRootable;
+use josephine::CanAccess;
+use josephine::CanAlloc;
+use josephine::Compartment;
+use josephine::InCompartment;
+use josephine::Initialized;
+use josephine::IsInitialized;
+use josephine::IsInitializing;
+use josephine::JSContext;
+use josephine::JSManaged;
+use josephine::JSRootable;
 
 #[derive(Copy, Clone, JSTraceable, JSRootable, JSTransplantable)]
 pub struct DoublyLinkedList<'a, C>(JSManaged<'a, C, NativeDoublyLinkedList<'a, C>>);

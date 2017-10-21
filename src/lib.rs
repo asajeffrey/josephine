@@ -18,7 +18,7 @@
 //! `C` when the context state implements the `CanAlloc` trait:
 //!
 //! ```rust
-//! # use linjs::*;
+//! # use josephine::*;
 //! fn example<C, S>(cx: &mut JSContext<S>) where
 //!     S: CanAlloc + InCompartment<C>,
 //!     C: Compartment,
@@ -31,7 +31,7 @@
 //! implements the `CanAccess<C>` trait:
 //!
 //! ```rust
-//! # use linjs::*;
+//! # use josephine::*;
 //! fn example<C, S>(cx: &mut JSContext<S>, x: JSManaged<C, String>) where
 //!     S: CanAccess,
 //!     C: Compartment,
@@ -46,7 +46,7 @@
 //! garbage collection:
 //!
 //! ```rust,ignore
-//! # use linjs::*;
+//! # use josephine::*;
 //! fn unsafe_example<C, S>(cx: &mut JSContext<S>) where
 //!     S: CanAlloc + CanAccess + InCompartment<C>,
 //!     C: Compartment,
@@ -79,7 +79,7 @@
 //! To see why this example fails to typecheck, we can introduce explicit lifetimes:
 //!
 //! ```rust,ignore
-//! # use linjs::*;
+//! # use josephine::*;
 //! fn unsafe_example<'a, C, S>(cx: &'a mut JSContext<S>) where
 //!     S: CanAlloc + CanAccess + InCompartment<C>,
 //!     C: Compartment,
@@ -104,7 +104,7 @@
 //! to root `x`, so that it will not be garbage collected.
 //!
 //! ```rust
-//! # use linjs::*;
+//! # use josephine::*;
 //! fn example<'a, C, S>(cx: &'a mut JSContext<S>) where
 //!     S: CanAlloc + CanAccess + InCompartment<C>,
 //!     C: Compartment,
@@ -138,7 +138,7 @@
 //! mutable accesses.
 //!
 //! ```rust
-//! # use linjs::*;
+//! # use josephine::*;
 //! fn example<C, S>(cx: &mut JSContext<S>, x: JSManaged<C, String>) where
 //!     S: CanAccess,
 //!     C: Compartment,
@@ -153,7 +153,7 @@
 //! results in an error from the borrow-checker, for example:
 //!
 //! ```rust,ignore
-//! # use linjs::*; use std::mem;
+//! # use josephine::*; use std::mem;
 //! fn unsafe_example<C, S>(cx: &mut JSContext<S>, x: JSManaged<C, String>, y: JSManaged<C, String>) where
 //!     S: CanAccess,
 //!     C: Compartment,
@@ -176,9 +176,9 @@
 //! Mutable update allows the construction of cyclic structures, for example:
 //!
 //! ```rust
-//! # extern crate linjs;
-//! # #[macro_use] extern crate linjs_derive;
-//! # use linjs::*;
+//! # extern crate josephine;
+//! # #[macro_use] extern crate josephine_derive;
+//! # use josephine::*;
 //! #[derive(JSInitializable, JSTraceable, JSRootable)]
 //! pub struct NativeLoop<'a, C> {
 //!    next: Option<Loop<'a, C>>,
@@ -206,9 +206,9 @@
 //! the snapshot is also live at the end.
 //!
 //! ```rust
-//! # extern crate linjs;
-//! # #[macro_use] extern crate linjs_derive;
-//! # use linjs::*;
+//! # extern crate josephine;
+//! # #[macro_use] extern crate josephine_derive;
+//! # use josephine::*;
 //! # #[derive(JSInitializable, JSTraceable, JSRootable)]
 //! # pub struct NativeLoop<'a, C> {
 //! #    next: Option<Loop<'a, C>>,
@@ -229,9 +229,9 @@
 //! the appropriate traits. For example:
 //!
 //! ```rust,ignore
-//! # extern crate linjs;
-//! # #[macro_use] extern crate linjs_derive;
-//! # use linjs::*;
+//! # extern crate josephine;
+//! # #[macro_use] extern crate josephine_derive;
+//! # use josephine::*;
 //! # #[derive(HasClass, JSTraceable, JSRootable)]
 //! # pub struct NativeLoop<'a, C> {
 //! #    next: Option<Loop<'a, C>>,
@@ -257,11 +257,11 @@
 //! to support `CanAlloc<C>`, which is not allowed by the snapshotted state.
 //!
 //! ```text
-//! 	error[E0277]: the trait bound `linjs::Snapshotted<'_, S>: linjs::CanAlloc` is not satisfied
+//! 	error[E0277]: the trait bound `josephine::Snapshotted<'_, S>: josephine::CanAlloc` is not satisfied
 //!   --> src/lib.rs:19:4
 //!    |
 //! 19 |    might_trigger_gc(cx);
-//!    |    ^^^^^^^^^^^^^^^^ the trait `linjs::CanAlloc` is not implemented for `linjs::Snapshotted<'_, S>`
+//!    |    ^^^^^^^^^^^^^^^^ the trait `josephine::CanAlloc` is not implemented for `josephine::Snapshotted<'_, S>`
 //!    |
 //!    = note: required by `might_trigger_gc`
 //! ```
@@ -274,9 +274,9 @@
 //! with `cx.global()`.
 //!
 //! ```rust
-//! # extern crate linjs;
-//! # #[macro_use] extern crate linjs_derive;
-//! # use linjs::*;
+//! # extern crate josephine;
+//! # #[macro_use] extern crate josephine_derive;
+//! # use josephine::*;
 //! #[derive(JSInitializable, JSTraceable, JSRootable, JSTransplantable)]
 //! pub struct NativeMyGlobal { name: String }
 //! type MyGlobal<'a, C> = JSManaged<'a, C, NativeMyGlobal>;
@@ -297,9 +297,9 @@
 //! providing the JS-managed data for the global, for example:
 //!
 //! ```rust
-//! # extern crate linjs;
-//! # #[macro_use] extern crate linjs_derive;
-//! # use linjs::*;
+//! # extern crate josephine;
+//! # #[macro_use] extern crate josephine_derive;
+//! # use josephine::*;
 //! #[derive(JSInitializable, JSTraceable, JSRootable, JSTransplantable)]
 //! pub struct NativeMyGlobal<'a, C> { name: JSManaged<'a, C, String> }
 //! type MyGlobal<'a, C> = JSManaged<'a, C, NativeMyGlobal<'a, C>>;
@@ -321,9 +321,9 @@
 //! The JSContext is built using `JSContext::new`.
 //!
 //! ```rust
-//! # extern crate linjs;
-//! # #[macro_use] extern crate linjs_derive;
-//! # use linjs::*;
+//! # extern crate josephine;
+//! # #[macro_use] extern crate josephine_derive;
+//! # use josephine::*;
 //! #[derive(JSInitializable, JSTraceable, JSRootable, JSTransplantable)]
 //! pub struct NativeMyGlobal { name: String }
 //! type MyGlobal<'a, C> = JSManaged<'a, C, NativeMyGlobal>;

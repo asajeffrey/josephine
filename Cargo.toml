@@ -1,5 +1,5 @@
 [package]
-name = "linjs"
+name = "josephine"
 version = "0.0.1"
 authors = ["ajeffrey@mozilla.com"]
 license = "MPL-2.0"
@@ -17,7 +17,7 @@ skeptic = "0.13"
 
 [dev-dependencies]
 env_logger = "0.4"
-linjs_derive = { path = "linjs-derive" }
+josephine_derive = { path = "josephine-derive" }
 skeptic = "0.13"
 
 [[example]]

@@ -6,15 +6,15 @@
 extern crate env_logger;
 extern crate js;
 extern crate libc;
-extern crate linjs;
-#[macro_use] extern crate linjs_derive;
+extern crate josephine;
+#[macro_use] extern crate josephine_derive;
 #[macro_use] extern crate log;
 
 mod fake_codegen;
 mod minidom;
 
-use linjs::JSContext;
-use linjs::JSRootable;
+use josephine::JSContext;
+use josephine::JSRootable;
 use minidom::Window;
 
 fn main() {

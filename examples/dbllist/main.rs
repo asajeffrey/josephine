@@ -1,11 +1,11 @@
-extern crate linjs;
-#[macro_use] extern crate linjs_derive;
+extern crate josephine;
+#[macro_use] extern crate josephine_derive;
 
 mod dbllist;
 
 use dbllist::DoublyLinkedList;
 
-use linjs::JSContext;
+use josephine::JSContext;
 
 fn main() {
     // Create a new JS context

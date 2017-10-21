@@ -1,4 +1,4 @@
-```rust,skt-linjs
-extern crate linjs;
+```rust,skt-josephine
+extern crate josephine;
 {}
 ```

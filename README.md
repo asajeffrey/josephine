@@ -1,6 +1,6 @@
-# linjs
+# josephine
 
-[![Build Status](https://travis-ci.org/asajeffrey/linjs.svg)](https://travis-ci.org/asajeffrey/linjs)
+[![Build Status](https://travis-ci.org/asajeffrey/josephine.svg)](https://travis-ci.org/asajeffrey/josephine)
 
 The goal of this library is to provide safe bindings into JavaScript
 from Rust. If you can cause a panic or segmentation fault from safe code
@@ -8,8 +8,8 @@ using it, congratulations you found a bug! Please report an issue!
 
 ## Example
 
-```rust,skt-linjs
-use linjs::JSContext;
+```rust,skt-josephine
+use josephine::JSContext;
 
 // Giving JavaScript some data to manage.
 pub fn main() {
