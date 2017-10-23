@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="generator" content="rustdoc">
+    <meta name="description" content="API documentation for the Rust `JSManaged` struct in crate `josephine`.">
+    <meta name="keywords" content="rust, rustlang, rust-lang, JSManaged">
+
+    <title>josephine::JSManaged - Rust</title>
+
+    <link rel="stylesheet" type="text/css" href="../normalize.css">
+    <link rel="stylesheet" type="text/css" href="../rustdoc.css">
+    <link rel="stylesheet" type="text/css" href="../main.css">
+    
+
+    
+    
+</head>
+<body class="rustdoc struct">
+    <!--[if lte IE 8]>
+    <div class="warning">
+        This old browser is unsupported and will most likely display funky
+        things.
+    </div>
+    <![endif]-->
+
+    
+
+    <nav class="sidebar">
+        
+        <p class='location'>Struct JSManaged</p><div class="block items"><ul><li><a href="#methods">Methods</a></li><li><a href="#implementations">Trait Implementations</a></li></ul></div><p class='location'><a href='index.html'>josephine</a></p><script>window.sidebarCurrent = {name: 'JSManaged', ty: 'struct', relpath: ''};</script><script defer src="sidebar-items.js"></script>
+    </nav>
+
+    <nav class="sub">
+        <form class="search-form js-only">
+            <div class="search-container">
+                <input class="search-input" name="search"
+                       autocomplete="off"
+                       placeholder="Click or press ‘S’ to search, ‘?’ for more options…"
+                       type="search">
+            </div>
+        </form>
+    </nav>
+
+    <section id='main' class="content">
+<h1 class='fqn'><span class='in-band'>Struct <a href='index.html'>josephine</a>::<wbr><a class="struct" href=''>JSManaged</a></span><span class='out-of-band'><span id='render-detail'>
+                   <a id="toggle-all-docs" href="javascript:void(0)" title="collapse all docs">
+                       [<span class='inner'>&#x2212;</span>]
+                   </a>
+               </span><a class='srclink' href='../src/josephine/lib.rs.html#1383-1387' title='goto source code'>[src]</a></span></h1>
+<pre class='rust struct'>pub struct JSManaged&lt;'a, C, T&gt; { /* fields omitted */ }</pre><div class='docblock'><p>The type of JS-managed data in a JS compartment <code>C</code>, with lifetime <code>&#39;a</code> and type <code>T</code>.</p>
+
+<p>If the user has access to a <code>JSManaged</code>, then the JS-managed
+data is live for the given lifetime.</p>
+</div>
+                    <h2 id='methods' class='small-section-header'>
+                      Methods<a href='#methods' class='anchor'></a>
+                    </h2>
+                <h3 id='impl' class='impl'><span class='in-band'><code>impl&lt;'a, C, T&gt; <a class="struct" href="../josephine/struct.JSManaged.html" title="struct josephine::JSManaged">JSManaged</a>&lt;'a, C, T&gt;</code><a href='#impl' class='anchor'></a></span><span class='out-of-band'><div class='ghost'></div><a class='srclink' href='../src/josephine/lib.rs.html#1429-1523' title='goto source code'>[src]</a></span></h3>
+<div class='impl-items'><h4 id='method.get' class="method"><span id='get.v' class='invisible'><code>pub fn <a href='#method.get' class='fnname'>get</a>&lt;'b, S&gt;(self, _: &amp;'b <a class="struct" href="../josephine/struct.JSContext.html" title="struct josephine::JSContext">JSContext</a>&lt;S&gt;) -&gt; T::<a class="type" href="../josephine/trait.JSRootable.html#associatedtype.Aged" title="type josephine::JSRootable::Aged">Aged</a> <span class="where fmt-newline">where<br>&nbsp;&nbsp;&nbsp;&nbsp;S: <a class="trait" href="../josephine/trait.CanAccess.html" title="trait josephine::CanAccess">CanAccess</a>,<br>&nbsp;&nbsp;&nbsp;&nbsp;C: <a class="trait" href="../josephine/trait.Compartment.html" title="trait josephine::Compartment">Compartment</a>,<br>&nbsp;&nbsp;&nbsp;&nbsp;T: <a class="trait" href="../josephine/trait.JSRootable.html" title="trait josephine::JSRootable">JSRootable</a>&lt;'b&gt;,<br>&nbsp;&nbsp;&nbsp;&nbsp;T::<a class="type" href="../josephine/trait.JSRootable.html#associatedtype.Aged" title="type josephine::JSRootable::Aged">Aged</a>: <a class="trait" href="https://doc.rust-lang.org/nightly/core/marker/trait.Copy.html" title="trait core::marker::Copy">Copy</a>,<br>&nbsp;&nbsp;&nbsp;&nbsp;'a: 'b,&nbsp;</span></code></span><span class='out-of-band'><div class='ghost'></div><a class='srclink' href='../src/josephine/lib.rs.html#1431-1440' title='goto source code'>[src]</a></span></h4>
+<div class='docblock'><p>Read-only access to JS-managed data.</p>
+</div><h4 id='method.borrow' class="method"><span id='borrow.v' class='invisible'><code>pub fn <a href='#method.borrow' class='fnname'>borrow</a>&lt;'b, S&gt;(self, _: &amp;'b <a class="struct" href="../josephine/struct.JSContext.html" title="struct josephine::JSContext">JSContext</a>&lt;S&gt;) -&gt; &amp;'b T::<a class="type" href="../josephine/trait.JSRootable.html#associatedtype.Aged" title="type josephine::JSRootable::Aged">Aged</a> <span class="where fmt-newline">where<br>&nbsp;&nbsp;&nbsp;&nbsp;S: <a class="trait" href="../josephine/trait.CanAccess.html" title="trait josephine::CanAccess">CanAccess</a>,<br>&nbsp;&nbsp;&nbsp;&nbsp;C: <a class="trait" href="../josephine/trait.Compartment.html" title="trait josephine::Compartment">Compartment</a>,<br>&nbsp;&nbsp;&nbsp;&nbsp;T: <a class="trait" href="../josephine/trait.JSRootable.html" title="trait josephine::JSRootable">JSRootable</a>&lt;'b&gt;,<br>&nbsp;&nbsp;&nbsp;&nbsp;'a: 'b,&nbsp;</span></code></span><span class='out-of-band'><div class='ghost'></div><a class='srclink' href='../src/josephine/lib.rs.html#1442-1450' title='goto source code'>[src]</a></span></h4>
+<h4 id='method.borrow_mut' class="method"><span id='borrow_mut.v' class='invisible'><code>pub fn <a href='#method.borrow_mut' class='fnname'>borrow_mut</a>&lt;'b, S&gt;(self, _: &amp;'b mut <a class="struct" href="../josephine/struct.JSContext.html" title="struct josephine::JSContext">JSContext</a>&lt;S&gt;) -&gt; &amp;'b mut T::<a class="type" href="../josephine/trait.JSRootable.html#associatedtype.Aged" title="type josephine::JSRootable::Aged">Aged</a> <span class="where fmt-newline">where<br>&nbsp;&nbsp;&nbsp;&nbsp;S: <a class="trait" href="../josephine/trait.CanAccess.html" title="trait josephine::CanAccess">CanAccess</a>,<br>&nbsp;&nbsp;&nbsp;&nbsp;C: <a class="trait" href="../josephine/trait.Compartment.html" title="trait josephine::Compartment">Compartment</a>,<br>&nbsp;&nbsp;&nbsp;&nbsp;T: <a class="trait" href="../josephine/trait.JSRootable.html" title="trait josephine::JSRootable">JSRootable</a>&lt;'b&gt;,<br>&nbsp;&nbsp;&nbsp;&nbsp;'a: 'b,&nbsp;</span></code></span><span class='out-of-band'><div class='ghost'></div><a class='srclink' href='../src/josephine/lib.rs.html#1453-1461' title='goto source code'>[src]</a></span></h4>
+<div class='docblock'><p>Read-write access to JS-managed data.</p>
+</div><h4 id='method.change_compartment' class="method"><span id='change_compartment.v' class='invisible'><code>pub unsafe fn <a href='#method.change_compartment' class='fnname'>change_compartment</a>&lt;D&gt;(self) -&gt; <a class="struct" href="../josephine/struct.JSManaged.html" title="struct josephine::JSManaged">JSManaged</a>&lt;'a, D, T::<a class="type" href="../josephine/trait.JSTransplantable.html#associatedtype.Transplanted" title="type josephine::JSTransplantable::Transplanted">Transplanted</a>&gt; <span class="where fmt-newline">where<br>&nbsp;&nbsp;&nbsp;&nbsp;T: <a class="trait" href="../josephine/trait.JSTransplantable.html" title="trait josephine::JSTransplantable">JSTransplantable</a>&lt;D&gt;,&nbsp;</span></code></span><span class='out-of-band'><div class='ghost'></div><a class='srclink' href='../src/josephine/lib.rs.html#1464-1472' title='goto source code'>[src]</a></span></h4>
+<div class='docblock'><p>Change the compartment of JS-managed data.</p>
+</div><h4 id='method.change_lifetime' class="method"><span id='change_lifetime.v' class='invisible'><code>pub unsafe fn <a href='#method.change_lifetime' class='fnname'>change_lifetime</a>&lt;'b&gt;(self) -&gt; <a class="struct" href="../josephine/struct.JSManaged.html" title="struct josephine::JSManaged">JSManaged</a>&lt;'b, C, T::<a class="type" href="../josephine/trait.JSRootable.html#associatedtype.Aged" title="type josephine::JSRootable::Aged">Aged</a>&gt; <span class="where fmt-newline">where<br>&nbsp;&nbsp;&nbsp;&nbsp;T: <a class="trait" href="../josephine/trait.JSRootable.html" title="trait josephine::JSRootable">JSRootable</a>&lt;'b&gt;,&nbsp;</span></code></span><span class='out-of-band'><div class='ghost'></div><a class='srclink' href='../src/josephine/lib.rs.html#1475-1483' title='goto source code'>[src]</a></span></h4>
+<div class='docblock'><p>Change the lifetime of JS-managed data.</p>
+</div><h4 id='method.extend_lifetime' class="method"><span id='extend_lifetime.v' class='invisible'><code>pub fn <a href='#method.extend_lifetime' class='fnname'>extend_lifetime</a>&lt;'b, 'c, S&gt;(<br>&nbsp;&nbsp;&nbsp;&nbsp;self, <br>&nbsp;&nbsp;&nbsp;&nbsp;_: &amp;'c <a class="struct" href="../josephine/struct.JSContext.html" title="struct josephine::JSContext">JSContext</a>&lt;S&gt;<br>) -&gt; <a class="struct" href="../josephine/struct.JSManaged.html" title="struct josephine::JSManaged">JSManaged</a>&lt;'b, C, T::<a class="type" href="../josephine/trait.JSRootable.html#associatedtype.Aged" title="type josephine::JSRootable::Aged">Aged</a>&gt; <span class="where fmt-newline">where<br>&nbsp;&nbsp;&nbsp;&nbsp;S: <a class="trait" href="../josephine/trait.CanExtend.html" title="trait josephine::CanExtend">CanExtend</a>&lt;'b&gt;,<br>&nbsp;&nbsp;&nbsp;&nbsp;T: <a class="trait" href="../josephine/trait.JSRootable.html" title="trait josephine::JSRootable">JSRootable</a>&lt;'b&gt;,&nbsp;</span></code></span><span class='out-of-band'><div class='ghost'></div><a class='srclink' href='../src/josephine/lib.rs.html#1486-1491' title='goto source code'>[src]</a></span></h4>
+<div class='docblock'><p>It&#39;s safe to extend the lifetime of JS-managed data if it has been snapshotted.</p>
+</div><h4 id='method.forget_compartment' class="method"><span id='forget_compartment.v' class='invisible'><code>pub fn <a href='#method.forget_compartment' class='fnname'>forget_compartment</a>(self) -&gt; <a class="struct" href="../josephine/struct.JSManaged.html" title="struct josephine::JSManaged">JSManaged</a>&lt;'a, <a class="struct" href="../josephine/struct.SOMEWHERE.html" title="struct josephine::SOMEWHERE">SOMEWHERE</a>, T::<a class="type" href="../josephine/trait.JSTransplantable.html#associatedtype.Transplanted" title="type josephine::JSTransplantable::Transplanted">Transplanted</a>&gt; <span class="where fmt-newline">where<br>&nbsp;&nbsp;&nbsp;&nbsp;T: <a class="trait" href="../josephine/trait.JSTransplantable.html" title="trait josephine::JSTransplantable">JSTransplantable</a>&lt;<a class="struct" href="../josephine/struct.SOMEWHERE.html" title="struct josephine::SOMEWHERE">SOMEWHERE</a>&gt;,&nbsp;</span></code></span><span class='out-of-band'><div class='ghost'></div><a class='srclink' href='../src/josephine/lib.rs.html#1496-1500' title='goto source code'>[src]</a></span></h4>
+<div class='docblock'><p>Forget about which compartment the managed data is in.
+This is safe because when we mutate data in compartment <code>C</code> we require
+<code>C: Compartment</code>, which means it is never <code>SOMEWHERE</code>.</p>
+</div><h4 id='method.in_compartment' class="method"><span id='in_compartment.v' class='invisible'><code>pub fn <a href='#method.in_compartment' class='fnname'>in_compartment</a>&lt;S, D&gt;(<br>&nbsp;&nbsp;&nbsp;&nbsp;self, <br>&nbsp;&nbsp;&nbsp;&nbsp;cx: &amp;<a class="struct" href="../josephine/struct.JSContext.html" title="struct josephine::JSContext">JSContext</a>&lt;S&gt;<br>) -&gt; <a class="enum" href="https://doc.rust-lang.org/nightly/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;<a class="struct" href="../josephine/struct.JSManaged.html" title="struct josephine::JSManaged">JSManaged</a>&lt;'a, D, T::<a class="type" href="../josephine/trait.JSTransplantable.html#associatedtype.Transplanted" title="type josephine::JSTransplantable::Transplanted">Transplanted</a>&gt;&gt; <span class="where fmt-newline">where<br>&nbsp;&nbsp;&nbsp;&nbsp;T: <a class="trait" href="../josephine/trait.JSTransplantable.html" title="trait josephine::JSTransplantable">JSTransplantable</a>&lt;D&gt;,<br>&nbsp;&nbsp;&nbsp;&nbsp;S: <a class="trait" href="../josephine/trait.InCompartment.html" title="trait josephine::InCompartment">InCompartment</a>&lt;D&gt;,&nbsp;</span></code></span><span class='out-of-band'><div class='ghost'></div><a class='srclink' href='../src/josephine/lib.rs.html#1503-1514' title='goto source code'>[src]</a></span></h4>
+<div class='docblock'><p>Check to see if the current object is in the same compartment as another.</p>
+</div><h4 id='method.to_jsobject' class="method"><span id='to_jsobject.v' class='invisible'><code>pub fn <a href='#method.to_jsobject' class='fnname'>to_jsobject</a>(self) -&gt; <a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.pointer.html">*mut </a><a class="enum" href="../js/jsapi/enum.JSObject.html" title="enum js::jsapi::JSObject">JSObject</a></code></span><span class='out-of-band'><div class='ghost'></div><a class='srclink' href='../src/josephine/lib.rs.html#1516-1518' title='goto source code'>[src]</a></span></h4>
+<h4 id='method.to_jsval' class="method"><span id='to_jsval.v' class='invisible'><code>pub fn <a href='#method.to_jsval' class='fnname'>to_jsval</a>(self) -&gt; <a class="type" href="../js/jsval/type.JSVal.html" title="type js::jsval::JSVal">JSVal</a></code></span><span class='out-of-band'><div class='ghost'></div><a class='srclink' href='../src/josephine/lib.rs.html#1520-1522' title='goto source code'>[src]</a></span></h4>
+</div>
+            <h2 id='implementations' class='small-section-header'>
+              Trait Implementations<a href='#implementations' class='anchor'></a>
+            </h2>
+        <h3 id='impl-Clone' class='impl'><span class='in-band'><code>impl&lt;'a, C, T&gt; <a class="trait" href="https://doc.rust-lang.org/nightly/core/clone/trait.Clone.html" title="trait core::clone::Clone">Clone</a> for <a class="struct" href="../josephine/struct.JSManaged.html" title="struct josephine::JSManaged">JSManaged</a>&lt;'a, C, T&gt;</code><a href='#impl-Clone' class='anchor'></a></span><span class='out-of-band'><div class='ghost'></div><a class='srclink' href='../src/josephine/lib.rs.html#1389-1397' title='goto source code'>[src]</a></span></h3>
+<div class='impl-items'><h4 id='method.clone' class="method"><span id='clone.v' class='invisible'><code>fn <a href='https://doc.rust-lang.org/nightly/core/clone/trait.Clone.html#tymethod.clone' class='fnname'>clone</a>(&amp;self) -&gt; Self</code></span><span class='out-of-band'><div class='ghost'></div><a class='srclink' href='../src/josephine/lib.rs.html#1390-1396' title='goto source code'>[src]</a></span></h4>
+<div class='docblock'><p>Returns a copy of the value. <a href="https://doc.rust-lang.org/nightly/core/clone/trait.Clone.html#tymethod.clone">Read more</a></p>
+</div><h4 id='method.clone_from' class="method"><span id='clone_from.v' class='invisible'><code>fn <a href='https://doc.rust-lang.org/nightly/core/clone/trait.Clone.html#method.clone_from' class='fnname'>clone_from</a>(&amp;mut self, source: <a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.reference.html">&amp;</a>Self)</code></span><span class='out-of-band'><div class='ghost'></div><div class='since' title='Stable since Rust version 1.0.0'>1.0.0</div><a class='srclink' href='https://doc.rust-lang.org/nightly/src/core/clone.rs.html#112-114' title='goto source code'>[src]</a></span></h4>
+<div class='docblock'><p>Performs copy-assignment from <code>source</code>. <a href="https://doc.rust-lang.org/nightly/core/clone/trait.Clone.html#method.clone_from">Read more</a></p>
+</div></div><h3 id='impl-Copy' class='impl'><span class='in-band'><code>impl&lt;'a, C, T&gt; <a class="trait" href="https://doc.rust-lang.org/nightly/core/marker/trait.Copy.html" title="trait core::marker::Copy">Copy</a> for <a class="struct" href="../josephine/struct.JSManaged.html" title="struct josephine::JSManaged">JSManaged</a>&lt;'a, C, T&gt;</code><a href='#impl-Copy' class='anchor'></a></span><span class='out-of-band'><div class='ghost'></div><a class='srclink' href='../src/josephine/lib.rs.html#1399-1400' title='goto source code'>[src]</a></span></h3>
+<div class='impl-items'></div><h3 id='impl-Debug' class='impl'><span class='in-band'><code>impl&lt;'a, C, T&gt; <a class="trait" href="https://doc.rust-lang.org/nightly/core/fmt/trait.Debug.html" title="trait core::fmt::Debug">Debug</a> for <a class="struct" href="../josephine/struct.JSManaged.html" title="struct josephine::JSManaged">JSManaged</a>&lt;'a, C, T&gt;</code><a href='#impl-Debug' class='anchor'></a></span><span class='out-of-band'><div class='ghost'></div><a class='srclink' href='../src/josephine/lib.rs.html#1402-1409' title='goto source code'>[src]</a></span></h3>
+<div class='impl-items'><h4 id='method.fmt' class="method"><span id='fmt.v' class='invisible'><code>fn <a href='https://doc.rust-lang.org/nightly/core/fmt/trait.Debug.html#tymethod.fmt' class='fnname'>fmt</a>(&amp;self, fmt: &amp;mut <a class="struct" href="https://doc.rust-lang.org/nightly/core/fmt/struct.Formatter.html" title="struct core::fmt::Formatter">Formatter</a>) -&gt; <a class="enum" href="https://doc.rust-lang.org/nightly/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.unit.html">()</a>, <a class="struct" href="https://doc.rust-lang.org/nightly/core/fmt/struct.Error.html" title="struct core::fmt::Error">Error</a>&gt;</code></span><span class='out-of-band'><div class='ghost'></div><a class='srclink' href='../src/josephine/lib.rs.html#1403-1408' title='goto source code'>[src]</a></span></h4>
+<div class='docblock'><p>Formats the value using the given formatter.</p>
+</div></div><h3 id='impl-PartialEq' class='impl'><span class='in-band'><code>impl&lt;'a, C, T&gt; <a class="trait" href="https://doc.rust-lang.org/nightly/core/cmp/trait.PartialEq.html" title="trait core::cmp::PartialEq">PartialEq</a> for <a class="struct" href="../josephine/struct.JSManaged.html" title="struct josephine::JSManaged">JSManaged</a>&lt;'a, C, T&gt;</code><a href='#impl-PartialEq' class='anchor'></a></span><span class='out-of-band'><div class='ghost'></div><a class='srclink' href='../src/josephine/lib.rs.html#1411-1415' title='goto source code'>[src]</a></span></h3>
+<div class='impl-items'><h4 id='method.eq' class="method"><span id='eq.v' class='invisible'><code>fn <a href='https://doc.rust-lang.org/nightly/core/cmp/trait.PartialEq.html#tymethod.eq' class='fnname'>eq</a>(&amp;self, other: <a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.reference.html">&amp;</a>Self) -&gt; <a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.bool.html">bool</a></code></span><span class='out-of-band'><div class='ghost'></div><a class='srclink' href='../src/josephine/lib.rs.html#1412-1414' title='goto source code'>[src]</a></span></h4>
+<div class='docblock'><p>This method tests for <code>self</code> and <code>other</code> values to be equal, and is used by <code>==</code>. <a href="https://doc.rust-lang.org/nightly/core/cmp/trait.PartialEq.html#tymethod.eq">Read more</a></p>
+</div><h4 id='method.ne' class="method"><span id='ne.v' class='invisible'><code>fn <a href='https://doc.rust-lang.org/nightly/core/cmp/trait.PartialEq.html#method.ne' class='fnname'>ne</a>(&amp;self, other: <a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.reference.html">&amp;</a>Rhs) -&gt; <a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.bool.html">bool</a></code></span><span class='out-of-band'><div class='ghost'></div><div class='since' title='Stable since Rust version 1.0.0'>1.0.0</div><a class='srclink' href='https://doc.rust-lang.org/nightly/src/core/cmp.rs.html#121' title='goto source code'>[src]</a></span></h4>
+<div class='docblock'><p>This method tests for <code>!=</code>.</p>
+</div></div><h3 id='impl-Eq' class='impl'><span class='in-band'><code>impl&lt;'a, C, T&gt; <a class="trait" href="https://doc.rust-lang.org/nightly/core/cmp/trait.Eq.html" title="trait core::cmp::Eq">Eq</a> for <a class="struct" href="../josephine/struct.JSManaged.html" title="struct josephine::JSManaged">JSManaged</a>&lt;'a, C, T&gt;</code><a href='#impl-Eq' class='anchor'></a></span><span class='out-of-band'><div class='ghost'></div><a class='srclink' href='../src/josephine/lib.rs.html#1417-1418' title='goto source code'>[src]</a></span></h3>
+<div class='impl-items'></div><h3 id='impl-JSTraceable' class='impl'><span class='in-band'><code>impl&lt;'a, C, T&gt; <a class="trait" href="../josephine/trait.JSTraceable.html" title="trait josephine::JSTraceable">JSTraceable</a> for <a class="struct" href="../josephine/struct.JSManaged.html" title="struct josephine::JSManaged">JSManaged</a>&lt;'a, C, T&gt; <span class="where fmt-newline">where<br>&nbsp;&nbsp;&nbsp;&nbsp;T: <a class="trait" href="../josephine/trait.JSTraceable.html" title="trait josephine::JSTraceable">JSTraceable</a>,&nbsp;</span></code><a href='#impl-JSTraceable' class='anchor'></a></span><span class='out-of-band'><div class='ghost'></div><a class='srclink' href='../src/josephine/lib.rs.html#1420-1427' title='goto source code'>[src]</a></span></h3>
+<div class='impl-items'><h4 id='method.trace' class="method"><span id='trace.v' class='invisible'><code>unsafe fn <a href='../josephine/trait.JSTraceable.html#tymethod.trace' class='fnname'>trace</a>(&amp;self, trc: <a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.pointer.html">*mut </a><a class="struct" href="../josephine/struct.JSTracer.html" title="struct josephine::JSTracer">JSTracer</a>)</code></span><span class='out-of-band'><div class='ghost'></div><a class='srclink' href='../src/josephine/lib.rs.html#1423-1426' title='goto source code'>[src]</a></span></h4>
+<h4 id='method.as_ptr' class="method"><span id='as_ptr.v' class='invisible'><code>fn <a href='../josephine/trait.JSTraceable.html#method.as_ptr' class='fnname'>as_ptr</a>(&amp;self) -&gt; <a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.pointer.html">*const </a><a class="trait" href="../josephine/trait.JSTraceable.html" title="trait josephine::JSTraceable">JSTraceable</a> <span class="where fmt-newline">where<br>&nbsp;&nbsp;&nbsp;&nbsp;Self: <a class="trait" href="https://doc.rust-lang.org/nightly/core/marker/trait.Sized.html" title="trait core::marker::Sized">Sized</a>,&nbsp;</span></code></span><span class='out-of-band'><div class='ghost'></div><a class='srclink' href='../src/josephine/lib.rs.html#907-909' title='goto source code'>[src]</a></span></h4>
+<h4 id='method.as_mut_ptr' class="method"><span id='as_mut_ptr.v' class='invisible'><code>fn <a href='../josephine/trait.JSTraceable.html#method.as_mut_ptr' class='fnname'>as_mut_ptr</a>(&amp;mut self) -&gt; <a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.pointer.html">*mut </a><a class="trait" href="../josephine/trait.JSTraceable.html" title="trait josephine::JSTraceable">JSTraceable</a> <span class="where fmt-newline">where<br>&nbsp;&nbsp;&nbsp;&nbsp;Self: <a class="trait" href="https://doc.rust-lang.org/nightly/core/marker/trait.Sized.html" title="trait core::marker::Sized">Sized</a>,&nbsp;</span></code></span><span class='out-of-band'><div class='ghost'></div><a class='srclink' href='../src/josephine/lib.rs.html#911-913' title='goto source code'>[src]</a></span></h4>
+</div><h3 id='impl-JSRootable&lt;&#39;a&gt;' class='impl'><span class='in-band'><code>impl&lt;'a, 'b, C, T&gt; <a class="trait" href="../josephine/trait.JSRootable.html" title="trait josephine::JSRootable">JSRootable</a>&lt;'a&gt; for <a class="struct" href="../josephine/struct.JSManaged.html" title="struct josephine::JSManaged">JSManaged</a>&lt;'b, C, T&gt; <span class="where fmt-newline">where<br>&nbsp;&nbsp;&nbsp;&nbsp;T: <a class="trait" href="../josephine/trait.JSRootable.html" title="trait josephine::JSRootable">JSRootable</a>&lt;'a&gt;,&nbsp;</span></code><a href='#impl-JSRootable&lt;&#39;a&gt;' class='anchor'></a></span><span class='out-of-band'><div class='ghost'></div><a class='srclink' href='../src/josephine/lib.rs.html#1645-1649' title='goto source code'>[src]</a></span></h3>
+<div class='impl-items'><h4 id='associatedtype.Aged' class="type"><span id='Aged.t' class='invisible'><code>type <a href='../josephine/trait.JSRootable.html#associatedtype.Aged' class="type">Aged</a> = <a class="struct" href="../josephine/struct.JSManaged.html" title="struct josephine::JSManaged">JSManaged</a>&lt;'a, C, T::<a class="type" href="../josephine/trait.JSRootable.html#associatedtype.Aged" title="type josephine::JSRootable::Aged">Aged</a>&gt;</code></span></h4>
+<h4 id='method.change_lifetime-1' class="method"><span id='change_lifetime.v-1' class='invisible'><code>unsafe fn <a href='../josephine/trait.JSRootable.html#method.change_lifetime' class='fnname'>change_lifetime</a>(self) -&gt; Self::<a class="type" href="../josephine/trait.JSRootable.html#associatedtype.Aged" title="type josephine::JSRootable::Aged">Aged</a> <span class="where fmt-newline">where<br>&nbsp;&nbsp;&nbsp;&nbsp;Self: <a class="trait" href="https://doc.rust-lang.org/nightly/core/marker/trait.Sized.html" title="trait core::marker::Sized">Sized</a>,&nbsp;</span></code></span><span class='out-of-band'><div class='ghost'></div><a class='srclink' href='../src/josephine/lib.rs.html#1622-1626' title='goto source code'>[src]</a></span></h4>
+<h4 id='method.contract_lifetime' class="method"><span id='contract_lifetime.v' class='invisible'><code>fn <a href='../josephine/trait.JSRootable.html#method.contract_lifetime' class='fnname'>contract_lifetime</a>(self) -&gt; Self::<a class="type" href="../josephine/trait.JSRootable.html#associatedtype.Aged" title="type josephine::JSRootable::Aged">Aged</a> <span class="where fmt-newline">where<br>&nbsp;&nbsp;&nbsp;&nbsp;Self: 'a + <a class="trait" href="https://doc.rust-lang.org/nightly/core/marker/trait.Sized.html" title="trait core::marker::Sized">Sized</a>,&nbsp;</span></code></span><span class='out-of-band'><div class='ghost'></div><a class='srclink' href='../src/josephine/lib.rs.html#1628-1630' title='goto source code'>[src]</a></span></h4>
+<h4 id='method.in_root' class="method"><span id='in_root.v' class='invisible'><code>fn <a href='../josephine/trait.JSRootable.html#method.in_root' class='fnname'>in_root</a>(self, root: &amp;'a mut <a class="struct" href="../josephine/struct.JSRoot.html" title="struct josephine::JSRoot">JSRoot</a>&lt;'a, Self::<a class="type" href="../josephine/trait.JSRootable.html#associatedtype.Aged" title="type josephine::JSRootable::Aged">Aged</a>&gt;) -&gt; Self::<a class="type" href="../josephine/trait.JSRootable.html#associatedtype.Aged" title="type josephine::JSRootable::Aged">Aged</a> <span class="where fmt-newline">where<br>&nbsp;&nbsp;&nbsp;&nbsp;Self: <a class="trait" href="https://doc.rust-lang.org/nightly/core/marker/trait.Sized.html" title="trait core::marker::Sized">Sized</a>,<br>&nbsp;&nbsp;&nbsp;&nbsp;Self::<a class="type" href="../josephine/trait.JSRootable.html#associatedtype.Aged" title="type josephine::JSRootable::Aged">Aged</a>: <a class="trait" href="https://doc.rust-lang.org/nightly/core/marker/trait.Copy.html" title="trait core::marker::Copy">Copy</a> + <a class="trait" href="../josephine/trait.JSTraceable.html" title="trait josephine::JSTraceable">JSTraceable</a>,&nbsp;</span></code></span><span class='out-of-band'><div class='ghost'></div><a class='srclink' href='../src/josephine/lib.rs.html#1632-1637' title='goto source code'>[src]</a></span></h4>
+</div><h3 id='impl-JSTransplantable&lt;C&gt;' class='impl'><span class='in-band'><code>impl&lt;'a, C, D, T&gt; <a class="trait" href="../josephine/trait.JSTransplantable.html" title="trait josephine::JSTransplantable">JSTransplantable</a>&lt;C&gt; for <a class="struct" href="../josephine/struct.JSManaged.html" title="struct josephine::JSManaged">JSManaged</a>&lt;'a, D, T&gt; <span class="where fmt-newline">where<br>&nbsp;&nbsp;&nbsp;&nbsp;T: <a class="trait" href="../josephine/trait.JSTransplantable.html" title="trait josephine::JSTransplantable">JSTransplantable</a>&lt;C&gt;,&nbsp;</span></code><a href='#impl-JSTransplantable&lt;C&gt;' class='anchor'></a></span><span class='out-of-band'><div class='ghost'></div><a class='srclink' href='../src/josephine/lib.rs.html#1709' title='goto source code'>[src]</a></span></h3>
+<div class='impl-items'><h4 id='associatedtype.Transplanted' class="type"><span id='Transplanted.t' class='invisible'><code>type <a href='../josephine/trait.JSTransplantable.html#associatedtype.Transplanted' class="type">Transplanted</a> = <a class="struct" href="../josephine/struct.JSManaged.html" title="struct josephine::JSManaged">JSManaged</a>&lt;'a, C, T::<a class="type" href="../josephine/trait.JSTransplantable.html#associatedtype.Transplanted" title="type josephine::JSTransplantable::Transplanted">Transplanted</a>&gt;</code></span></h4>
+</div></section>
+    <section id='search' class="content hidden"></section>
+
+    <section class="footer"></section>
+
+    <aside id="help" class="hidden">
+        <div>
+            <h1 class="hidden">Help</h1>
+
+            <div class="shortcuts">
+                <h2>Keyboard Shortcuts</h2>
+
+                <dl>
+                    <dt>?</dt>
+                    <dd>Show this help dialog</dd>
+                    <dt>S</dt>
+                    <dd>Focus the search field</dd>
+                    <dt>↑</dt>
+                    <dd>Move up in search results</dd>
+                    <dt>↓</dt>
+                    <dd>Move down in search results</dd>
+                    <dt>&#9166;</dt>
+                    <dd>Go to active search result</dd>
+                    <dt>+</dt>
+                    <dd>Collapse/expand all sections</dd>
+                </dl>
+            </div>
+
+            <div class="infos">
+                <h2>Search Tricks</h2>
+
+                <p>
+                    Prefix searches with a type followed by a colon (e.g.
+                    <code>fn:</code>) to restrict the search to a given type.
+                </p>
+
+                <p>
+                    Accepted types are: <code>fn</code>, <code>mod</code>,
+                    <code>struct</code>, <code>enum</code>,
+                    <code>trait</code>, <code>type</code>, <code>macro</code>,
+                    and <code>const</code>.
+                </p>
+
+                <p>
+                    Search functions by type signature (e.g.
+                    <code>vec -> usize</code> or <code>* -> vec</code>)
+                </p>
+            </div>
+        </div>
+    </aside>
+
+    
+
+    <script>
+        window.rootPath = "../";
+        window.currentCrate = "josephine";
+    </script>
+    <script src="../main.js"></script>
+    <script defer src="../search-index.js"></script>
+</body>
+</html>

@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="generator" content="rustdoc">
+    <meta name="description" content="API documentation for the Rust `JSRootable` trait in crate `josephine`.">
+    <meta name="keywords" content="rust, rustlang, rust-lang, JSRootable">
+
+    <title>josephine::JSRootable - Rust</title>
+
+    <link rel="stylesheet" type="text/css" href="../normalize.css">
+    <link rel="stylesheet" type="text/css" href="../rustdoc.css">
+    <link rel="stylesheet" type="text/css" href="../main.css">
+    
+
+    
+    
+</head>
+<body class="rustdoc trait">
+    <!--[if lte IE 8]>
+    <div class="warning">
+        This old browser is unsupported and will most likely display funky
+        things.
+    </div>
+    <![endif]-->
+
+    
+
+    <nav class="sidebar">
+        
+        <p class='location'>Trait JSRootable</p><div class="block items"><ul><li><a href="#associated-types">Associated Types</a></li><li><a href="#provided-methods">Provided Methods</a></li><li><a href="#foreign-impls">Implementations on Foreign Types</a></li><li><a href="#implementors">Implementors</a></li></ul></div><p class='location'><a href='index.html'>josephine</a></p><script>window.sidebarCurrent = {name: 'JSRootable', ty: 'trait', relpath: ''};</script><script defer src="sidebar-items.js"></script>
+    </nav>
+
+    <nav class="sub">
+        <form class="search-form js-only">
+            <div class="search-container">
+                <input class="search-input" name="search"
+                       autocomplete="off"
+                       placeholder="Click or press ‘S’ to search, ‘?’ for more options…"
+                       type="search">
+            </div>
+        </form>
+    </nav>
+
+    <section id='main' class="content">
+<h1 class='fqn'><span class='in-band'>Trait <a href='index.html'>josephine</a>::<wbr><a class="trait" href=''>JSRootable</a></span><span class='out-of-band'><span id='render-detail'>
+                   <a id="toggle-all-docs" href="javascript:void(0)" title="collapse all docs">
+                       [<span class='inner'>&#x2212;</span>]
+                   </a>
+               </span><a class='srclink' href='../src/josephine/lib.rs.html#1619-1638' title='goto source code'>[src]</a></span></h1>
+<pre class='rust trait'>pub unsafe trait JSRootable&lt;'a&gt; {
+    type <a href='#associatedtype.Aged' class="type">Aged</a>;
+    unsafe fn <a href='#method.change_lifetime' class='fnname'>change_lifetime</a>(self) -&gt; Self::<a class="type" href="../josephine/trait.JSRootable.html#associatedtype.Aged" title="type josephine::JSRootable::Aged">Aged</a><br>&nbsp;&nbsp;&nbsp; <span class="where">where<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Self: <a class="trait" href="https://doc.rust-lang.org/nightly/core/marker/trait.Sized.html" title="trait core::marker::Sized">Sized</a></span>,
+    { ... }
+<div class='item-spacer'></div>    fn <a href='#method.contract_lifetime' class='fnname'>contract_lifetime</a>(self) -&gt; Self::<a class="type" href="../josephine/trait.JSRootable.html#associatedtype.Aged" title="type josephine::JSRootable::Aged">Aged</a><br>&nbsp;&nbsp;&nbsp; <span class="where">where<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Self: 'a + <a class="trait" href="https://doc.rust-lang.org/nightly/core/marker/trait.Sized.html" title="trait core::marker::Sized">Sized</a></span>,
+    { ... }
+<div class='item-spacer'></div>    fn <a href='#method.in_root' class='fnname'>in_root</a>(self, root: &amp;'a mut <a class="struct" href="../josephine/struct.JSRoot.html" title="struct josephine::JSRoot">JSRoot</a>&lt;'a, Self::<a class="type" href="../josephine/trait.JSRootable.html#associatedtype.Aged" title="type josephine::JSRootable::Aged">Aged</a>&gt;) -&gt; Self::<a class="type" href="../josephine/trait.JSRootable.html#associatedtype.Aged" title="type josephine::JSRootable::Aged">Aged</a><br>&nbsp;&nbsp;&nbsp; <span class="where">where<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Self: <a class="trait" href="https://doc.rust-lang.org/nightly/core/marker/trait.Sized.html" title="trait core::marker::Sized">Sized</a>,<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Self::<a class="type" href="../josephine/trait.JSRootable.html#associatedtype.Aged" title="type josephine::JSRootable::Aged">Aged</a>: <a class="trait" href="https://doc.rust-lang.org/nightly/core/marker/trait.Copy.html" title="trait core::marker::Copy">Copy</a> + <a class="trait" href="../josephine/trait.JSTraceable.html" title="trait josephine::JSTraceable">JSTraceable</a></span>,
+    { ... }
+}</pre><div class='docblock'><p>Data which can be rooted.</p>
+</div>
+            <h2 id='associated-types' class='small-section-header'>
+              Associated Types<a href='#associated-types' class='anchor'></a>
+            </h2>
+            <div class='methods'>
+        <h3 id='associatedtype.Aged' class='method'><span id='Aged.t' class='invisible'><code>type <a href='#associatedtype.Aged' class="type">Aged</a></code></span></h3></div>
+            <h2 id='provided-methods' class='small-section-header'>
+              Provided Methods<a href='#provided-methods' class='anchor'></a>
+            </h2>
+            <div class='methods'>
+        <h3 id='method.change_lifetime' class='method'><span id='change_lifetime.v' class='invisible'><code>unsafe fn <a href='#method.change_lifetime' class='fnname'>change_lifetime</a>(self) -&gt; Self::<a class="type" href="../josephine/trait.JSRootable.html#associatedtype.Aged" title="type josephine::JSRootable::Aged">Aged</a> <span class="where fmt-newline">where<br>&nbsp;&nbsp;&nbsp;&nbsp;Self: <a class="trait" href="https://doc.rust-lang.org/nightly/core/marker/trait.Sized.html" title="trait core::marker::Sized">Sized</a>,&nbsp;</span></code></span></h3><h3 id='method.contract_lifetime' class='method'><span id='contract_lifetime.v' class='invisible'><code>fn <a href='#method.contract_lifetime' class='fnname'>contract_lifetime</a>(self) -&gt; Self::<a class="type" href="../josephine/trait.JSRootable.html#associatedtype.Aged" title="type josephine::JSRootable::Aged">Aged</a> <span class="where fmt-newline">where<br>&nbsp;&nbsp;&nbsp;&nbsp;Self: 'a + <a class="trait" href="https://doc.rust-lang.org/nightly/core/marker/trait.Sized.html" title="trait core::marker::Sized">Sized</a>,&nbsp;</span></code></span></h3><h3 id='method.in_root' class='method'><span id='in_root.v' class='invisible'><code>fn <a href='#method.in_root' class='fnname'>in_root</a>(self, root: &amp;'a mut <a class="struct" href="../josephine/struct.JSRoot.html" title="struct josephine::JSRoot">JSRoot</a>&lt;'a, Self::<a class="type" href="../josephine/trait.JSRootable.html#associatedtype.Aged" title="type josephine::JSRootable::Aged">Aged</a>&gt;) -&gt; Self::<a class="type" href="../josephine/trait.JSRootable.html#associatedtype.Aged" title="type josephine::JSRootable::Aged">Aged</a> <span class="where fmt-newline">where<br>&nbsp;&nbsp;&nbsp;&nbsp;Self: <a class="trait" href="https://doc.rust-lang.org/nightly/core/marker/trait.Sized.html" title="trait core::marker::Sized">Sized</a>,<br>&nbsp;&nbsp;&nbsp;&nbsp;Self::<a class="type" href="../josephine/trait.JSRootable.html#associatedtype.Aged" title="type josephine::JSRootable::Aged">Aged</a>: <a class="trait" href="https://doc.rust-lang.org/nightly/core/marker/trait.Copy.html" title="trait core::marker::Copy">Copy</a> + <a class="trait" href="../josephine/trait.JSTraceable.html" title="trait josephine::JSTraceable">JSTraceable</a>,&nbsp;</span></code></span></h3></div>
+                <h2 id='foreign-impls' class='section-header'>
+                  Implementations on Foreign Types<a href='#foreign-impls' class='anchor'></a>
+                </h2>
+            <h3 id='impl-JSRootable&lt;&#39;a&gt;' class='impl'><span class='in-band'><code>impl&lt;'a&gt; <a class="trait" href="../josephine/trait.JSRootable.html" title="trait josephine::JSRootable">JSRootable</a>&lt;'a&gt; for <a class="struct" href="https://doc.rust-lang.org/nightly/alloc/string/struct.String.html" title="struct alloc::string::String">String</a></code><a href='#impl-JSRootable&lt;&#39;a&gt;' class='anchor'></a></span><span class='out-of-band'><div class='ghost'></div><a class='srclink' href='../src/josephine/lib.rs.html#1640' title='goto source code'>[src]</a></span></h3>
+<span class='docblock autohide'><div class='impl-items'><h4 id='associatedtype.Aged-1' class="type"><span id='Aged.t-1' class='invisible'><code>type <a href='#associatedtype.Aged' class="type">Aged</a> = <a class="struct" href="https://doc.rust-lang.org/nightly/alloc/string/struct.String.html" title="struct alloc::string::String">String</a></code></span></h4>
+<h4 id='method.change_lifetime-1' class="method"><span id='change_lifetime.v-1' class='invisible'><code>unsafe fn <a href='../josephine/trait.JSRootable.html#method.change_lifetime' class='fnname'>change_lifetime</a>(self) -&gt; Self::<a class="type" href="../josephine/trait.JSRootable.html#associatedtype.Aged" title="type josephine::JSRootable::Aged">Aged</a> <span class="where fmt-newline">where<br>&nbsp;&nbsp;&nbsp;&nbsp;Self: <a class="trait" href="https://doc.rust-lang.org/nightly/core/marker/trait.Sized.html" title="trait core::marker::Sized">Sized</a>,&nbsp;</span></code></span><span class='out-of-band'><div class='ghost'></div><a class='srclink' href='../src/josephine/lib.rs.html#1622-1626' title='goto source code'>[src]</a></span></h4>
+<h4 id='method.contract_lifetime-1' class="method"><span id='contract_lifetime.v-1' class='invisible'><code>fn <a href='../josephine/trait.JSRootable.html#method.contract_lifetime' class='fnname'>contract_lifetime</a>(self) -&gt; Self::<a class="type" href="../josephine/trait.JSRootable.html#associatedtype.Aged" title="type josephine::JSRootable::Aged">Aged</a> <span class="where fmt-newline">where<br>&nbsp;&nbsp;&nbsp;&nbsp;Self: 'a + <a class="trait" href="https://doc.rust-lang.org/nightly/core/marker/trait.Sized.html" title="trait core::marker::Sized">Sized</a>,&nbsp;</span></code></span><span class='out-of-band'><div class='ghost'></div><a class='srclink' href='../src/josephine/lib.rs.html#1628-1630' title='goto source code'>[src]</a></span></h4>
+<h4 id='method.in_root-1' class="method"><span id='in_root.v-1' class='invisible'><code>fn <a href='../josephine/trait.JSRootable.html#method.in_root' class='fnname'>in_root</a>(self, root: &amp;'a mut <a class="struct" href="../josephine/struct.JSRoot.html" title="struct josephine::JSRoot">JSRoot</a>&lt;'a, Self::<a class="type" href="../josephine/trait.JSRootable.html#associatedtype.Aged" title="type josephine::JSRootable::Aged">Aged</a>&gt;) -&gt; Self::<a class="type" href="../josephine/trait.JSRootable.html#associatedtype.Aged" title="type josephine::JSRootable::Aged">Aged</a> <span class="where fmt-newline">where<br>&nbsp;&nbsp;&nbsp;&nbsp;Self: <a class="trait" href="https://doc.rust-lang.org/nightly/core/marker/trait.Sized.html" title="trait core::marker::Sized">Sized</a>,<br>&nbsp;&nbsp;&nbsp;&nbsp;Self::<a class="type" href="../josephine/trait.JSRootable.html#associatedtype.Aged" title="type josephine::JSRootable::Aged">Aged</a>: <a class="trait" href="https://doc.rust-lang.org/nightly/core/marker/trait.Copy.html" title="trait core::marker::Copy">Copy</a> + <a class="trait" href="../josephine/trait.JSTraceable.html" title="trait josephine::JSTraceable">JSTraceable</a>,&nbsp;</span></code></span><span class='out-of-band'><div class='ghost'></div><a class='srclink' href='../src/josephine/lib.rs.html#1632-1637' title='goto source code'>[src]</a></span></h4>
+</div></span><h3 id='impl-JSRootable&lt;&#39;a&gt;-1' class='impl'><span class='in-band'><code>impl&lt;'a&gt; <a class="trait" href="../josephine/trait.JSRootable.html" title="trait josephine::JSRootable">JSRootable</a>&lt;'a&gt; for <a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.usize.html">usize</a></code><a href='#impl-JSRootable&lt;&#39;a&gt;-1' class='anchor'></a></span><span class='out-of-band'><div class='ghost'></div><a class='srclink' href='../src/josephine/lib.rs.html#1641' title='goto source code'>[src]</a></span></h3>
+<span class='docblock autohide'><div class='impl-items'><h4 id='associatedtype.Aged-2' class="type"><span id='Aged.t-2' class='invisible'><code>type <a href='#associatedtype.Aged' class="type">Aged</a> = <a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.usize.html">usize</a></code></span></h4>
+<h4 id='method.change_lifetime-2' class="method"><span id='change_lifetime.v-2' class='invisible'><code>unsafe fn <a href='../josephine/trait.JSRootable.html#method.change_lifetime' class='fnname'>change_lifetime</a>(self) -&gt; Self::<a class="type" href="../josephine/trait.JSRootable.html#associatedtype.Aged" title="type josephine::JSRootable::Aged">Aged</a> <span class="where fmt-newline">where<br>&nbsp;&nbsp;&nbsp;&nbsp;Self: <a class="trait" href="https://doc.rust-lang.org/nightly/core/marker/trait.Sized.html" title="trait core::marker::Sized">Sized</a>,&nbsp;</span></code></span><span class='out-of-band'><div class='ghost'></div><a class='srclink' href='../src/josephine/lib.rs.html#1622-1626' title='goto source code'>[src]</a></span></h4>
+<h4 id='method.contract_lifetime-2' class="method"><span id='contract_lifetime.v-2' class='invisible'><code>fn <a href='../josephine/trait.JSRootable.html#method.contract_lifetime' class='fnname'>contract_lifetime</a>(self) -&gt; Self::<a class="type" href="../josephine/trait.JSRootable.html#associatedtype.Aged" title="type josephine::JSRootable::Aged">Aged</a> <span class="where fmt-newline">where<br>&nbsp;&nbsp;&nbsp;&nbsp;Self: 'a + <a class="trait" href="https://doc.rust-lang.org/nightly/core/marker/trait.Sized.html" title="trait core::marker::Sized">Sized</a>,&nbsp;</span></code></span><span class='out-of-band'><div class='ghost'></div><a class='srclink' href='../src/josephine/lib.rs.html#1628-1630' title='goto source code'>[src]</a></span></h4>
+<h4 id='method.in_root-2' class="method"><span id='in_root.v-2' class='invisible'><code>fn <a href='../josephine/trait.JSRootable.html#method.in_root' class='fnname'>in_root</a>(self, root: &amp;'a mut <a class="struct" href="../josephine/struct.JSRoot.html" title="struct josephine::JSRoot">JSRoot</a>&lt;'a, Self::<a class="type" href="../josephine/trait.JSRootable.html#associatedtype.Aged" title="type josephine::JSRootable::Aged">Aged</a>&gt;) -&gt; Self::<a class="type" href="../josephine/trait.JSRootable.html#associatedtype.Aged" title="type josephine::JSRootable::Aged">Aged</a> <span class="where fmt-newline">where<br>&nbsp;&nbsp;&nbsp;&nbsp;Self: <a class="trait" href="https://doc.rust-lang.org/nightly/core/marker/trait.Sized.html" title="trait core::marker::Sized">Sized</a>,<br>&nbsp;&nbsp;&nbsp;&nbsp;Self::<a class="type" href="../josephine/trait.JSRootable.html#associatedtype.Aged" title="type josephine::JSRootable::Aged">Aged</a>: <a class="trait" href="https://doc.rust-lang.org/nightly/core/marker/trait.Copy.html" title="trait core::marker::Copy">Copy</a> + <a class="trait" href="../josephine/trait.JSTraceable.html" title="trait josephine::JSTraceable">JSTraceable</a>,&nbsp;</span></code></span><span class='out-of-band'><div class='ghost'></div><a class='srclink' href='../src/josephine/lib.rs.html#1632-1637' title='goto source code'>[src]</a></span></h4>
+</div></span><h3 id='impl-JSRootable&lt;&#39;a&gt;-2' class='impl'><span class='in-band'><code>impl&lt;'a, T&gt; <a class="trait" href="../josephine/trait.JSRootable.html" title="trait josephine::JSRootable">JSRootable</a>&lt;'a&gt; for <a class="enum" href="https://doc.rust-lang.org/nightly/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;T&gt; <span class="where fmt-newline">where<br>&nbsp;&nbsp;&nbsp;&nbsp;T: <a class="trait" href="../josephine/trait.JSRootable.html" title="trait josephine::JSRootable">JSRootable</a>&lt;'a&gt;,&nbsp;</span></code><a href='#impl-JSRootable&lt;&#39;a&gt;-2' class='anchor'></a></span><span class='out-of-band'><div class='ghost'></div><a class='srclink' href='../src/josephine/lib.rs.html#1642' title='goto source code'>[src]</a></span></h3>
+<span class='docblock autohide'><div class='impl-items'><h4 id='associatedtype.Aged-3' class="type"><span id='Aged.t-3' class='invisible'><code>type <a href='#associatedtype.Aged' class="type">Aged</a> = <a class="enum" href="https://doc.rust-lang.org/nightly/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;T::<a class="type" href="../josephine/trait.JSRootable.html#associatedtype.Aged" title="type josephine::JSRootable::Aged">Aged</a>&gt;</code></span></h4>
+<h4 id='method.change_lifetime-3' class="method"><span id='change_lifetime.v-3' class='invisible'><code>unsafe fn <a href='../josephine/trait.JSRootable.html#method.change_lifetime' class='fnname'>change_lifetime</a>(self) -&gt; Self::<a class="type" href="../josephine/trait.JSRootable.html#associatedtype.Aged" title="type josephine::JSRootable::Aged">Aged</a> <span class="where fmt-newline">where<br>&nbsp;&nbsp;&nbsp;&nbsp;Self: <a class="trait" href="https://doc.rust-lang.org/nightly/core/marker/trait.Sized.html" title="trait core::marker::Sized">Sized</a>,&nbsp;</span></code></span><span class='out-of-band'><div class='ghost'></div><a class='srclink' href='../src/josephine/lib.rs.html#1622-1626' title='goto source code'>[src]</a></span></h4>
+<h4 id='method.contract_lifetime-3' class="method"><span id='contract_lifetime.v-3' class='invisible'><code>fn <a href='../josephine/trait.JSRootable.html#method.contract_lifetime' class='fnname'>contract_lifetime</a>(self) -&gt; Self::<a class="type" href="../josephine/trait.JSRootable.html#associatedtype.Aged" title="type josephine::JSRootable::Aged">Aged</a> <span class="where fmt-newline">where<br>&nbsp;&nbsp;&nbsp;&nbsp;Self: 'a + <a class="trait" href="https://doc.rust-lang.org/nightly/core/marker/trait.Sized.html" title="trait core::marker::Sized">Sized</a>,&nbsp;</span></code></span><span class='out-of-band'><div class='ghost'></div><a class='srclink' href='../src/josephine/lib.rs.html#1628-1630' title='goto source code'>[src]</a></span></h4>
+<h4 id='method.in_root-3' class="method"><span id='in_root.v-3' class='invisible'><code>fn <a href='../josephine/trait.JSRootable.html#method.in_root' class='fnname'>in_root</a>(self, root: &amp;'a mut <a class="struct" href="../josephine/struct.JSRoot.html" title="struct josephine::JSRoot">JSRoot</a>&lt;'a, Self::<a class="type" href="../josephine/trait.JSRootable.html#associatedtype.Aged" title="type josephine::JSRootable::Aged">Aged</a>&gt;) -&gt; Self::<a class="type" href="../josephine/trait.JSRootable.html#associatedtype.Aged" title="type josephine::JSRootable::Aged">Aged</a> <span class="where fmt-newline">where<br>&nbsp;&nbsp;&nbsp;&nbsp;Self: <a class="trait" href="https://doc.rust-lang.org/nightly/core/marker/trait.Sized.html" title="trait core::marker::Sized">Sized</a>,<br>&nbsp;&nbsp;&nbsp;&nbsp;Self::<a class="type" href="../josephine/trait.JSRootable.html#associatedtype.Aged" title="type josephine::JSRootable::Aged">Aged</a>: <a class="trait" href="https://doc.rust-lang.org/nightly/core/marker/trait.Copy.html" title="trait core::marker::Copy">Copy</a> + <a class="trait" href="../josephine/trait.JSTraceable.html" title="trait josephine::JSTraceable">JSTraceable</a>,&nbsp;</span></code></span><span class='out-of-band'><div class='ghost'></div><a class='srclink' href='../src/josephine/lib.rs.html#1632-1637' title='goto source code'>[src]</a></span></h4>
+</div></span><h3 id='impl-JSRootable&lt;&#39;a&gt;-3' class='impl'><span class='in-band'><code>impl&lt;'a, T&gt; <a class="trait" href="../josephine/trait.JSRootable.html" title="trait josephine::JSRootable">JSRootable</a>&lt;'a&gt; for <a class="struct" href="https://doc.rust-lang.org/nightly/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;T&gt; <span class="where fmt-newline">where<br>&nbsp;&nbsp;&nbsp;&nbsp;T: <a class="trait" href="../josephine/trait.JSRootable.html" title="trait josephine::JSRootable">JSRootable</a>&lt;'a&gt;,&nbsp;</span></code><a href='#impl-JSRootable&lt;&#39;a&gt;-3' class='anchor'></a></span><span class='out-of-band'><div class='ghost'></div><a class='srclink' href='../src/josephine/lib.rs.html#1643' title='goto source code'>[src]</a></span></h3>
+<span class='docblock autohide'><div class='impl-items'><h4 id='associatedtype.Aged-4' class="type"><span id='Aged.t-4' class='invisible'><code>type <a href='#associatedtype.Aged' class="type">Aged</a> = <a class="struct" href="https://doc.rust-lang.org/nightly/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;T::<a class="type" href="../josephine/trait.JSRootable.html#associatedtype.Aged" title="type josephine::JSRootable::Aged">Aged</a>&gt;</code></span></h4>
+<h4 id='method.change_lifetime-4' class="method"><span id='change_lifetime.v-4' class='invisible'><code>unsafe fn <a href='../josephine/trait.JSRootable.html#method.change_lifetime' class='fnname'>change_lifetime</a>(self) -&gt; Self::<a class="type" href="../josephine/trait.JSRootable.html#associatedtype.Aged" title="type josephine::JSRootable::Aged">Aged</a> <span class="where fmt-newline">where<br>&nbsp;&nbsp;&nbsp;&nbsp;Self: <a class="trait" href="https://doc.rust-lang.org/nightly/core/marker/trait.Sized.html" title="trait core::marker::Sized">Sized</a>,&nbsp;</span></code></span><span class='out-of-band'><div class='ghost'></div><a class='srclink' href='../src/josephine/lib.rs.html#1622-1626' title='goto source code'>[src]</a></span></h4>
+<h4 id='method.contract_lifetime-4' class="method"><span id='contract_lifetime.v-4' class='invisible'><code>fn <a href='../josephine/trait.JSRootable.html#method.contract_lifetime' class='fnname'>contract_lifetime</a>(self) -&gt; Self::<a class="type" href="../josephine/trait.JSRootable.html#associatedtype.Aged" title="type josephine::JSRootable::Aged">Aged</a> <span class="where fmt-newline">where<br>&nbsp;&nbsp;&nbsp;&nbsp;Self: 'a + <a class="trait" href="https://doc.rust-lang.org/nightly/core/marker/trait.Sized.html" title="trait core::marker::Sized">Sized</a>,&nbsp;</span></code></span><span class='out-of-band'><div class='ghost'></div><a class='srclink' href='../src/josephine/lib.rs.html#1628-1630' title='goto source code'>[src]</a></span></h4>
+<h4 id='method.in_root-4' class="method"><span id='in_root.v-4' class='invisible'><code>fn <a href='../josephine/trait.JSRootable.html#method.in_root' class='fnname'>in_root</a>(self, root: &amp;'a mut <a class="struct" href="../josephine/struct.JSRoot.html" title="struct josephine::JSRoot">JSRoot</a>&lt;'a, Self::<a class="type" href="../josephine/trait.JSRootable.html#associatedtype.Aged" title="type josephine::JSRootable::Aged">Aged</a>&gt;) -&gt; Self::<a class="type" href="../josephine/trait.JSRootable.html#associatedtype.Aged" title="type josephine::JSRootable::Aged">Aged</a> <span class="where fmt-newline">where<br>&nbsp;&nbsp;&nbsp;&nbsp;Self: <a class="trait" href="https://doc.rust-lang.org/nightly/core/marker/trait.Sized.html" title="trait core::marker::Sized">Sized</a>,<br>&nbsp;&nbsp;&nbsp;&nbsp;Self::<a class="type" href="../josephine/trait.JSRootable.html#associatedtype.Aged" title="type josephine::JSRootable::Aged">Aged</a>: <a class="trait" href="https://doc.rust-lang.org/nightly/core/marker/trait.Copy.html" title="trait core::marker::Copy">Copy</a> + <a class="trait" href="../josephine/trait.JSTraceable.html" title="trait josephine::JSTraceable">JSTraceable</a>,&nbsp;</span></code></span><span class='out-of-band'><div class='ghost'></div><a class='srclink' href='../src/josephine/lib.rs.html#1632-1637' title='goto source code'>[src]</a></span></h4>
+</div></span>
+        <h2 id='implementors' class='small-section-header'>
+          Implementors<a href='#implementors' class='anchor'></a>
+        </h2>
+        <ul class='item-list' id='implementors-list'>
+    <li><div class='out-of-band'><a class='srclink' href='../src/josephine/lib.rs.html#1340-1342' title='goto source code'>[src]</a></div><code>impl&lt;'a, 'b, C&gt; JSRootable&lt;'a&gt; for <a class="struct" href="../josephine/struct.JSString.html" title="struct josephine::JSString">JSString</a>&lt;'b, C&gt;<span class="where fmt-newline">  type <a href='#associatedtype.Aged' class="type">Aged</a> = <a class="struct" href="../josephine/struct.JSString.html" title="struct josephine::JSString">JSString</a>&lt;'a, C&gt;;</span></code></li>
+<li><div class='out-of-band'><a class='srclink' href='../src/josephine/lib.rs.html#1645-1649' title='goto source code'>[src]</a></div><code>impl&lt;'a, 'b, C, T&gt; JSRootable&lt;'a&gt; for <a class="struct" href="../josephine/struct.JSManaged.html" title="struct josephine::JSManaged">JSManaged</a>&lt;'b, C, T&gt; <span class="where fmt-newline">where<br>&nbsp;&nbsp;&nbsp;&nbsp;T: <a class="trait" href="../josephine/trait.JSRootable.html" title="trait josephine::JSRootable">JSRootable</a>&lt;'a&gt;,&nbsp;</span><span class="where fmt-newline">  type <a href='#associatedtype.Aged' class="type">Aged</a> = <a class="struct" href="../josephine/struct.JSManaged.html" title="struct josephine::JSManaged">JSManaged</a>&lt;'a, C, T::<a class="type" href="../josephine/trait.JSRootable.html#associatedtype.Aged" title="type josephine::JSRootable::Aged">Aged</a>&gt;;</span></code></li>
+</ul><script type="text/javascript" async
+                         src="../implementors/josephine/trait.JSRootable.js">
+                 </script></section>
+    <section id='search' class="content hidden"></section>
+
+    <section class="footer"></section>
+
+    <aside id="help" class="hidden">
+        <div>
+            <h1 class="hidden">Help</h1>
+
+            <div class="shortcuts">
+                <h2>Keyboard Shortcuts</h2>
+
+                <dl>
+                    <dt>?</dt>
+                    <dd>Show this help dialog</dd>
+                    <dt>S</dt>
+                    <dd>Focus the search field</dd>
+                    <dt>↑</dt>
+                    <dd>Move up in search results</dd>
+                    <dt>↓</dt>
+                    <dd>Move down in search results</dd>
+                    <dt>&#9166;</dt>
+                    <dd>Go to active search result</dd>
+                    <dt>+</dt>
+                    <dd>Collapse/expand all sections</dd>
+                </dl>
+            </div>
+
+            <div class="infos">
+                <h2>Search Tricks</h2>
+
+                <p>
+                    Prefix searches with a type followed by a colon (e.g.
+                    <code>fn:</code>) to restrict the search to a given type.
+                </p>
+
+                <p>
+                    Accepted types are: <code>fn</code>, <code>mod</code>,
+                    <code>struct</code>, <code>enum</code>,
+                    <code>trait</code>, <code>type</code>, <code>macro</code>,
+                    and <code>const</code>.
+                </p>
+
+                <p>
+                    Search functions by type signature (e.g.
+                    <code>vec -> usize</code> or <code>* -> vec</code>)
+                </p>
+            </div>
+        </div>
+    </aside>
+
+    
+
+    <script>
+        window.rootPath = "../";
+        window.currentCrate = "josephine";
+    </script>
+    <script src="../main.js"></script>
+    <script defer src="../search-index.js"></script>
+</body>
+</html>

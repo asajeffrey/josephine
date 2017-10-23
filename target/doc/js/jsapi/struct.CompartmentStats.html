@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="generator" content="rustdoc">
+    <meta name="description" content="API documentation for the Rust `CompartmentStats` struct in crate `js`.">
+    <meta name="keywords" content="rust, rustlang, rust-lang, CompartmentStats">
+
+    <title>js::jsapi::CompartmentStats - Rust</title>
+
+    <link rel="stylesheet" type="text/css" href="../../normalize.css">
+    <link rel="stylesheet" type="text/css" href="../../rustdoc.css">
+    <link rel="stylesheet" type="text/css" href="../../main.css">
+    
+
+    
+    
+</head>
+<body class="rustdoc struct">
+    <!--[if lte IE 8]>
+    <div class="warning">
+        This old browser is unsupported and will most likely display funky
+        things.
+    </div>
+    <![endif]-->
+
+    
+
+    <nav class="sidebar">
+        
+        <p class='location'>Struct CompartmentStats</p><div class="block items"><ul><li><a href="#fields">Fields</a></li><li><a href="#methods">Methods</a></li></ul></div><p class='location'><a href='../index.html'>js</a>::<wbr><a href='index.html'>jsapi</a></p><script>window.sidebarCurrent = {name: 'CompartmentStats', ty: 'struct', relpath: ''};</script><script defer src="sidebar-items.js"></script>
+    </nav>
+
+    <nav class="sub">
+        <form class="search-form js-only">
+            <div class="search-container">
+                <input class="search-input" name="search"
+                       autocomplete="off"
+                       placeholder="Click or press ‘S’ to search, ‘?’ for more options…"
+                       type="search">
+            </div>
+        </form>
+    </nav>
+
+    <section id='main' class="content">
+<h1 class='fqn'><span class='in-band'>Struct <a href='../index.html'>js</a>::<wbr><a href='index.html'>jsapi</a>::<wbr><a class="struct" href=''>CompartmentStats</a></span><span class='out-of-band'><span id='render-detail'>
+                   <a id="toggle-all-docs" href="javascript:void(0)" title="collapse all docs">
+                       [<span class='inner'>&#x2212;</span>]
+                   </a>
+               </span><a class='srclink' href='../../src/js/jsapi_linux_64.rs.html#5728-5755' title='goto source code'>[src]</a></span></h1>
+<pre class='rust struct'><div class="docblock attributes">#[repr(C)]
+</div>pub struct CompartmentStats {
+    pub objectsPrivate: <a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.usize.html">usize</a>,
+    pub scriptsGCHeap: <a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.usize.html">usize</a>,
+    pub scriptsMallocHeapData: <a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.usize.html">usize</a>,
+    pub baselineData: <a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.usize.html">usize</a>,
+    pub baselineStubsFallback: <a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.usize.html">usize</a>,
+    pub ionData: <a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.usize.html">usize</a>,
+    pub typeInferenceTypeScripts: <a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.usize.html">usize</a>,
+    pub typeInferenceAllocationSiteTables: <a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.usize.html">usize</a>,
+    pub typeInferenceArrayTypeTables: <a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.usize.html">usize</a>,
+    pub typeInferenceObjectTypeTables: <a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.usize.html">usize</a>,
+    pub compartmentObject: <a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.usize.html">usize</a>,
+    pub compartmentTables: <a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.usize.html">usize</a>,
+    pub innerViewsTable: <a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.usize.html">usize</a>,
+    pub lazyArrayBuffersTable: <a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.usize.html">usize</a>,
+    pub objectMetadataTable: <a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.usize.html">usize</a>,
+    pub crossCompartmentWrappersTable: <a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.usize.html">usize</a>,
+    pub regexpCompartment: <a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.usize.html">usize</a>,
+    pub savedStacksSet: <a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.usize.html">usize</a>,
+    pub nonSyntacticLexicalScopesTable: <a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.usize.html">usize</a>,
+    pub jitCompartment: <a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.usize.html">usize</a>,
+    pub privateData: <a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.usize.html">usize</a>,
+    pub classInfo: <a class="struct" href="../../js/jsapi/struct.ClassInfo.html" title="struct js::jsapi::ClassInfo">ClassInfo</a>,
+    pub extra: <a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.pointer.html">*mut </a><a class="enum" href="https://doc.rust-lang.org/nightly/std/os/raw/enum.c_void.html" title="enum std::os::raw::c_void">c_void</a>,
+    pub allClasses: <a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.u64.html">u64</a>,
+    pub notableClasses: <a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.array.html">[</a><a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.u64.html">u64</a><a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.array.html">; 4]</a>,
+    pub isTotals: <a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.bool.html">bool</a>,
+}</pre><h2 id='fields' class='fields small-section-header'>
+                       Fields<a href='#fields' class='anchor'></a></h2><span id="structfield.objectsPrivate" class="structfield small-section-header">
+                           <a href="#structfield.objectsPrivate" class="anchor field"></a>
+                           <span id="objectsPrivate.v" class='invisible'>
+                           <code>objectsPrivate: <a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.usize.html">usize</a></code>
+                           </span></span><span id="structfield.scriptsGCHeap" class="structfield small-section-header">
+                           <a href="#structfield.scriptsGCHeap" class="anchor field"></a>
+                           <span id="scriptsGCHeap.v" class='invisible'>
+                           <code>scriptsGCHeap: <a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.usize.html">usize</a></code>
+                           </span></span><span id="structfield.scriptsMallocHeapData" class="structfield small-section-header">
+                           <a href="#structfield.scriptsMallocHeapData" class="anchor field"></a>
+                           <span id="scriptsMallocHeapData.v" class='invisible'>
+                           <code>scriptsMallocHeapData: <a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.usize.html">usize</a></code>
+                           </span></span><span id="structfield.baselineData" class="structfield small-section-header">
+                           <a href="#structfield.baselineData" class="anchor field"></a>
+                           <span id="baselineData.v" class='invisible'>
+                           <code>baselineData: <a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.usize.html">usize</a></code>
+                           </span></span><span id="structfield.baselineStubsFallback" class="structfield small-section-header">
+                           <a href="#structfield.baselineStubsFallback" class="anchor field"></a>
+                           <span id="baselineStubsFallback.v" class='invisible'>
+                           <code>baselineStubsFallback: <a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.usize.html">usize</a></code>
+                           </span></span><span id="structfield.ionData" class="structfield small-section-header">
+                           <a href="#structfield.ionData" class="anchor field"></a>
+                           <span id="ionData.v" class='invisible'>
+                           <code>ionData: <a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.usize.html">usize</a></code>
+                           </span></span><span id="structfield.typeInferenceTypeScripts" class="structfield small-section-header">
+                           <a href="#structfield.typeInferenceTypeScripts" class="anchor field"></a>
+                           <span id="typeInferenceTypeScripts.v" class='invisible'>
+                           <code>typeInferenceTypeScripts: <a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.usize.html">usize</a></code>
+                           </span></span><span id="structfield.typeInferenceAllocationSiteTables" class="structfield small-section-header">
+                           <a href="#structfield.typeInferenceAllocationSiteTables" class="anchor field"></a>
+                           <span id="typeInferenceAllocationSiteTables.v" class='invisible'>
+                           <code>typeInferenceAllocationSiteTables: <a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.usize.html">usize</a></code>
+                           </span></span><span id="structfield.typeInferenceArrayTypeTables" class="structfield small-section-header">
+                           <a href="#structfield.typeInferenceArrayTypeTables" class="anchor field"></a>
+                           <span id="typeInferenceArrayTypeTables.v" class='invisible'>
+                           <code>typeInferenceArrayTypeTables: <a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.usize.html">usize</a></code>
+                           </span></span><span id="structfield.typeInferenceObjectTypeTables" class="structfield small-section-header">
+                           <a href="#structfield.typeInferenceObjectTypeTables" class="anchor field"></a>
+                           <span id="typeInferenceObjectTypeTables.v" class='invisible'>
+                           <code>typeInferenceObjectTypeTables: <a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.usize.html">usize</a></code>
+                           </span></span><span id="structfield.compartmentObject" class="structfield small-section-header">
+                           <a href="#structfield.compartmentObject" class="anchor field"></a>
+                           <span id="compartmentObject.v" class='invisible'>
+                           <code>compartmentObject: <a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.usize.html">usize</a></code>
+                           </span></span><span id="structfield.compartmentTables" class="structfield small-section-header">
+                           <a href="#structfield.compartmentTables" class="anchor field"></a>
+                           <span id="compartmentTables.v" class='invisible'>
+                           <code>compartmentTables: <a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.usize.html">usize</a></code>
+                           </span></span><span id="structfield.innerViewsTable" class="structfield small-section-header">
+                           <a href="#structfield.innerViewsTable" class="anchor field"></a>
+                           <span id="innerViewsTable.v" class='invisible'>
+                           <code>innerViewsTable: <a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.usize.html">usize</a></code>
+                           </span></span><span id="structfield.lazyArrayBuffersTable" class="structfield small-section-header">
+                           <a href="#structfield.lazyArrayBuffersTable" class="anchor field"></a>
+                           <span id="lazyArrayBuffersTable.v" class='invisible'>
+                           <code>lazyArrayBuffersTable: <a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.usize.html">usize</a></code>
+                           </span></span><span id="structfield.objectMetadataTable" class="structfield small-section-header">
+                           <a href="#structfield.objectMetadataTable" class="anchor field"></a>
+                           <span id="objectMetadataTable.v" class='invisible'>
+                           <code>objectMetadataTable: <a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.usize.html">usize</a></code>
+                           </span></span><span id="structfield.crossCompartmentWrappersTable" class="structfield small-section-header">
+                           <a href="#structfield.crossCompartmentWrappersTable" class="anchor field"></a>
+                           <span id="crossCompartmentWrappersTable.v" class='invisible'>
+                           <code>crossCompartmentWrappersTable: <a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.usize.html">usize</a></code>
+                           </span></span><span id="structfield.regexpCompartment" class="structfield small-section-header">
+                           <a href="#structfield.regexpCompartment" class="anchor field"></a>
+                           <span id="regexpCompartment.v" class='invisible'>
+                           <code>regexpCompartment: <a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.usize.html">usize</a></code>
+                           </span></span><span id="structfield.savedStacksSet" class="structfield small-section-header">
+                           <a href="#structfield.savedStacksSet" class="anchor field"></a>
+                           <span id="savedStacksSet.v" class='invisible'>
+                           <code>savedStacksSet: <a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.usize.html">usize</a></code>
+                           </span></span><span id="structfield.nonSyntacticLexicalScopesTable" class="structfield small-section-header">
+                           <a href="#structfield.nonSyntacticLexicalScopesTable" class="anchor field"></a>
+                           <span id="nonSyntacticLexicalScopesTable.v" class='invisible'>
+                           <code>nonSyntacticLexicalScopesTable: <a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.usize.html">usize</a></code>
+                           </span></span><span id="structfield.jitCompartment" class="structfield small-section-header">
+                           <a href="#structfield.jitCompartment" class="anchor field"></a>
+                           <span id="jitCompartment.v" class='invisible'>
+                           <code>jitCompartment: <a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.usize.html">usize</a></code>
+                           </span></span><span id="structfield.privateData" class="structfield small-section-header">
+                           <a href="#structfield.privateData" class="anchor field"></a>
+                           <span id="privateData.v" class='invisible'>
+                           <code>privateData: <a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.usize.html">usize</a></code>
+                           </span></span><span id="structfield.classInfo" class="structfield small-section-header">
+                           <a href="#structfield.classInfo" class="anchor field"></a>
+                           <span id="classInfo.v" class='invisible'>
+                           <code>classInfo: <a class="struct" href="../../js/jsapi/struct.ClassInfo.html" title="struct js::jsapi::ClassInfo">ClassInfo</a></code>
+                           </span></span><span id="structfield.extra" class="structfield small-section-header">
+                           <a href="#structfield.extra" class="anchor field"></a>
+                           <span id="extra.v" class='invisible'>
+                           <code>extra: <a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.pointer.html">*mut </a><a class="enum" href="https://doc.rust-lang.org/nightly/std/os/raw/enum.c_void.html" title="enum std::os::raw::c_void">c_void</a></code>
+                           </span></span><span id="structfield.allClasses" class="structfield small-section-header">
+                           <a href="#structfield.allClasses" class="anchor field"></a>
+                           <span id="allClasses.v" class='invisible'>
+                           <code>allClasses: <a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.u64.html">u64</a></code>
+                           </span></span><span id="structfield.notableClasses" class="structfield small-section-header">
+                           <a href="#structfield.notableClasses" class="anchor field"></a>
+                           <span id="notableClasses.v" class='invisible'>
+                           <code>notableClasses: <a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.array.html">[</a><a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.u64.html">u64</a><a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.array.html">; 4]</a></code>
+                           </span></span><span id="structfield.isTotals" class="structfield small-section-header">
+                           <a href="#structfield.isTotals" class="anchor field"></a>
+                           <span id="isTotals.v" class='invisible'>
+                           <code>isTotals: <a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.bool.html">bool</a></code>
+                           </span></span>
+                    <h2 id='methods' class='small-section-header'>
+                      Methods<a href='#methods' class='anchor'></a>
+                    </h2>
+                <h3 id='impl' class='impl'><span class='in-band'><code>impl <a class="struct" href="../../js/jsapi/struct.CompartmentStats.html" title="struct js::jsapi::CompartmentStats">CompartmentStats</a></code><a href='#impl' class='anchor'></a></span><span class='out-of-band'><div class='ghost'></div><a class='srclink' href='../../src/js/jsapi_linux_64.rs.html#5767-5772' title='goto source code'>[src]</a></span></h3>
+<div class='impl-items'><h4 id='method.initClasses' class="method"><span id='initClasses.v' class='invisible'><code>pub unsafe fn <a href='#method.initClasses' class='fnname'>initClasses</a>(&amp;mut self, rt: <a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.pointer.html">*mut </a><a class="enum" href="../../js/jsapi/enum.JSRuntime.html" title="enum js::jsapi::JSRuntime">JSRuntime</a>) -&gt; <a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.bool.html">bool</a></code></span><span class='out-of-band'><div class='ghost'></div><a class='srclink' href='../../src/js/jsapi_linux_64.rs.html#5769-5771' title='goto source code'>[src]</a></span></h4>
+</div></section>
+    <section id='search' class="content hidden"></section>
+
+    <section class="footer"></section>
+
+    <aside id="help" class="hidden">
+        <div>
+            <h1 class="hidden">Help</h1>
+
+            <div class="shortcuts">
+                <h2>Keyboard Shortcuts</h2>
+
+                <dl>
+                    <dt>?</dt>
+                    <dd>Show this help dialog</dd>
+                    <dt>S</dt>
+                    <dd>Focus the search field</dd>
+                    <dt>↑</dt>
+                    <dd>Move up in search results</dd>
+                    <dt>↓</dt>
+                    <dd>Move down in search results</dd>
+                    <dt>&#9166;</dt>
+                    <dd>Go to active search result</dd>
+                    <dt>+</dt>
+                    <dd>Collapse/expand all sections</dd>
+                </dl>
+            </div>
+
+            <div class="infos">
+                <h2>Search Tricks</h2>
+
+                <p>
+                    Prefix searches with a type followed by a colon (e.g.
+                    <code>fn:</code>) to restrict the search to a given type.
+                </p>
+
+                <p>
+                    Accepted types are: <code>fn</code>, <code>mod</code>,
+                    <code>struct</code>, <code>enum</code>,
+                    <code>trait</code>, <code>type</code>, <code>macro</code>,
+                    and <code>const</code>.
+                </p>
+
+                <p>
+                    Search functions by type signature (e.g.
+                    <code>vec -> usize</code> or <code>* -> vec</code>)
+                </p>
+            </div>
+        </div>
+    </aside>
+
+    
+
+    <script>
+        window.rootPath = "../../";
+        window.currentCrate = "js";
+    </script>
+    <script src="../../main.js"></script>
+    <script defer src="../../search-index.js"></script>
+</body>
+</html>

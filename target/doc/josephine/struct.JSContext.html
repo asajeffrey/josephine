@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="generator" content="rustdoc">
+    <meta name="description" content="API documentation for the Rust `JSContext` struct in crate `josephine`.">
+    <meta name="keywords" content="rust, rustlang, rust-lang, JSContext">
+
+    <title>josephine::JSContext - Rust</title>
+
+    <link rel="stylesheet" type="text/css" href="../normalize.css">
+    <link rel="stylesheet" type="text/css" href="../rustdoc.css">
+    <link rel="stylesheet" type="text/css" href="../main.css">
+    
+
+    
+    
+</head>
+<body class="rustdoc struct">
+    <!--[if lte IE 8]>
+    <div class="warning">
+        This old browser is unsupported and will most likely display funky
+        things.
+    </div>
+    <![endif]-->
+
+    
+
+    <nav class="sidebar">
+        
+        <p class='location'>Struct JSContext</p><div class="block items"><ul><li><a href="#methods">Methods</a></li></ul></div><p class='location'><a href='index.html'>josephine</a></p><script>window.sidebarCurrent = {name: 'JSContext', ty: 'struct', relpath: ''};</script><script defer src="sidebar-items.js"></script>
+    </nav>
+
+    <nav class="sub">
+        <form class="search-form js-only">
+            <div class="search-container">
+                <input class="search-input" name="search"
+                       autocomplete="off"
+                       placeholder="Click or press ‘S’ to search, ‘?’ for more options…"
+                       type="search">
+            </div>
+        </form>
+    </nav>
+
+    <section id='main' class="content">
+<h1 class='fqn'><span class='in-band'>Struct <a href='index.html'>josephine</a>::<wbr><a class="struct" href=''>JSContext</a></span><span class='out-of-band'><span id='render-detail'>
+                   <a id="toggle-all-docs" href="javascript:void(0)" title="collapse all docs">
+                       [<span class='inner'>&#x2212;</span>]
+                   </a>
+               </span><a class='srclink' href='../src/josephine/lib.rs.html#478-485' title='goto source code'>[src]</a></span></h1>
+<pre class='rust struct'>pub struct JSContext&lt;S&gt; { /* fields omitted */ }</pre><div class='docblock'><p>The type for JS contexts whose current state is <code>S</code>.</p>
+</div>
+                    <h2 id='methods' class='small-section-header'>
+                      Methods<a href='#methods' class='anchor'></a>
+                    </h2>
+                <h3 id='impl' class='impl'><span class='in-band'><code>impl <a class="struct" href="../josephine/struct.JSContext.html" title="struct josephine::JSContext">JSContext</a>&lt;<a class="struct" href="../josephine/struct.Owned.html" title="struct josephine::Owned">Owned</a>&gt;</code><a href='#impl' class='anchor'></a></span><span class='out-of-band'><div class='ghost'></div><a class='srclink' href='../src/josephine/lib.rs.html#556-572' title='goto source code'>[src]</a></span></h3>
+<div class='impl-items'><h4 id='method.new' class="method"><span id='new.v' class='invisible'><code>pub fn <a href='#method.new' class='fnname'>new</a>() -&gt; <a class="struct" href="../josephine/struct.JSContext.html" title="struct josephine::JSContext">JSContext</a>&lt;<a class="struct" href="../josephine/struct.Owned.html" title="struct josephine::Owned">Owned</a>&gt;</code></span><span class='out-of-band'><div class='ghost'></div><a class='srclink' href='../src/josephine/lib.rs.html#558-571' title='goto source code'>[src]</a></span></h4>
+<div class='docblock'><p>Create a new JSContext.</p>
+</div></div><h3 id='impl-1' class='impl'><span class='in-band'><code>impl&lt;S&gt; <a class="struct" href="../josephine/struct.JSContext.html" title="struct josephine::JSContext">JSContext</a>&lt;S&gt;</code><a href='#impl-1' class='anchor'></a></span><span class='out-of-band'><div class='ghost'></div><a class='srclink' href='../src/josephine/lib.rs.html#574-857' title='goto source code'>[src]</a></span></h3>
+<div class='impl-items'><h4 id='method.snapshot' class="method"><span id='snapshot.v' class='invisible'><code>pub fn <a href='#method.snapshot' class='fnname'>snapshot</a>&lt;'a&gt;(&amp;'a mut self) -&gt; <a class="struct" href="../josephine/struct.JSContext.html" title="struct josephine::JSContext">JSContext</a>&lt;<a class="struct" href="../josephine/struct.Snapshotted.html" title="struct josephine::Snapshotted">Snapshotted</a>&lt;'a, S&gt;&gt;</code></span><span class='out-of-band'><div class='ghost'></div><a class='srclink' href='../src/josephine/lib.rs.html#578-588' title='goto source code'>[src]</a></span></h4>
+<div class='docblock'><p>Get a snapshot of the JS state.
+The snapshot only allows access to the methods that are guaranteed not to call GC,
+so we don&#39;t need to root JS-managed pointers during the lifetime of a snapshot.</p>
+</div><h4 id='method.enter_known_compartment' class="method"><span id='enter_known_compartment.v' class='invisible'><code>pub fn <a href='#method.enter_known_compartment' class='fnname'>enter_known_compartment</a>&lt;'a, 'b, C, T&gt;(<br>&nbsp;&nbsp;&nbsp;&nbsp;&amp;'a mut self, <br>&nbsp;&nbsp;&nbsp;&nbsp;managed: <a class="struct" href="../josephine/struct.JSManaged.html" title="struct josephine::JSManaged">JSManaged</a>&lt;'b, C, T&gt;<br>) -&gt; <a class="struct" href="../josephine/struct.JSContext.html" title="struct josephine::JSContext">JSContext</a>&lt;<a class="struct" href="../josephine/struct.Entered.html" title="struct josephine::Entered">Entered</a>&lt;'a, C, T::<a class="type" href="../josephine/trait.JSRootable.html#associatedtype.Aged" title="type josephine::JSRootable::Aged">Aged</a>, S&gt;&gt; <span class="where fmt-newline">where<br>&nbsp;&nbsp;&nbsp;&nbsp;T: <a class="trait" href="../josephine/trait.JSRootable.html" title="trait josephine::JSRootable">JSRootable</a>&lt;'a&gt;,<br>&nbsp;&nbsp;&nbsp;&nbsp;C: <a class="trait" href="../josephine/trait.Compartment.html" title="trait josephine::Compartment">Compartment</a>,&nbsp;</span></code></span><span class='out-of-band'><div class='ghost'></div><a class='srclink' href='../src/josephine/lib.rs.html#591-605' title='goto source code'>[src]</a></span></h4>
+<div class='docblock'><p>Enter a known compartment.</p>
+</div><h4 id='method.enter_unknown_compartment' class="method"><span id='enter_unknown_compartment.v' class='invisible'><code>pub fn <a href='#method.enter_unknown_compartment' class='fnname'>enter_unknown_compartment</a>&lt;'a, 'b, C, T&gt;(<br>&nbsp;&nbsp;&nbsp;&nbsp;&amp;'a mut self, <br>&nbsp;&nbsp;&nbsp;&nbsp;managed: <a class="struct" href="../josephine/struct.JSManaged.html" title="struct josephine::JSManaged">JSManaged</a>&lt;'b, C, T&gt;<br>) -&gt; <a class="struct" href="../josephine/struct.JSContext.html" title="struct josephine::JSContext">JSContext</a>&lt;<a class="struct" href="../josephine/struct.Entered.html" title="struct josephine::Entered">Entered</a>&lt;'a, <a class="struct" href="../josephine/struct.BOUND.html" title="struct josephine::BOUND">BOUND</a>&lt;'a&gt;, T::<a class="type" href="../josephine/trait.JSRootable.html#associatedtype.Aged" title="type josephine::JSRootable::Aged">Aged</a>, S&gt;&gt; <span class="where fmt-newline">where<br>&nbsp;&nbsp;&nbsp;&nbsp;T: <a class="trait" href="../josephine/trait.JSRootable.html" title="trait josephine::JSRootable">JSRootable</a>&lt;'a&gt;,&nbsp;</span></code></span><span class='out-of-band'><div class='ghost'></div><a class='srclink' href='../src/josephine/lib.rs.html#608-621' title='goto source code'>[src]</a></span></h4>
+<div class='docblock'><p>Enter a compartment.</p>
+</div><h4 id='method.manage' class="method"><span id='manage.v' class='invisible'><code>pub fn <a href='#method.manage' class='fnname'>manage</a>&lt;'a, C, T&gt;(&amp;'a mut self, value: T) -&gt; <a class="struct" href="../josephine/struct.JSManaged.html" title="struct josephine::JSManaged">JSManaged</a>&lt;'a, C, T::<a class="type" href="../josephine/trait.JSRootable.html#associatedtype.Aged" title="type josephine::JSRootable::Aged">Aged</a>&gt; <span class="where fmt-newline">where<br>&nbsp;&nbsp;&nbsp;&nbsp;S: <a class="trait" href="../josephine/trait.CanAlloc.html" title="trait josephine::CanAlloc">CanAlloc</a> + <a class="trait" href="../josephine/trait.InCompartment.html" title="trait josephine::InCompartment">InCompartment</a>&lt;C&gt;,<br>&nbsp;&nbsp;&nbsp;&nbsp;C: <a class="trait" href="../josephine/trait.Compartment.html" title="trait josephine::Compartment">Compartment</a>,<br>&nbsp;&nbsp;&nbsp;&nbsp;T: <a class="trait" href="../josephine/trait.JSTraceable.html" title="trait josephine::JSTraceable">JSTraceable</a> + <a class="trait" href="../josephine/trait.JSInitializable.html" title="trait josephine::JSInitializable">JSInitializable</a> + <a class="trait" href="../josephine/trait.JSRootable.html" title="trait josephine::JSRootable">JSRootable</a>&lt;'a&gt;,&nbsp;</span></code></span><span class='out-of-band'><div class='ghost'></div><a class='srclink' href='../src/josephine/lib.rs.html#625-663' title='goto source code'>[src]</a></span></h4>
+<div class='docblock'><p>Give ownership of data to JS.
+This allocates JS heap, which may trigger GC.</p>
+</div><h4 id='method.snapshot_manage' class="method"><span id='snapshot_manage.v' class='invisible'><code>pub fn <a href='#method.snapshot_manage' class='fnname'>snapshot_manage</a>&lt;'a, C, T&gt;(<br>&nbsp;&nbsp;&nbsp;&nbsp;&amp;'a mut self, <br>&nbsp;&nbsp;&nbsp;&nbsp;value: T<br>) -&gt; <a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.tuple.html">(</a><a class="struct" href="../josephine/struct.JSContext.html" title="struct josephine::JSContext">JSContext</a>&lt;<a class="struct" href="../josephine/struct.Snapshotted.html" title="struct josephine::Snapshotted">Snapshotted</a>&lt;'a, S&gt;&gt;, <a class="struct" href="../josephine/struct.JSManaged.html" title="struct josephine::JSManaged">JSManaged</a>&lt;'a, C, T::<a class="type" href="../josephine/trait.JSRootable.html#associatedtype.Aged" title="type josephine::JSRootable::Aged">Aged</a>&gt;<a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.tuple.html">)</a> <span class="where fmt-newline">where<br>&nbsp;&nbsp;&nbsp;&nbsp;S: <a class="trait" href="../josephine/trait.CanAlloc.html" title="trait josephine::CanAlloc">CanAlloc</a> + <a class="trait" href="../josephine/trait.InCompartment.html" title="trait josephine::InCompartment">InCompartment</a>&lt;C&gt;,<br>&nbsp;&nbsp;&nbsp;&nbsp;C: <a class="trait" href="../josephine/trait.Compartment.html" title="trait josephine::Compartment">Compartment</a>,<br>&nbsp;&nbsp;&nbsp;&nbsp;T: <a class="trait" href="../josephine/trait.JSTraceable.html" title="trait josephine::JSTraceable">JSTraceable</a> + <a class="trait" href="../josephine/trait.JSInitializable.html" title="trait josephine::JSInitializable">JSInitializable</a> + <a class="trait" href="../josephine/trait.JSRootable.html" title="trait josephine::JSRootable">JSRootable</a>&lt;'a&gt;,&nbsp;</span></code></span><span class='out-of-band'><div class='ghost'></div><a class='srclink' href='../src/josephine/lib.rs.html#667-687' title='goto source code'>[src]</a></span></h4>
+<div class='docblock'><p>Give ownership of data to JS.
+This allocates JS heap, which may trigger GC.</p>
+</div><h4 id='method.create_compartment' class="method"><span id='create_compartment.v' class='invisible'><code>pub fn <a href='#method.create_compartment' class='fnname'>create_compartment</a>&lt;'a, T&gt;(<br>&nbsp;&nbsp;&nbsp;&nbsp;&amp;'a mut self<br>) -&gt; <a class="struct" href="../josephine/struct.JSContext.html" title="struct josephine::JSContext">JSContext</a>&lt;<a class="struct" href="../josephine/struct.Initializing.html" title="struct josephine::Initializing">Initializing</a>&lt;'a, <a class="struct" href="../josephine/struct.BOUND.html" title="struct josephine::BOUND">BOUND</a>&lt;'a&gt;, T&gt;&gt; <span class="where fmt-newline">where<br>&nbsp;&nbsp;&nbsp;&nbsp;S: <a class="trait" href="../josephine/trait.CanCreateCompartments.html" title="trait josephine::CanCreateCompartments">CanCreateCompartments</a>,<br>&nbsp;&nbsp;&nbsp;&nbsp;T: <a class="trait" href="../josephine/trait.JSInitializable.html" title="trait josephine::JSInitializable">JSInitializable</a> + <a class="trait" href="../josephine/trait.JSTraceable.html" title="trait josephine::JSTraceable">JSTraceable</a>,&nbsp;</span></code></span><span class='out-of-band'><div class='ghost'></div><a class='srclink' href='../src/josephine/lib.rs.html#690-743' title='goto source code'>[src]</a></span></h4>
+<div class='docblock'><p>Create a compartment</p>
+</div><h4 id='method.global_manage' class="method"><span id='global_manage.v' class='invisible'><code>pub fn <a href='#method.global_manage' class='fnname'>global_manage</a>&lt;'a, C, T&gt;(<br>&nbsp;&nbsp;&nbsp;&nbsp;self, <br>&nbsp;&nbsp;&nbsp;&nbsp;value: T<br>) -&gt; <a class="struct" href="../josephine/struct.JSContext.html" title="struct josephine::JSContext">JSContext</a>&lt;<a class="struct" href="../josephine/struct.Initialized.html" title="struct josephine::Initialized">Initialized</a>&lt;'a, C, T::<a class="type" href="../josephine/trait.JSRootable.html#associatedtype.Aged" title="type josephine::JSRootable::Aged">Aged</a>&gt;&gt; <span class="where fmt-newline">where<br>&nbsp;&nbsp;&nbsp;&nbsp;S: <a class="trait" href="../josephine/trait.IsInitializing.html" title="trait josephine::IsInitializing">IsInitializing</a>&lt;'a, C, T&gt;,<br>&nbsp;&nbsp;&nbsp;&nbsp;T: <a class="trait" href="../josephine/trait.JSTraceable.html" title="trait josephine::JSTraceable">JSTraceable</a> + <a class="trait" href="../josephine/trait.JSRootable.html" title="trait josephine::JSRootable">JSRootable</a>&lt;'a&gt; + <a class="trait" href="../josephine/trait.JSTransplantable.html" title="trait josephine::JSTransplantable">JSTransplantable</a>&lt;C, Transplanted = T&gt;,&nbsp;</span></code></span><span class='out-of-band'><div class='ghost'></div><a class='srclink' href='../src/josephine/lib.rs.html#746-764' title='goto source code'>[src]</a></span></h4>
+<div class='docblock'><p>Finish initializing a JS Context</p>
+</div><h4 id='method.create_global' class="method"><span id='create_global.v' class='invisible'><code>pub fn <a href='#method.create_global' class='fnname'>create_global</a>&lt;'a, T&gt;(<br>&nbsp;&nbsp;&nbsp;&nbsp;&amp;'a mut self, <br>&nbsp;&nbsp;&nbsp;&nbsp;value: T<br>) -&gt; <a class="struct" href="../josephine/struct.JSContext.html" title="struct josephine::JSContext">JSContext</a>&lt;<a class="struct" href="../josephine/struct.Initialized.html" title="struct josephine::Initialized">Initialized</a>&lt;'a, <a class="struct" href="../josephine/struct.BOUND.html" title="struct josephine::BOUND">BOUND</a>&lt;'a&gt;, T::<a class="type" href="../josephine/trait.JSRootable.html#associatedtype.Aged" title="type josephine::JSRootable::Aged">Aged</a>&gt;&gt; <span class="where fmt-newline">where<br>&nbsp;&nbsp;&nbsp;&nbsp;S: <a class="trait" href="../josephine/trait.CanCreateCompartments.html" title="trait josephine::CanCreateCompartments">CanCreateCompartments</a>,<br>&nbsp;&nbsp;&nbsp;&nbsp;T: <a class="trait" href="../josephine/trait.JSInitializable.html" title="trait josephine::JSInitializable">JSInitializable</a> + <a class="trait" href="../josephine/trait.JSTraceable.html" title="trait josephine::JSTraceable">JSTraceable</a> + <a class="trait" href="../josephine/trait.JSRootable.html" title="trait josephine::JSRootable">JSRootable</a>&lt;'a&gt; + <a class="trait" href="../josephine/trait.JSTransplantable.html" title="trait josephine::JSTransplantable">JSTransplantable</a>&lt;<a class="struct" href="../josephine/struct.BOUND.html" title="struct josephine::BOUND">BOUND</a>&lt;'a&gt;, Transplanted = T&gt;,&nbsp;</span></code></span><span class='out-of-band'><div class='ghost'></div><a class='srclink' href='../src/josephine/lib.rs.html#767-772' title='goto source code'>[src]</a></span></h4>
+<div class='docblock'><p>Shortcut to create a compartment and finish initializing in one go.</p>
+</div><h4 id='method.entered' class="method"><span id='entered.v' class='invisible'><code>pub fn <a href='#method.entered' class='fnname'>entered</a>&lt;'a, C, T&gt;(&amp;self) -&gt; <a class="struct" href="../josephine/struct.JSManaged.html" title="struct josephine::JSManaged">JSManaged</a>&lt;'a, C, T&gt; <span class="where fmt-newline">where<br>&nbsp;&nbsp;&nbsp;&nbsp;S: <a class="trait" href="../josephine/trait.IsEntered.html" title="trait josephine::IsEntered">IsEntered</a>&lt;'a, C, T&gt;,&nbsp;</span></code></span><span class='out-of-band'><div class='ghost'></div><a class='srclink' href='../src/josephine/lib.rs.html#775-783' title='goto source code'>[src]</a></span></h4>
+<div class='docblock'><p>Get the object we entered the current compartment via</p>
+</div><h4 id='method.global' class="method"><span id='global.v' class='invisible'><code>pub fn <a href='#method.global' class='fnname'>global</a>&lt;'a, C, T&gt;(&amp;self) -&gt; <a class="struct" href="../josephine/struct.JSManaged.html" title="struct josephine::JSManaged">JSManaged</a>&lt;'a, C, T&gt; <span class="where fmt-newline">where<br>&nbsp;&nbsp;&nbsp;&nbsp;S: <a class="trait" href="../josephine/trait.IsInitialized.html" title="trait josephine::IsInitialized">IsInitialized</a>&lt;'a, C, T&gt;,&nbsp;</span></code></span><span class='out-of-band'><div class='ghost'></div><a class='srclink' href='../src/josephine/lib.rs.html#786-794' title='goto source code'>[src]</a></span></h4>
+<div class='docblock'><p>Get the global of an initialized context.</p>
+</div><h4 id='method.new_root' class="method"><span id='new_root.v' class='invisible'><code>pub fn <a href='#method.new_root' class='fnname'>new_root</a>&lt;'a, 'b, T&gt;(&amp;'b mut self) -&gt; <a class="struct" href="../josephine/struct.JSRoot.html" title="struct josephine::JSRoot">JSRoot</a>&lt;'a, T&gt;</code></span><span class='out-of-band'><div class='ghost'></div><a class='srclink' href='../src/josephine/lib.rs.html#797-807' title='goto source code'>[src]</a></span></h4>
+<div class='docblock'><p>Create a new root.</p>
+</div><h4 id='method.cx' class="method"><span id='cx.v' class='invisible'><code>pub fn <a href='#method.cx' class='fnname'>cx</a>(&amp;self) -&gt; <a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.pointer.html">*mut </a><a class="enum" href="../js/jsapi/enum.JSContext.html" title="enum js::jsapi::JSContext">JSContext</a></code></span><span class='out-of-band'><div class='ghost'></div><a class='srclink' href='../src/josephine/lib.rs.html#809-811' title='goto source code'>[src]</a></span></h4>
+<h4 id='method.rt' class="method"><span id='rt.v' class='invisible'><code>pub fn <a href='#method.rt' class='fnname'>rt</a>(&amp;self) -&gt; <a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.pointer.html">*mut </a><a class="enum" href="../js/jsapi/enum.JSRuntime.html" title="enum js::jsapi::JSRuntime">JSRuntime</a></code></span><span class='out-of-band'><div class='ghost'></div><a class='srclink' href='../src/josephine/lib.rs.html#813-815' title='goto source code'>[src]</a></span></h4>
+<h4 id='method.gc' class="method"><span id='gc.v' class='invisible'><code>pub fn <a href='#method.gc' class='fnname'>gc</a>(&amp;mut self) <span class="where fmt-newline">where<br>&nbsp;&nbsp;&nbsp;&nbsp;S: <a class="trait" href="../josephine/trait.CanAlloc.html" title="trait josephine::CanAlloc">CanAlloc</a>,&nbsp;</span></code></span><span class='out-of-band'><div class='ghost'></div><a class='srclink' href='../src/josephine/lib.rs.html#817-821' title='goto source code'>[src]</a></span></h4>
+<h4 id='method.evaluate' class="method"><span id='evaluate.v' class='invisible'><code>pub fn <a href='#method.evaluate' class='fnname'>evaluate</a>&lt;C&gt;(&amp;mut self, code: &amp;<a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.str.html">str</a>) -&gt; <a class="enum" href="https://doc.rust-lang.org/nightly/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="type" href="../js/jsval/type.JSVal.html" title="type js::jsval::JSVal">JSVal</a>, <a class="enum" href="../josephine/enum.JSEvaluateErr.html" title="enum josephine::JSEvaluateErr">JSEvaluateErr</a>&gt; <span class="where fmt-newline">where<br>&nbsp;&nbsp;&nbsp;&nbsp;S: <a class="trait" href="../josephine/trait.InCompartment.html" title="trait josephine::InCompartment">InCompartment</a>&lt;C&gt;,&nbsp;</span></code></span><span class='out-of-band'><div class='ghost'></div><a class='srclink' href='../src/josephine/lib.rs.html#823-841' title='goto source code'>[src]</a></span></h4>
+<h4 id='method.take_pending_exception' class="method"><span id='take_pending_exception.v' class='invisible'><code>pub fn <a href='#method.take_pending_exception' class='fnname'>take_pending_exception</a>(&amp;mut self) -&gt; <a class="enum" href="https://doc.rust-lang.org/nightly/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.unit.html">()</a>, <a class="enum" href="../josephine/enum.JSEvaluateErr.html" title="enum josephine::JSEvaluateErr">JSEvaluateErr</a>&gt;</code></span><span class='out-of-band'><div class='ghost'></div><a class='srclink' href='../src/josephine/lib.rs.html#843-856' title='goto source code'>[src]</a></span></h4>
+</div></section>
+    <section id='search' class="content hidden"></section>
+
+    <section class="footer"></section>
+
+    <aside id="help" class="hidden">
+        <div>
+            <h1 class="hidden">Help</h1>
+
+            <div class="shortcuts">
+                <h2>Keyboard Shortcuts</h2>
+
+                <dl>
+                    <dt>?</dt>
+                    <dd>Show this help dialog</dd>
+                    <dt>S</dt>
+                    <dd>Focus the search field</dd>
+                    <dt>↑</dt>
+                    <dd>Move up in search results</dd>
+                    <dt>↓</dt>
+                    <dd>Move down in search results</dd>
+                    <dt>&#9166;</dt>
+                    <dd>Go to active search result</dd>
+                    <dt>+</dt>
+                    <dd>Collapse/expand all sections</dd>
+                </dl>
+            </div>
+
+            <div class="infos">
+                <h2>Search Tricks</h2>
+
+                <p>
+                    Prefix searches with a type followed by a colon (e.g.
+                    <code>fn:</code>) to restrict the search to a given type.
+                </p>
+
+                <p>
+                    Accepted types are: <code>fn</code>, <code>mod</code>,
+                    <code>struct</code>, <code>enum</code>,
+                    <code>trait</code>, <code>type</code>, <code>macro</code>,
+                    and <code>const</code>.
+                </p>
+
+                <p>
+                    Search functions by type signature (e.g.
+                    <code>vec -> usize</code> or <code>* -> vec</code>)
+                </p>
+            </div>
+        </div>
+    </aside>
+
+    
+
+    <script>
+        window.rootPath = "../";
+        window.currentCrate = "josephine";
+    </script>
+    <script src="../main.js"></script>
+    <script defer src="../search-index.js"></script>
+</body>
+</html>

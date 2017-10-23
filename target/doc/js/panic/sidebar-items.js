@@ -1,0 +1,1 @@
+initSidebarItems({"fn":[["maybe_resume_unwind","If there is a pending panic, resume unwinding."],["wrap_panic","Generic wrapper for JS engine callbacks panic-catching"]]});

@@ -1,0 +1,591 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="generator" content="rustdoc">
+    <meta name="description" content="API documentation for the Rust `glue` mod in crate `js`.">
+    <meta name="keywords" content="rust, rustlang, rust-lang, glue">
+
+    <title>js::glue - Rust</title>
+
+    <link rel="stylesheet" type="text/css" href="../../normalize.css">
+    <link rel="stylesheet" type="text/css" href="../../rustdoc.css">
+    <link rel="stylesheet" type="text/css" href="../../main.css">
+    
+
+    
+    
+</head>
+<body class="rustdoc mod">
+    <!--[if lte IE 8]>
+    <div class="warning">
+        This old browser is unsupported and will most likely display funky
+        things.
+    </div>
+    <![endif]-->
+
+    
+
+    <nav class="sidebar">
+        
+        <p class='location'>Module glue</p><div class="block items"><ul><li><a href="#structs">Structs</a></li><li><a href="#enums">Enums</a></li><li><a href="#functions">Functions</a></li></ul></div><p class='location'><a href='../index.html'>js</a></p><script>window.sidebarCurrent = {name: 'glue', ty: 'mod', relpath: '../'};</script><script defer src="../sidebar-items.js"></script>
+    </nav>
+
+    <nav class="sub">
+        <form class="search-form js-only">
+            <div class="search-container">
+                <input class="search-input" name="search"
+                       autocomplete="off"
+                       placeholder="Click or press ‘S’ to search, ‘?’ for more options…"
+                       type="search">
+            </div>
+        </form>
+    </nav>
+
+    <section id='main' class="content">
+<h1 class='fqn'><span class='in-band'>Module <a href='../index.html'>js</a>::<wbr><a class="mod" href=''>glue</a></span><span class='out-of-band'><span id='render-detail'>
+                   <a id="toggle-all-docs" href="javascript:void(0)" title="collapse all docs">
+                       [<span class='inner'>&#x2212;</span>]
+                   </a>
+               </span><a class='srclink' href='../../src/js/glue.rs.html#1-322' title='goto source code'>[src]</a></span></h1>
+<h2 id='structs' class='section-header'><a href="#structs">Structs</a></h2>
+<table>
+                       <tr class=' module-item'>
+                           <td><a class="struct" href="struct.ForwardingProxyHandler.html"
+                                  title='struct js::glue::ForwardingProxyHandler'>ForwardingProxyHandler</a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="struct" href="struct.ProxyTraps.html"
+                                  title='struct js::glue::ProxyTraps'>ProxyTraps</a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="struct" href="struct.WrapperProxyHandler.html"
+                                  title='struct js::glue::WrapperProxyHandler'>WrapperProxyHandler</a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr></table><h2 id='enums' class='section-header'><a href="#enums">Enums</a></h2>
+<table>
+                       <tr class=' module-item'>
+                           <td><a class="enum" href="enum.Action.html"
+                                  title='enum js::glue::Action'>Action</a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr></table><h2 id='functions' class='section-header'><a href="#functions">Functions</a></h2>
+<table>
+                       <tr class=' module-item'>
+                           <td><a class="fn" href="fn.AppendToAutoIdVector.html"
+                                  title='fn js::glue::AppendToAutoIdVector'>AppendToAutoIdVector</a><a title='unsafe function' href='#'><sup>⚠</sup></a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="fn" href="fn.AppendToAutoObjectVector.html"
+                                  title='fn js::glue::AppendToAutoObjectVector'>AppendToAutoObjectVector</a><a title='unsafe function' href='#'><sup>⚠</sup></a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="fn" href="fn.CallFunctionTracer.html"
+                                  title='fn js::glue::CallFunctionTracer'>CallFunctionTracer</a><a title='unsafe function' href='#'><sup>⚠</sup></a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="fn" href="fn.CallIdTracer.html"
+                                  title='fn js::glue::CallIdTracer'>CallIdTracer</a><a title='unsafe function' href='#'><sup>⚠</sup></a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="fn" href="fn.CallJitGetterOp.html"
+                                  title='fn js::glue::CallJitGetterOp'>CallJitGetterOp</a><a title='unsafe function' href='#'><sup>⚠</sup></a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="fn" href="fn.CallJitMethodOp.html"
+                                  title='fn js::glue::CallJitMethodOp'>CallJitMethodOp</a><a title='unsafe function' href='#'><sup>⚠</sup></a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="fn" href="fn.CallJitSetterOp.html"
+                                  title='fn js::glue::CallJitSetterOp'>CallJitSetterOp</a><a title='unsafe function' href='#'><sup>⚠</sup></a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="fn" href="fn.CallObjectTracer.html"
+                                  title='fn js::glue::CallObjectTracer'>CallObjectTracer</a><a title='unsafe function' href='#'><sup>⚠</sup></a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="fn" href="fn.CallScriptTracer.html"
+                                  title='fn js::glue::CallScriptTracer'>CallScriptTracer</a><a title='unsafe function' href='#'><sup>⚠</sup></a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="fn" href="fn.CallStringTracer.html"
+                                  title='fn js::glue::CallStringTracer'>CallStringTracer</a><a title='unsafe function' href='#'><sup>⚠</sup></a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="fn" href="fn.CallUnbarrieredObjectTracer.html"
+                                  title='fn js::glue::CallUnbarrieredObjectTracer'>CallUnbarrieredObjectTracer</a><a title='unsafe function' href='#'><sup>⚠</sup></a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="fn" href="fn.CallValueTracer.html"
+                                  title='fn js::glue::CallValueTracer'>CallValueTracer</a><a title='unsafe function' href='#'><sup>⚠</sup></a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="fn" href="fn.CollectServoSizes.html"
+                                  title='fn js::glue::CollectServoSizes'>CollectServoSizes</a><a title='unsafe function' href='#'><sup>⚠</sup></a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="fn" href="fn.CreateAutoIdVector.html"
+                                  title='fn js::glue::CreateAutoIdVector'>CreateAutoIdVector</a><a title='unsafe function' href='#'><sup>⚠</sup></a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="fn" href="fn.CreateAutoObjectVector.html"
+                                  title='fn js::glue::CreateAutoObjectVector'>CreateAutoObjectVector</a><a title='unsafe function' href='#'><sup>⚠</sup></a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="fn" href="fn.CreateCallArgsFromVp.html"
+                                  title='fn js::glue::CreateCallArgsFromVp'>CreateCallArgsFromVp</a><a title='unsafe function' href='#'><sup>⚠</sup></a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="fn" href="fn.CreateProxyHandler.html"
+                                  title='fn js::glue::CreateProxyHandler'>CreateProxyHandler</a><a title='unsafe function' href='#'><sup>⚠</sup></a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="fn" href="fn.CreateRustJSPrincipal.html"
+                                  title='fn js::glue::CreateRustJSPrincipal'>CreateRustJSPrincipal</a><a title='unsafe function' href='#'><sup>⚠</sup></a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="fn" href="fn.CreateWrapperProxyHandler.html"
+                                  title='fn js::glue::CreateWrapperProxyHandler'>CreateWrapperProxyHandler</a><a title='unsafe function' href='#'><sup>⚠</sup></a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="fn" href="fn.DeleteAutoObjectVector.html"
+                                  title='fn js::glue::DeleteAutoObjectVector'>DeleteAutoObjectVector</a><a title='unsafe function' href='#'><sup>⚠</sup></a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="fn" href="fn.DeleteCompileOptions.html"
+                                  title='fn js::glue::DeleteCompileOptions'>DeleteCompileOptions</a><a title='unsafe function' href='#'><sup>⚠</sup></a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="fn" href="fn.DestroyAutoIdVector.html"
+                                  title='fn js::glue::DestroyAutoIdVector'>DestroyAutoIdVector</a><a title='unsafe function' href='#'><sup>⚠</sup></a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="fn" href="fn.GetCrossCompartmentWrapper.html"
+                                  title='fn js::glue::GetCrossCompartmentWrapper'>GetCrossCompartmentWrapper</a><a title='unsafe function' href='#'><sup>⚠</sup></a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="fn" href="fn.GetFloat32ArrayLengthAndData.html"
+                                  title='fn js::glue::GetFloat32ArrayLengthAndData'>GetFloat32ArrayLengthAndData</a><a title='unsafe function' href='#'><sup>⚠</sup></a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="fn" href="fn.GetFloat64ArrayLengthAndData.html"
+                                  title='fn js::glue::GetFloat64ArrayLengthAndData'>GetFloat64ArrayLengthAndData</a><a title='unsafe function' href='#'><sup>⚠</sup></a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="fn" href="fn.GetInt16ArrayLengthAndData.html"
+                                  title='fn js::glue::GetInt16ArrayLengthAndData'>GetInt16ArrayLengthAndData</a><a title='unsafe function' href='#'><sup>⚠</sup></a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="fn" href="fn.GetInt32ArrayLengthAndData.html"
+                                  title='fn js::glue::GetInt32ArrayLengthAndData'>GetInt32ArrayLengthAndData</a><a title='unsafe function' href='#'><sup>⚠</sup></a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="fn" href="fn.GetInt8ArrayLengthAndData.html"
+                                  title='fn js::glue::GetInt8ArrayLengthAndData'>GetInt8ArrayLengthAndData</a><a title='unsafe function' href='#'><sup>⚠</sup></a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="fn" href="fn.GetPrincipalOrigin.html"
+                                  title='fn js::glue::GetPrincipalOrigin'>GetPrincipalOrigin</a><a title='unsafe function' href='#'><sup>⚠</sup></a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="fn" href="fn.GetProxyExtra.html"
+                                  title='fn js::glue::GetProxyExtra'>GetProxyExtra</a><a title='unsafe function' href='#'><sup>⚠</sup></a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="fn" href="fn.GetProxyHandler.html"
+                                  title='fn js::glue::GetProxyHandler'>GetProxyHandler</a><a title='unsafe function' href='#'><sup>⚠</sup></a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="fn" href="fn.GetProxyHandlerExtra.html"
+                                  title='fn js::glue::GetProxyHandlerExtra'>GetProxyHandlerExtra</a><a title='unsafe function' href='#'><sup>⚠</sup></a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="fn" href="fn.GetProxyHandlerFamily.html"
+                                  title='fn js::glue::GetProxyHandlerFamily'>GetProxyHandlerFamily</a><a title='unsafe function' href='#'><sup>⚠</sup></a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="fn" href="fn.GetProxyPrivate.html"
+                                  title='fn js::glue::GetProxyPrivate'>GetProxyPrivate</a><a title='unsafe function' href='#'><sup>⚠</sup></a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="fn" href="fn.GetSecurityWrapper.html"
+                                  title='fn js::glue::GetSecurityWrapper'>GetSecurityWrapper</a><a title='unsafe function' href='#'><sup>⚠</sup></a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="fn" href="fn.GetUint16ArrayLengthAndData.html"
+                                  title='fn js::glue::GetUint16ArrayLengthAndData'>GetUint16ArrayLengthAndData</a><a title='unsafe function' href='#'><sup>⚠</sup></a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="fn" href="fn.GetUint32ArrayLengthAndData.html"
+                                  title='fn js::glue::GetUint32ArrayLengthAndData'>GetUint32ArrayLengthAndData</a><a title='unsafe function' href='#'><sup>⚠</sup></a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="fn" href="fn.GetUint8ArrayLengthAndData.html"
+                                  title='fn js::glue::GetUint8ArrayLengthAndData'>GetUint8ArrayLengthAndData</a><a title='unsafe function' href='#'><sup>⚠</sup></a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="fn" href="fn.GetUint8ClampedArrayLengthAndData.html"
+                                  title='fn js::glue::GetUint8ClampedArrayLengthAndData'>GetUint8ClampedArrayLengthAndData</a><a title='unsafe function' href='#'><sup>⚠</sup></a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="fn" href="fn.GetWindowProxyClass.html"
+                                  title='fn js::glue::GetWindowProxyClass'>GetWindowProxyClass</a><a title='unsafe function' href='#'><sup>⚠</sup></a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="fn" href="fn.InvokeGetOwnPropertyDescriptor.html"
+                                  title='fn js::glue::InvokeGetOwnPropertyDescriptor'>InvokeGetOwnPropertyDescriptor</a><a title='unsafe function' href='#'><sup>⚠</sup></a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="fn" href="fn.InvokeHasOwn.html"
+                                  title='fn js::glue::InvokeHasOwn'>InvokeHasOwn</a><a title='unsafe function' href='#'><sup>⚠</sup></a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="fn" href="fn.IsProxyHandlerFamily.html"
+                                  title='fn js::glue::IsProxyHandlerFamily'>IsProxyHandlerFamily</a><a title='unsafe function' href='#'><sup>⚠</sup></a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="fn" href="fn.IsWrapper.html"
+                                  title='fn js::glue::IsWrapper'>IsWrapper</a><a title='unsafe function' href='#'><sup>⚠</sup></a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="fn" href="fn.NewCompileOptions.html"
+                                  title='fn js::glue::NewCompileOptions'>NewCompileOptions</a><a title='unsafe function' href='#'><sup>⚠</sup></a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="fn" href="fn.NewProxyObject.html"
+                                  title='fn js::glue::NewProxyObject'>NewProxyObject</a><a title='unsafe function' href='#'><sup>⚠</sup></a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="fn" href="fn.NewWindowProxy.html"
+                                  title='fn js::glue::NewWindowProxy'>NewWindowProxy</a><a title='unsafe function' href='#'><sup>⚠</sup></a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="fn" href="fn.RUST_FUNCTION_VALUE_TO_JITINFO.html"
+                                  title='fn js::glue::RUST_FUNCTION_VALUE_TO_JITINFO'>RUST_FUNCTION_VALUE_TO_JITINFO</a><a title='unsafe function' href='#'><sup>⚠</sup></a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="fn" href="fn.RUST_INTERNED_STRING_TO_JSID.html"
+                                  title='fn js::glue::RUST_INTERNED_STRING_TO_JSID'>RUST_INTERNED_STRING_TO_JSID</a><a title='unsafe function' href='#'><sup>⚠</sup></a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="fn" href="fn.RUST_JSID_IS_INT.html"
+                                  title='fn js::glue::RUST_JSID_IS_INT'>RUST_JSID_IS_INT</a><a title='unsafe function' href='#'><sup>⚠</sup></a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="fn" href="fn.RUST_JSID_IS_STRING.html"
+                                  title='fn js::glue::RUST_JSID_IS_STRING'>RUST_JSID_IS_STRING</a><a title='unsafe function' href='#'><sup>⚠</sup></a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="fn" href="fn.RUST_JSID_TO_INT.html"
+                                  title='fn js::glue::RUST_JSID_TO_INT'>RUST_JSID_TO_INT</a><a title='unsafe function' href='#'><sup>⚠</sup></a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="fn" href="fn.RUST_JSID_TO_STRING.html"
+                                  title='fn js::glue::RUST_JSID_TO_STRING'>RUST_JSID_TO_STRING</a><a title='unsafe function' href='#'><sup>⚠</sup></a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="fn" href="fn.RUST_JS_NumberValue.html"
+                                  title='fn js::glue::RUST_JS_NumberValue'>RUST_JS_NumberValue</a><a title='unsafe function' href='#'><sup>⚠</sup></a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="fn" href="fn.RUST_SET_JITINFO.html"
+                                  title='fn js::glue::RUST_SET_JITINFO'>RUST_SET_JITINFO</a><a title='unsafe function' href='#'><sup>⚠</sup></a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="fn" href="fn.RUST_SYMBOL_TO_JSID.html"
+                                  title='fn js::glue::RUST_SYMBOL_TO_JSID'>RUST_SYMBOL_TO_JSID</a><a title='unsafe function' href='#'><sup>⚠</sup></a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="fn" href="fn.RUST_js_GetErrorMessage.html"
+                                  title='fn js::glue::RUST_js_GetErrorMessage'>RUST_js_GetErrorMessage</a><a title='unsafe function' href='#'><sup>⚠</sup></a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="fn" href="fn.ReportError.html"
+                                  title='fn js::glue::ReportError'>ReportError</a><a title='unsafe function' href='#'><sup>⚠</sup></a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="fn" href="fn.SetProxyExtra.html"
+                                  title='fn js::glue::SetProxyExtra'>SetProxyExtra</a><a title='unsafe function' href='#'><sup>⚠</sup></a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="fn" href="fn.SliceAutoIdVector.html"
+                                  title='fn js::glue::SliceAutoIdVector'>SliceAutoIdVector</a><a title='unsafe function' href='#'><sup>⚠</sup></a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="fn" href="fn.UncheckedUnwrapObject.html"
+                                  title='fn js::glue::UncheckedUnwrapObject'>UncheckedUnwrapObject</a><a title='unsafe function' href='#'><sup>⚠</sup></a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="fn" href="fn.UnwrapObject.html"
+                                  title='fn js::glue::UnwrapObject'>UnwrapObject</a><a title='unsafe function' href='#'><sup>⚠</sup></a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="fn" href="fn.WrapperNew.html"
+                                  title='fn js::glue::WrapperNew'>WrapperNew</a><a title='unsafe function' href='#'><sup>⚠</sup></a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="fn" href="fn.int_to_jsid.html"
+                                  title='fn js::glue::int_to_jsid'>int_to_jsid</a><a title='unsafe function' href='#'><sup>⚠</sup></a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr></table></section>
+    <section id='search' class="content hidden"></section>
+
+    <section class="footer"></section>
+
+    <aside id="help" class="hidden">
+        <div>
+            <h1 class="hidden">Help</h1>
+
+            <div class="shortcuts">
+                <h2>Keyboard Shortcuts</h2>
+
+                <dl>
+                    <dt>?</dt>
+                    <dd>Show this help dialog</dd>
+                    <dt>S</dt>
+                    <dd>Focus the search field</dd>
+                    <dt>↑</dt>
+                    <dd>Move up in search results</dd>
+                    <dt>↓</dt>
+                    <dd>Move down in search results</dd>
+                    <dt>&#9166;</dt>
+                    <dd>Go to active search result</dd>
+                    <dt>+</dt>
+                    <dd>Collapse/expand all sections</dd>
+                </dl>
+            </div>
+
+            <div class="infos">
+                <h2>Search Tricks</h2>
+
+                <p>
+                    Prefix searches with a type followed by a colon (e.g.
+                    <code>fn:</code>) to restrict the search to a given type.
+                </p>
+
+                <p>
+                    Accepted types are: <code>fn</code>, <code>mod</code>,
+                    <code>struct</code>, <code>enum</code>,
+                    <code>trait</code>, <code>type</code>, <code>macro</code>,
+                    and <code>const</code>.
+                </p>
+
+                <p>
+                    Search functions by type signature (e.g.
+                    <code>vec -> usize</code> or <code>* -> vec</code>)
+                </p>
+            </div>
+        </div>
+    </aside>
+
+    
+
+    <script>
+        window.rootPath = "../../";
+        window.currentCrate = "js";
+    </script>
+    <script src="../../main.js"></script>
+    <script defer src="../../search-index.js"></script>
+</body>
+</html>

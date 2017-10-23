@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="generator" content="rustdoc">
+    <meta name="description" content="API documentation for the Rust `JSInitializer` trait in crate `josephine`.">
+    <meta name="keywords" content="rust, rustlang, rust-lang, JSInitializer">
+
+    <title>josephine::JSInitializer - Rust</title>
+
+    <link rel="stylesheet" type="text/css" href="../normalize.css">
+    <link rel="stylesheet" type="text/css" href="../rustdoc.css">
+    <link rel="stylesheet" type="text/css" href="../main.css">
+    
+
+    
+    
+</head>
+<body class="rustdoc trait">
+    <!--[if lte IE 8]>
+    <div class="warning">
+        This old browser is unsupported and will most likely display funky
+        things.
+    </div>
+    <![endif]-->
+
+    
+
+    <nav class="sidebar">
+        
+        <p class='location'>Trait JSInitializer</p><div class="block items"><ul><li><a href="#provided-methods">Provided Methods</a></li><li><a href="#implementors">Implementors</a></li></ul></div><p class='location'><a href='index.html'>josephine</a></p><script>window.sidebarCurrent = {name: 'JSInitializer', ty: 'trait', relpath: ''};</script><script defer src="sidebar-items.js"></script>
+    </nav>
+
+    <nav class="sub">
+        <form class="search-form js-only">
+            <div class="search-container">
+                <input class="search-input" name="search"
+                       autocomplete="off"
+                       placeholder="Click or press ‘S’ to search, ‘?’ for more options…"
+                       type="search">
+            </div>
+        </form>
+    </nav>
+
+    <section id='main' class="content">
+<h1 class='fqn'><span class='in-band'>Trait <a href='index.html'>josephine</a>::<wbr><a class="trait" href=''>JSInitializer</a></span><span class='out-of-band'><span id='render-detail'>
+                   <a id="toggle-all-docs" href="javascript:void(0)" title="collapse all docs">
+                       [<span class='inner'>&#x2212;</span>]
+                   </a>
+               </span><a class='srclink' href='../src/josephine/lib.rs.html#973-1039' title='goto source code'>[src]</a></span></h1>
+<pre class='rust trait'>pub trait JSInitializer {
+    unsafe fn <a href='#method.parent_prototype' class='fnname'>parent_prototype</a>(<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;cx: <a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.pointer.html">*mut </a><a class="enum" href="../js/jsapi/enum.JSContext.html" title="enum js::jsapi::JSContext">JSContext</a>, <br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;global: <a class="type" href="../js/jsapi/type.HandleObject.html" title="type js::jsapi::HandleObject">HandleObject</a><br>&nbsp;&nbsp;&nbsp;&nbsp;) -&gt; <a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.pointer.html">*mut </a><a class="enum" href="../js/jsapi/enum.JSObject.html" title="enum js::jsapi::JSObject">JSObject</a> { ... }
+<div class='item-spacer'></div>    unsafe fn <a href='#method.classp' class='fnname'>classp</a>() -&gt; <a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.pointer.html">*const </a><a class="struct" href="../js/jsapi/struct.JSClass.html" title="struct js::jsapi::JSClass">JSClass</a> { ... }
+<div class='item-spacer'></div>    unsafe fn <a href='#method.global_classp' class='fnname'>global_classp</a>() -&gt; <a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.pointer.html">*const </a><a class="struct" href="../js/jsapi/struct.JSClass.html" title="struct js::jsapi::JSClass">JSClass</a> { ... }
+<div class='item-spacer'></div>    unsafe fn <a href='#method.global_principals' class='fnname'>global_principals</a>() -&gt; <a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.pointer.html">*mut </a><a class="struct" href="../js/jsapi/struct.JSPrincipals.html" title="struct js::jsapi::JSPrincipals">JSPrincipals</a> { ... }
+<div class='item-spacer'></div>    unsafe fn <a href='#method.global_hook_option' class='fnname'>global_hook_option</a>() -&gt; <a class="enum" href="../js/jsapi/enum.OnNewGlobalHookOption.html" title="enum js::jsapi::OnNewGlobalHookOption">OnNewGlobalHookOption</a> { ... }
+<div class='item-spacer'></div>    unsafe fn <a href='#method.global_options' class='fnname'>global_options</a>() -&gt; <a class="struct" href="../js/jsapi/struct.CompartmentOptions.html" title="struct js::jsapi::CompartmentOptions">CompartmentOptions</a> { ... }
+<div class='item-spacer'></div>    unsafe fn <a href='#method.constructor' class='fnname'>constructor</a>() -&gt; <a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.tuple.html">(</a><a class="type" href="../js/jsapi/type.JSNative.html" title="type js::jsapi::JSNative">JSNative</a>, <a class="type" href="../libc/type.c_uint.html" title="type libc::c_uint">c_uint</a><a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.tuple.html">)</a> { ... }
+<div class='item-spacer'></div>    unsafe fn <a href='#method.properties' class='fnname'>properties</a>() -&gt; <a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.pointer.html">*const </a><a class="struct" href="../js/jsapi/struct.JSPropertySpec.html" title="struct js::jsapi::JSPropertySpec">JSPropertySpec</a> { ... }
+<div class='item-spacer'></div>    unsafe fn <a href='#method.functions' class='fnname'>functions</a>() -&gt; <a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.pointer.html">*const </a><a class="struct" href="../js/jsapi/struct.JSFunctionSpec.html" title="struct js::jsapi::JSFunctionSpec">JSFunctionSpec</a> { ... }
+<div class='item-spacer'></div>    unsafe fn <a href='#method.static_properties' class='fnname'>static_properties</a>() -&gt; <a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.pointer.html">*const </a><a class="struct" href="../js/jsapi/struct.JSPropertySpec.html" title="struct js::jsapi::JSPropertySpec">JSPropertySpec</a> { ... }
+<div class='item-spacer'></div>    unsafe fn <a href='#method.static_functions' class='fnname'>static_functions</a>() -&gt; <a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.pointer.html">*const </a><a class="struct" href="../js/jsapi/struct.JSFunctionSpec.html" title="struct js::jsapi::JSFunctionSpec">JSFunctionSpec</a> { ... }
+<div class='item-spacer'></div>    unsafe fn <a href='#method.js_init_class' class='fnname'>js_init_class</a>(<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;cx: <a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.pointer.html">*mut </a><a class="enum" href="../js/jsapi/enum.JSContext.html" title="enum js::jsapi::JSContext">JSContext</a>, <br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;global: <a class="type" href="../js/jsapi/type.HandleObject.html" title="type js::jsapi::HandleObject">HandleObject</a><br>&nbsp;&nbsp;&nbsp;&nbsp;) -&gt; <a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.pointer.html">*mut </a><a class="enum" href="../js/jsapi/enum.JSObject.html" title="enum js::jsapi::JSObject">JSObject</a> { ... }
+<div class='item-spacer'></div>    unsafe fn <a href='#method.js_init_object' class='fnname'>js_init_object</a>(_cx: <a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.pointer.html">*mut </a><a class="enum" href="../js/jsapi/enum.JSContext.html" title="enum js::jsapi::JSContext">JSContext</a>, _obj: <a class="type" href="../js/jsapi/type.HandleObject.html" title="type js::jsapi::HandleObject">HandleObject</a>) { ... }
+<div class='item-spacer'></div>    unsafe fn <a href='#method.js_init_global' class='fnname'>js_init_global</a>(cx: <a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.pointer.html">*mut </a><a class="enum" href="../js/jsapi/enum.JSContext.html" title="enum js::jsapi::JSContext">JSContext</a>, global: <a class="type" href="../js/jsapi/type.HandleObject.html" title="type js::jsapi::HandleObject">HandleObject</a>) { ... }
+}</pre><div class='docblock'><p>Initialize JS data</p>
+</div>
+            <h2 id='provided-methods' class='small-section-header'>
+              Provided Methods<a href='#provided-methods' class='anchor'></a>
+            </h2>
+            <div class='methods'>
+        <h3 id='method.parent_prototype' class='method'><span id='parent_prototype.v' class='invisible'><code>unsafe fn <a href='#method.parent_prototype' class='fnname'>parent_prototype</a>(<br>&nbsp;&nbsp;&nbsp;&nbsp;cx: <a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.pointer.html">*mut </a><a class="enum" href="../js/jsapi/enum.JSContext.html" title="enum js::jsapi::JSContext">JSContext</a>, <br>&nbsp;&nbsp;&nbsp;&nbsp;global: <a class="type" href="../js/jsapi/type.HandleObject.html" title="type js::jsapi::HandleObject">HandleObject</a><br>) -&gt; <a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.pointer.html">*mut </a><a class="enum" href="../js/jsapi/enum.JSObject.html" title="enum js::jsapi::JSObject">JSObject</a></code></span></h3><h3 id='method.classp' class='method'><span id='classp.v' class='invisible'><code>unsafe fn <a href='#method.classp' class='fnname'>classp</a>() -&gt; <a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.pointer.html">*const </a><a class="struct" href="../js/jsapi/struct.JSClass.html" title="struct js::jsapi::JSClass">JSClass</a></code></span></h3><h3 id='method.global_classp' class='method'><span id='global_classp.v' class='invisible'><code>unsafe fn <a href='#method.global_classp' class='fnname'>global_classp</a>() -&gt; <a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.pointer.html">*const </a><a class="struct" href="../js/jsapi/struct.JSClass.html" title="struct js::jsapi::JSClass">JSClass</a></code></span></h3><h3 id='method.global_principals' class='method'><span id='global_principals.v' class='invisible'><code>unsafe fn <a href='#method.global_principals' class='fnname'>global_principals</a>() -&gt; <a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.pointer.html">*mut </a><a class="struct" href="../js/jsapi/struct.JSPrincipals.html" title="struct js::jsapi::JSPrincipals">JSPrincipals</a></code></span></h3><h3 id='method.global_hook_option' class='method'><span id='global_hook_option.v' class='invisible'><code>unsafe fn <a href='#method.global_hook_option' class='fnname'>global_hook_option</a>() -&gt; <a class="enum" href="../js/jsapi/enum.OnNewGlobalHookOption.html" title="enum js::jsapi::OnNewGlobalHookOption">OnNewGlobalHookOption</a></code></span></h3><h3 id='method.global_options' class='method'><span id='global_options.v' class='invisible'><code>unsafe fn <a href='#method.global_options' class='fnname'>global_options</a>() -&gt; <a class="struct" href="../js/jsapi/struct.CompartmentOptions.html" title="struct js::jsapi::CompartmentOptions">CompartmentOptions</a></code></span></h3><h3 id='method.constructor' class='method'><span id='constructor.v' class='invisible'><code>unsafe fn <a href='#method.constructor' class='fnname'>constructor</a>() -&gt; <a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.tuple.html">(</a><a class="type" href="../js/jsapi/type.JSNative.html" title="type js::jsapi::JSNative">JSNative</a>, <a class="type" href="../libc/type.c_uint.html" title="type libc::c_uint">c_uint</a><a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.tuple.html">)</a></code></span></h3><h3 id='method.properties' class='method'><span id='properties.v' class='invisible'><code>unsafe fn <a href='#method.properties' class='fnname'>properties</a>() -&gt; <a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.pointer.html">*const </a><a class="struct" href="../js/jsapi/struct.JSPropertySpec.html" title="struct js::jsapi::JSPropertySpec">JSPropertySpec</a></code></span></h3><h3 id='method.functions' class='method'><span id='functions.v' class='invisible'><code>unsafe fn <a href='#method.functions' class='fnname'>functions</a>() -&gt; <a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.pointer.html">*const </a><a class="struct" href="../js/jsapi/struct.JSFunctionSpec.html" title="struct js::jsapi::JSFunctionSpec">JSFunctionSpec</a></code></span></h3><h3 id='method.static_properties' class='method'><span id='static_properties.v' class='invisible'><code>unsafe fn <a href='#method.static_properties' class='fnname'>static_properties</a>() -&gt; <a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.pointer.html">*const </a><a class="struct" href="../js/jsapi/struct.JSPropertySpec.html" title="struct js::jsapi::JSPropertySpec">JSPropertySpec</a></code></span></h3><h3 id='method.static_functions' class='method'><span id='static_functions.v' class='invisible'><code>unsafe fn <a href='#method.static_functions' class='fnname'>static_functions</a>() -&gt; <a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.pointer.html">*const </a><a class="struct" href="../js/jsapi/struct.JSFunctionSpec.html" title="struct js::jsapi::JSFunctionSpec">JSFunctionSpec</a></code></span></h3><h3 id='method.js_init_class' class='method'><span id='js_init_class.v' class='invisible'><code>unsafe fn <a href='#method.js_init_class' class='fnname'>js_init_class</a>(<br>&nbsp;&nbsp;&nbsp;&nbsp;cx: <a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.pointer.html">*mut </a><a class="enum" href="../js/jsapi/enum.JSContext.html" title="enum js::jsapi::JSContext">JSContext</a>, <br>&nbsp;&nbsp;&nbsp;&nbsp;global: <a class="type" href="../js/jsapi/type.HandleObject.html" title="type js::jsapi::HandleObject">HandleObject</a><br>) -&gt; <a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.pointer.html">*mut </a><a class="enum" href="../js/jsapi/enum.JSObject.html" title="enum js::jsapi::JSObject">JSObject</a></code></span></h3><h3 id='method.js_init_object' class='method'><span id='js_init_object.v' class='invisible'><code>unsafe fn <a href='#method.js_init_object' class='fnname'>js_init_object</a>(_cx: <a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.pointer.html">*mut </a><a class="enum" href="../js/jsapi/enum.JSContext.html" title="enum js::jsapi::JSContext">JSContext</a>, _obj: <a class="type" href="../js/jsapi/type.HandleObject.html" title="type js::jsapi::HandleObject">HandleObject</a>)</code></span></h3><h3 id='method.js_init_global' class='method'><span id='js_init_global.v' class='invisible'><code>unsafe fn <a href='#method.js_init_global' class='fnname'>js_init_global</a>(cx: <a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.pointer.html">*mut </a><a class="enum" href="../js/jsapi/enum.JSContext.html" title="enum js::jsapi::JSContext">JSContext</a>, global: <a class="type" href="../js/jsapi/type.HandleObject.html" title="type js::jsapi::HandleObject">HandleObject</a>)</code></span></h3></div>
+        <h2 id='implementors' class='small-section-header'>
+          Implementors<a href='#implementors' class='anchor'></a>
+        </h2>
+        <ul class='item-list' id='implementors-list'>
+    <li><div class='out-of-band'><a class='srclink' href='../src/josephine/lib.rs.html#1056' title='goto source code'>[src]</a></div><code>impl JSInitializer for <a class="struct" href="../josephine/struct.DefaultInitializer.html" title="struct josephine::DefaultInitializer">DefaultInitializer</a></code></li>
+</ul><script type="text/javascript" async
+                         src="../implementors/josephine/trait.JSInitializer.js">
+                 </script></section>
+    <section id='search' class="content hidden"></section>
+
+    <section class="footer"></section>
+
+    <aside id="help" class="hidden">
+        <div>
+            <h1 class="hidden">Help</h1>
+
+            <div class="shortcuts">
+                <h2>Keyboard Shortcuts</h2>
+
+                <dl>
+                    <dt>?</dt>
+                    <dd>Show this help dialog</dd>
+                    <dt>S</dt>
+                    <dd>Focus the search field</dd>
+                    <dt>↑</dt>
+                    <dd>Move up in search results</dd>
+                    <dt>↓</dt>
+                    <dd>Move down in search results</dd>
+                    <dt>&#9166;</dt>
+                    <dd>Go to active search result</dd>
+                    <dt>+</dt>
+                    <dd>Collapse/expand all sections</dd>
+                </dl>
+            </div>
+
+            <div class="infos">
+                <h2>Search Tricks</h2>
+
+                <p>
+                    Prefix searches with a type followed by a colon (e.g.
+                    <code>fn:</code>) to restrict the search to a given type.
+                </p>
+
+                <p>
+                    Accepted types are: <code>fn</code>, <code>mod</code>,
+                    <code>struct</code>, <code>enum</code>,
+                    <code>trait</code>, <code>type</code>, <code>macro</code>,
+                    and <code>const</code>.
+                </p>
+
+                <p>
+                    Search functions by type signature (e.g.
+                    <code>vec -> usize</code> or <code>* -> vec</code>)
+                </p>
+            </div>
+        </div>
+    </aside>
+
+    
+
+    <script>
+        window.rootPath = "../";
+        window.currentCrate = "josephine";
+    </script>
+    <script src="../main.js"></script>
+    <script defer src="../search-index.js"></script>
+</body>
+</html>

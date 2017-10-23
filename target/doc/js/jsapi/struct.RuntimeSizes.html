@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="generator" content="rustdoc">
+    <meta name="description" content="API documentation for the Rust `RuntimeSizes` struct in crate `js`.">
+    <meta name="keywords" content="rust, rustlang, rust-lang, RuntimeSizes">
+
+    <title>js::jsapi::RuntimeSizes - Rust</title>
+
+    <link rel="stylesheet" type="text/css" href="../../normalize.css">
+    <link rel="stylesheet" type="text/css" href="../../rustdoc.css">
+    <link rel="stylesheet" type="text/css" href="../../main.css">
+    
+
+    
+    
+</head>
+<body class="rustdoc struct">
+    <!--[if lte IE 8]>
+    <div class="warning">
+        This old browser is unsupported and will most likely display funky
+        things.
+    </div>
+    <![endif]-->
+
+    
+
+    <nav class="sidebar">
+        
+        <p class='location'>Struct RuntimeSizes</p><div class="block items"><ul><li><a href="#fields">Fields</a></li></ul></div><p class='location'><a href='../index.html'>js</a>::<wbr><a href='index.html'>jsapi</a></p><script>window.sidebarCurrent = {name: 'RuntimeSizes', ty: 'struct', relpath: ''};</script><script defer src="sidebar-items.js"></script>
+    </nav>
+
+    <nav class="sub">
+        <form class="search-form js-only">
+            <div class="search-container">
+                <input class="search-input" name="search"
+                       autocomplete="off"
+                       placeholder="Click or press ‘S’ to search, ‘?’ for more options…"
+                       type="search">
+            </div>
+        </form>
+    </nav>
+
+    <section id='main' class="content">
+<h1 class='fqn'><span class='in-band'>Struct <a href='../index.html'>js</a>::<wbr><a href='index.html'>jsapi</a>::<wbr><a class="struct" href=''>RuntimeSizes</a></span><span class='out-of-band'><span id='render-detail'>
+                   <a id="toggle-all-docs" href="javascript:void(0)" title="collapse all docs">
+                       [<span class='inner'>&#x2212;</span>]
+                   </a>
+               </span><a class='srclink' href='../../src/js/jsapi_linux_64.rs.html#5650-5665' title='goto source code'>[src]</a></span></h1>
+<pre class='rust struct'><div class="docblock attributes">#[repr(C)]
+</div>pub struct RuntimeSizes {
+    pub object: <a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.usize.html">usize</a>,
+    pub atomsTable: <a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.usize.html">usize</a>,
+    pub contexts: <a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.usize.html">usize</a>,
+    pub temporary: <a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.usize.html">usize</a>,
+    pub interpreterStack: <a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.usize.html">usize</a>,
+    pub mathCache: <a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.usize.html">usize</a>,
+    pub sharedImmutableStringsCache: <a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.usize.html">usize</a>,
+    pub uncompressedSourceCache: <a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.usize.html">usize</a>,
+    pub scriptData: <a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.usize.html">usize</a>,
+    pub scriptSourceInfo: <a class="struct" href="../../js/jsapi/struct.ScriptSourceInfo.html" title="struct js::jsapi::ScriptSourceInfo">ScriptSourceInfo</a>,
+    pub code: <a class="struct" href="../../js/jsapi/struct.CodeSizes.html" title="struct js::jsapi::CodeSizes">CodeSizes</a>,
+    pub gc: <a class="struct" href="../../js/jsapi/struct.GCSizes.html" title="struct js::jsapi::GCSizes">GCSizes</a>,
+    pub allScriptSources: <a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.u64.html">u64</a>,
+    pub notableScriptSources: <a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.array.html">[</a><a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.u64.html">u64</a><a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.array.html">; 4]</a>,
+}</pre><div class='docblock'><p>These measurements relate directly to the JSRuntime, and not to zones and
+compartments within it.</p>
+</div><h2 id='fields' class='fields small-section-header'>
+                       Fields<a href='#fields' class='anchor'></a></h2><span id="structfield.object" class="structfield small-section-header">
+                           <a href="#structfield.object" class="anchor field"></a>
+                           <span id="object.v" class='invisible'>
+                           <code>object: <a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.usize.html">usize</a></code>
+                           </span></span><span id="structfield.atomsTable" class="structfield small-section-header">
+                           <a href="#structfield.atomsTable" class="anchor field"></a>
+                           <span id="atomsTable.v" class='invisible'>
+                           <code>atomsTable: <a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.usize.html">usize</a></code>
+                           </span></span><span id="structfield.contexts" class="structfield small-section-header">
+                           <a href="#structfield.contexts" class="anchor field"></a>
+                           <span id="contexts.v" class='invisible'>
+                           <code>contexts: <a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.usize.html">usize</a></code>
+                           </span></span><span id="structfield.temporary" class="structfield small-section-header">
+                           <a href="#structfield.temporary" class="anchor field"></a>
+                           <span id="temporary.v" class='invisible'>
+                           <code>temporary: <a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.usize.html">usize</a></code>
+                           </span></span><span id="structfield.interpreterStack" class="structfield small-section-header">
+                           <a href="#structfield.interpreterStack" class="anchor field"></a>
+                           <span id="interpreterStack.v" class='invisible'>
+                           <code>interpreterStack: <a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.usize.html">usize</a></code>
+                           </span></span><span id="structfield.mathCache" class="structfield small-section-header">
+                           <a href="#structfield.mathCache" class="anchor field"></a>
+                           <span id="mathCache.v" class='invisible'>
+                           <code>mathCache: <a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.usize.html">usize</a></code>
+                           </span></span><span id="structfield.sharedImmutableStringsCache" class="structfield small-section-header">
+                           <a href="#structfield.sharedImmutableStringsCache" class="anchor field"></a>
+                           <span id="sharedImmutableStringsCache.v" class='invisible'>
+                           <code>sharedImmutableStringsCache: <a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.usize.html">usize</a></code>
+                           </span></span><span id="structfield.uncompressedSourceCache" class="structfield small-section-header">
+                           <a href="#structfield.uncompressedSourceCache" class="anchor field"></a>
+                           <span id="uncompressedSourceCache.v" class='invisible'>
+                           <code>uncompressedSourceCache: <a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.usize.html">usize</a></code>
+                           </span></span><span id="structfield.scriptData" class="structfield small-section-header">
+                           <a href="#structfield.scriptData" class="anchor field"></a>
+                           <span id="scriptData.v" class='invisible'>
+                           <code>scriptData: <a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.usize.html">usize</a></code>
+                           </span></span><span id="structfield.scriptSourceInfo" class="structfield small-section-header">
+                           <a href="#structfield.scriptSourceInfo" class="anchor field"></a>
+                           <span id="scriptSourceInfo.v" class='invisible'>
+                           <code>scriptSourceInfo: <a class="struct" href="../../js/jsapi/struct.ScriptSourceInfo.html" title="struct js::jsapi::ScriptSourceInfo">ScriptSourceInfo</a></code>
+                           </span></span><span id="structfield.code" class="structfield small-section-header">
+                           <a href="#structfield.code" class="anchor field"></a>
+                           <span id="code.v" class='invisible'>
+                           <code>code: <a class="struct" href="../../js/jsapi/struct.CodeSizes.html" title="struct js::jsapi::CodeSizes">CodeSizes</a></code>
+                           </span></span><span id="structfield.gc" class="structfield small-section-header">
+                           <a href="#structfield.gc" class="anchor field"></a>
+                           <span id="gc.v" class='invisible'>
+                           <code>gc: <a class="struct" href="../../js/jsapi/struct.GCSizes.html" title="struct js::jsapi::GCSizes">GCSizes</a></code>
+                           </span></span><span id="structfield.allScriptSources" class="structfield small-section-header">
+                           <a href="#structfield.allScriptSources" class="anchor field"></a>
+                           <span id="allScriptSources.v" class='invisible'>
+                           <code>allScriptSources: <a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.u64.html">u64</a></code>
+                           </span></span><span id="structfield.notableScriptSources" class="structfield small-section-header">
+                           <a href="#structfield.notableScriptSources" class="anchor field"></a>
+                           <span id="notableScriptSources.v" class='invisible'>
+                           <code>notableScriptSources: <a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.array.html">[</a><a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.u64.html">u64</a><a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.array.html">; 4]</a></code>
+                           </span></span></section>
+    <section id='search' class="content hidden"></section>
+
+    <section class="footer"></section>
+
+    <aside id="help" class="hidden">
+        <div>
+            <h1 class="hidden">Help</h1>
+
+            <div class="shortcuts">
+                <h2>Keyboard Shortcuts</h2>
+
+                <dl>
+                    <dt>?</dt>
+                    <dd>Show this help dialog</dd>
+                    <dt>S</dt>
+                    <dd>Focus the search field</dd>
+                    <dt>↑</dt>
+                    <dd>Move up in search results</dd>
+                    <dt>↓</dt>
+                    <dd>Move down in search results</dd>
+                    <dt>&#9166;</dt>
+                    <dd>Go to active search result</dd>
+                    <dt>+</dt>
+                    <dd>Collapse/expand all sections</dd>
+                </dl>
+            </div>
+
+            <div class="infos">
+                <h2>Search Tricks</h2>
+
+                <p>
+                    Prefix searches with a type followed by a colon (e.g.
+                    <code>fn:</code>) to restrict the search to a given type.
+                </p>
+
+                <p>
+                    Accepted types are: <code>fn</code>, <code>mod</code>,
+                    <code>struct</code>, <code>enum</code>,
+                    <code>trait</code>, <code>type</code>, <code>macro</code>,
+                    and <code>const</code>.
+                </p>
+
+                <p>
+                    Search functions by type signature (e.g.
+                    <code>vec -> usize</code> or <code>* -> vec</code>)
+                </p>
+            </div>
+        </div>
+    </aside>
+
+    
+
+    <script>
+        window.rootPath = "../../";
+        window.currentCrate = "js";
+    </script>
+    <script src="../../main.js"></script>
+    <script defer src="../../search-index.js"></script>
+</body>
+</html>

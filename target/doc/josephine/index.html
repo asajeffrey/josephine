@@ -1,0 +1,748 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="generator" content="rustdoc">
+    <meta name="description" content="API documentation for the Rust `josephine` crate.">
+    <meta name="keywords" content="rust, rustlang, rust-lang, josephine">
+
+    <title>josephine - Rust</title>
+
+    <link rel="stylesheet" type="text/css" href="../normalize.css">
+    <link rel="stylesheet" type="text/css" href="../rustdoc.css">
+    <link rel="stylesheet" type="text/css" href="../main.css">
+    
+
+    
+    
+</head>
+<body class="rustdoc mod">
+    <!--[if lte IE 8]>
+    <div class="warning">
+        This old browser is unsupported and will most likely display funky
+        things.
+    </div>
+    <![endif]-->
+
+    
+
+    <nav class="sidebar">
+        
+        <p class='location'>Crate josephine</p><div class="block items"><ul><li><a href="#structs">Structs</a></li><li><a href="#enums">Enums</a></li><li><a href="#traits">Traits</a></li><li><a href="#functions">Functions</a></li></ul></div><p class='location'></p><script>window.sidebarCurrent = {name: 'josephine', ty: 'mod', relpath: '../'};</script>
+    </nav>
+
+    <nav class="sub">
+        <form class="search-form js-only">
+            <div class="search-container">
+                <input class="search-input" name="search"
+                       autocomplete="off"
+                       placeholder="Click or press ‘S’ to search, ‘?’ for more options…"
+                       type="search">
+            </div>
+        </form>
+    </nav>
+
+    <section id='main' class="content">
+<h1 class='fqn'><span class='in-band'>Crate <a class="mod" href=''>josephine</a></span><span class='out-of-band'><span id='render-detail'>
+                   <a id="toggle-all-docs" href="javascript:void(0)" title="collapse all docs">
+                       [<span class='inner'>&#x2212;</span>]
+                   </a>
+               </span><a class='srclink' href='../src/josephine/lib.rs.html#1-1709' title='goto source code'>[src]</a></span></h1>
+<div class='docblock'><p>A library which uses JavaScript to safely manage the lifetimes of Rust data.</p>
+
+<p>This library allows Rust data to be attached to JavaScript objects:
+the lifetime of the Rust data is then the same as the JS object it is attached to.
+Since JS is garbage collected, it is safe to copy and discard references to
+JS managed data, and allows examples like doubly-linked lists which would
+otherwise require reference counting. Reference counting requires dynamic checks,
+for example getting mutable access to reference-counted data panics if the reference
+count is more than 1.</p>
+
+<p>The goals are:</p>
+
+<ol>
+<li>Use JS to manage the lifetime of Rust data.</li>
+<li>Allow references to JS managed data to be freely copied and discarded, relying on
+the garbage collector for safety.</li>
+<li>Maintain Rust memory safety (for example no mutable aliasing),
+without requiring additional static analysis such as a lint.</li>
+<li>Allow mutable and immutable access to Rust data via JS managed references, so
+we do not need to rely on interior mutability.</li>
+<li>Provide a rooting API to ensure that JS managed data is not garbage collected
+while it is being used.</li>
+</ol>
+
+<p>To support safe access to JS managed data, the API uses a <em>JS context</em>, which
+is used as an access token to allow JS managed data to be accessed, allocated
+or deallocated. Mutable access to JS managed data requires mutable access to the
+JS context, which is how the API achieves memory safety even though JS managed
+references can be copied and discarded freely.</p>
+
+<p>JS managed memory is split into <em>compartments</em>, which are
+separately garbage collected, so the garbage collector can avoid
+scanning the entire heap. The API statically tracks compartments, to
+ensure that there are no direct references between compartments.</p>
+
+<p>The API is implemented as bindings to the SpiderMonkey JS engine,
+from which it borrows the garbage collector and the notions of compartment
+and JS context. The API allows calling into JavaScript
+from Rust, and calling back into Rust from JavaScript. These bindings are unsafe,
+and are intended for use by a trusted bindings generator.</p>
+
+<h1 id='js-managed-data' class='section-header'><a href='#js-managed-data'>JS-managed data</a></h1>
+<p>The idea is that Rust data can be given to JS to manage, and then accessed,
+using the JS context. This is passed as a variable of type <code>JSContext&lt;S&gt;</code>,
+where the type parameter <code>S</code> is used to track the state of the context.</p>
+
+<p>For example, we can give JS some Rust data to manage in compartment
+<code>C</code> when the context state implements the <code>CanAlloc</code> trait:</p>
+
+<pre class="rust rust-example-rendered">
+<span class="kw">fn</span> <span class="ident">example</span><span class="op">&lt;</span><span class="ident">C</span>, <span class="ident">S</span><span class="op">&gt;</span>(<span class="ident">cx</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">JSContext</span><span class="op">&lt;</span><span class="ident">S</span><span class="op">&gt;</span>) <span class="kw">where</span>
+    <span class="ident">S</span>: <span class="ident">CanAlloc</span> <span class="op">+</span> <span class="ident">InCompartment</span><span class="op">&lt;</span><span class="ident">C</span><span class="op">&gt;</span>,
+    <span class="ident">C</span>: <span class="ident">Compartment</span>,
+{
+    <span class="kw">let</span> <span class="ident">x</span>: <span class="ident">JSManaged</span><span class="op">&lt;</span><span class="ident">C</span>, <span class="ident">String</span><span class="op">&gt;</span> <span class="op">=</span> <span class="ident">cx</span>.<span class="ident">manage</span>(<span class="ident">String</span>::<span class="ident">from</span>(<span class="string">&quot;hello&quot;</span>));
+}</pre>
+
+<p>JS-managed data in compartment <code>C</code> can be accessed if the context state
+implements the <code>CanAccess&lt;C&gt;</code> trait:</p>
+
+<pre class="rust rust-example-rendered">
+<span class="kw">fn</span> <span class="ident">example</span><span class="op">&lt;</span><span class="ident">C</span>, <span class="ident">S</span><span class="op">&gt;</span>(<span class="ident">cx</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">JSContext</span><span class="op">&lt;</span><span class="ident">S</span><span class="op">&gt;</span>, <span class="ident">x</span>: <span class="ident">JSManaged</span><span class="op">&lt;</span><span class="ident">C</span>, <span class="ident">String</span><span class="op">&gt;</span>) <span class="kw">where</span>
+    <span class="ident">S</span>: <span class="ident">CanAccess</span>,
+    <span class="ident">C</span>: <span class="ident">Compartment</span>,
+{
+    <span class="macro">println</span><span class="macro">!</span>(<span class="string">&quot;{} world&quot;</span>, <span class="ident">x</span>.<span class="ident">borrow</span>(<span class="ident">cx</span>));
+}</pre>
+
+<h1 id='lifetimes-of-js-managed-data' class='section-header'><a href='#lifetimes-of-js-managed-data'>Lifetimes of JS-managed data</a></h1>
+<p>Unfortunately, combining these two examples is not memory-safe, due to
+garbage collection:</p>
+
+<div class='information'><div class='tooltip ignore'>⚠<span class='tooltiptext'>Be careful when using this code, it's not being tested!</span></div></div><pre class="rust rust-example-rendered ignore">
+<span class="kw">fn</span> <span class="ident">unsafe_example</span><span class="op">&lt;</span><span class="ident">C</span>, <span class="ident">S</span><span class="op">&gt;</span>(<span class="ident">cx</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">JSContext</span><span class="op">&lt;</span><span class="ident">S</span><span class="op">&gt;</span>) <span class="kw">where</span>
+    <span class="ident">S</span>: <span class="ident">CanAlloc</span> <span class="op">+</span> <span class="ident">CanAccess</span> <span class="op">+</span> <span class="ident">InCompartment</span><span class="op">&lt;</span><span class="ident">C</span><span class="op">&gt;</span>,
+    <span class="ident">C</span>: <span class="ident">Compartment</span>,
+{
+    <span class="kw">let</span> <span class="ident">x</span>: <span class="ident">JSManaged</span><span class="op">&lt;</span><span class="ident">C</span>, <span class="ident">String</span><span class="op">&gt;</span> <span class="op">=</span> <span class="ident">cx</span>.<span class="ident">manage</span>(<span class="ident">String</span>::<span class="ident">from</span>(<span class="string">&quot;hello&quot;</span>));
+    <span class="comment">// Imagine something triggers GC here</span>
+    <span class="macro">println</span><span class="macro">!</span>(<span class="string">&quot;{} world&quot;</span>, <span class="ident">x</span>.<span class="ident">borrow</span>(<span class="ident">cx</span>));
+}</pre>
+
+<p>This example is not safe, as there is nothing keeping <code>x</code> alive in JS,
+so if garbage collection is triggered, then <code>x</code> will be reclaimed
+which will drop the Rust data, and so the call to <code>x.borrow(cx)</code> will be a use-after-free.</p>
+
+<p>This example is not memory-safe, and fortunately fails to typecheck:</p>
+
+<pre><code class="language-text">    error[E0502]: cannot borrow `*cx` as immutable because it is also borrowed as mutable
+  --&gt; src/lib.rs:10:35
+   |
+8  |     let x: JSManaged&lt;C, String&gt; = cx.manage(String::from(&quot;hello&quot;));
+   |                                   -- mutable borrow occurs here
+9  |     // Imagine something triggers GC here
+10 |     println!(&quot;{} world&quot;, x.borrow(cx));
+   |                                   ^^ immutable borrow occurs here
+11 | }
+   | - mutable borrow ends here
+</code></pre>
+
+<p>To see why this example fails to typecheck, we can introduce explicit lifetimes:</p>
+
+<div class='information'><div class='tooltip ignore'>⚠<span class='tooltiptext'>Be careful when using this code, it's not being tested!</span></div></div><pre class="rust rust-example-rendered ignore">
+<span class="kw">fn</span> <span class="ident">unsafe_example</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span>, <span class="ident">C</span>, <span class="ident">S</span><span class="op">&gt;</span>(<span class="ident">cx</span>: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a</span> <span class="kw-2">mut</span> <span class="ident">JSContext</span><span class="op">&lt;</span><span class="ident">S</span><span class="op">&gt;</span>) <span class="kw">where</span>
+    <span class="ident">S</span>: <span class="ident">CanAlloc</span> <span class="op">+</span> <span class="ident">CanAccess</span> <span class="op">+</span> <span class="ident">InCompartment</span><span class="op">&lt;</span><span class="ident">C</span><span class="op">&gt;</span>,
+    <span class="ident">C</span>: <span class="ident">Compartment</span>,
+{
+    <span class="comment">// x has type JSManaged&lt;&#39;b, C, String&gt;</span>
+    <span class="kw">let</span> <span class="ident">x</span> <span class="op">=</span> <span class="ident">cx</span>.<span class="ident">manage</span>(<span class="ident">String</span>::<span class="ident">from</span>(<span class="string">&quot;hello&quot;</span>));
+    <span class="comment">// Imagine something triggers GC here</span>
+    <span class="comment">// x_ref has type &amp;&#39;c String</span>
+    <span class="kw">let</span> <span class="ident">x_ref</span> <span class="op">=</span> <span class="ident">x</span>.<span class="ident">borrow</span>(<span class="ident">cx</span>);
+    <span class="macro">println</span><span class="macro">!</span>(<span class="string">&quot;{} world&quot;</span>, <span class="ident">x_ref</span>);
+}</pre>
+
+<p>We can now see why this fails to typecheck: since <code>cx</code> is borrowed mutably at type
+<code>&amp;&#39;b mut JSContext&lt;S&gt;</code>, then immutably at type <code>&amp;&#39;c mut JSContext&lt;S&gt;</code> these lifetimes
+cannot overlap, but the call to <code>x.borrow(cx)</code> requires them to overlap. These contradicting
+constraints cause the example to fail to compile.</p>
+
+<h1 id='rooting' class='section-header'><a href='#rooting'>Rooting</a></h1>
+<p>To fix this example, we need to make sure that <code>x</code> lives long enough. One way to do this is
+to root <code>x</code>, so that it will not be garbage collected.</p>
+
+<pre class="rust rust-example-rendered">
+<span class="kw">fn</span> <span class="ident">example</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span>, <span class="ident">C</span>, <span class="ident">S</span><span class="op">&gt;</span>(<span class="ident">cx</span>: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a</span> <span class="kw-2">mut</span> <span class="ident">JSContext</span><span class="op">&lt;</span><span class="ident">S</span><span class="op">&gt;</span>) <span class="kw">where</span>
+    <span class="ident">S</span>: <span class="ident">CanAlloc</span> <span class="op">+</span> <span class="ident">CanAccess</span> <span class="op">+</span> <span class="ident">InCompartment</span><span class="op">&lt;</span><span class="ident">C</span><span class="op">&gt;</span>,
+    <span class="ident">C</span>: <span class="ident">Compartment</span>,
+{
+    <span class="comment">// Function body has lifetime &#39;b</span>
+    <span class="comment">// x has type JSManaged&lt;&#39;b, C, String&gt;</span>
+    <span class="kw">let</span> <span class="kw-2">ref</span> <span class="kw-2">mut</span> <span class="ident">root</span> <span class="op">=</span> <span class="ident">cx</span>.<span class="ident">new_root</span>();
+    <span class="kw">let</span> <span class="ident">x</span> <span class="op">=</span> <span class="ident">cx</span>.<span class="ident">manage</span>(<span class="ident">String</span>::<span class="ident">from</span>(<span class="string">&quot;hello&quot;</span>)).<span class="ident">in_root</span>(<span class="ident">root</span>);
+    <span class="comment">// Imagine something triggers GC here</span>
+    <span class="comment">// x_ref has type &amp;&#39;c String</span>
+    <span class="kw">let</span> <span class="ident">x_ref</span> <span class="op">=</span> <span class="ident">x</span>.<span class="ident">borrow</span>(<span class="ident">cx</span>);
+    <span class="macro">println</span><span class="macro">!</span>(<span class="string">&quot;{} world&quot;</span>, <span class="ident">x_ref</span>);
+}</pre>
+
+<p>This example is now safe, since <code>x</code> is rooted during its access.
+The example typechecks because the root has lifetime <code>&#39;b</code>, and there is
+no constraint that <code>&#39;b</code> and <code>&#39;c</code> don&#39;t overlap.
+This use of lifetimes allows safe access to JS-managed data without a special
+rooting lint.</p>
+
+<p>We can root any data which implements the <code>JSRootable</code> and <code>JSTraceable</code> traits,
+which includes JS-managed data. These traits can be derived,
+using the <code>#[derive(JSRootable, JSTraceable)]</code> type annotation.</p>
+
+<h1 id='mutating-js-managed-data' class='section-header'><a href='#mutating-js-managed-data'>Mutating JS-managed data</a></h1>
+<p>JS managed data can be accessed mutably as well as immutably.
+This is safe because mutably accessing JS manage data requires
+mutably borrowing the JS context, so there cannot be two simultaneous
+mutable accesses.</p>
+
+<pre class="rust rust-example-rendered">
+<span class="kw">fn</span> <span class="ident">example</span><span class="op">&lt;</span><span class="ident">C</span>, <span class="ident">S</span><span class="op">&gt;</span>(<span class="ident">cx</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">JSContext</span><span class="op">&lt;</span><span class="ident">S</span><span class="op">&gt;</span>, <span class="ident">x</span>: <span class="ident">JSManaged</span><span class="op">&lt;</span><span class="ident">C</span>, <span class="ident">String</span><span class="op">&gt;</span>) <span class="kw">where</span>
+    <span class="ident">S</span>: <span class="ident">CanAccess</span>,
+    <span class="ident">C</span>: <span class="ident">Compartment</span>,
+{
+    <span class="macro">println</span><span class="macro">!</span>(<span class="string">&quot;{} world&quot;</span>, <span class="ident">x</span>.<span class="ident">borrow</span>(<span class="ident">cx</span>));
+    <span class="kw-2">*</span><span class="ident">x</span>.<span class="ident">borrow_mut</span>(<span class="ident">cx</span>) <span class="op">=</span> <span class="ident">String</span>::<span class="ident">from</span>(<span class="string">&quot;hi&quot;</span>);
+    <span class="macro">println</span><span class="macro">!</span>(<span class="string">&quot;{} world&quot;</span>, <span class="ident">x</span>.<span class="ident">borrow</span>(<span class="ident">cx</span>));
+}</pre>
+
+<p>An attempt to mutably access JS managed data more than once simultaneously
+results in an error from the borrow-checker, for example:</p>
+
+<div class='information'><div class='tooltip ignore'>⚠<span class='tooltiptext'>Be careful when using this code, it's not being tested!</span></div></div><pre class="rust rust-example-rendered ignore">
+<span class="kw">fn</span> <span class="ident">unsafe_example</span><span class="op">&lt;</span><span class="ident">C</span>, <span class="ident">S</span><span class="op">&gt;</span>(<span class="ident">cx</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">JSContext</span><span class="op">&lt;</span><span class="ident">S</span><span class="op">&gt;</span>, <span class="ident">x</span>: <span class="ident">JSManaged</span><span class="op">&lt;</span><span class="ident">C</span>, <span class="ident">String</span><span class="op">&gt;</span>, <span class="ident">y</span>: <span class="ident">JSManaged</span><span class="op">&lt;</span><span class="ident">C</span>, <span class="ident">String</span><span class="op">&gt;</span>) <span class="kw">where</span>
+    <span class="ident">S</span>: <span class="ident">CanAccess</span>,
+    <span class="ident">C</span>: <span class="ident">Compartment</span>,
+{
+    <span class="ident">mem</span>::<span class="ident">swap</span>(<span class="ident">x</span>.<span class="ident">borrow_mut</span>(<span class="ident">cx</span>), <span class="ident">y</span>.<span class="ident">borrow_mut</span>(<span class="ident">cx</span>));
+}</pre>
+
+<pre><code class="language-text">    error[E0499]: cannot borrow `*cx` as mutable more than once at a time
+ --&gt; src/lib.rs:8:46
+  |
+8 |     mem::swap(x.borrow_mut(cx), y.borrow_mut(cx));
+  |                            --                ^^ - first borrow ends here
+  |                            |                 |
+  |                            |                 second mutable borrow occurs here
+  |                            first mutable borrow occurs here
+</code></pre>
+
+<p>Mutable update allows the construction of cyclic structures, for example:</p>
+
+<pre class="rust rust-example-rendered">
+<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">JSInitializable</span>, <span class="ident">JSTraceable</span>, <span class="ident">JSRootable</span>)]</span>
+<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">NativeLoop</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span>, <span class="ident">C</span><span class="op">&gt;</span> {
+   <span class="ident">next</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">Loop</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span>, <span class="ident">C</span><span class="op">&gt;&gt;</span>,
+}
+<span class="kw">type</span> <span class="ident">Loop</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span>, <span class="ident">C</span><span class="op">&gt;</span> <span class="op">=</span> <span class="ident">JSManaged</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span>, <span class="ident">C</span>, <span class="ident">NativeLoop</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span>, <span class="ident">C</span><span class="op">&gt;&gt;</span>;
+<span class="kw">fn</span> <span class="ident">example</span><span class="op">&lt;</span><span class="ident">C</span>, <span class="ident">S</span><span class="op">&gt;</span>(<span class="ident">cx</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">JSContext</span><span class="op">&lt;</span><span class="ident">S</span><span class="op">&gt;</span>) <span class="kw">where</span>
+    <span class="ident">S</span>: <span class="ident">CanAccess</span> <span class="op">+</span> <span class="ident">CanAlloc</span> <span class="op">+</span> <span class="ident">InCompartment</span><span class="op">&lt;</span><span class="ident">C</span><span class="op">&gt;</span>,
+    <span class="ident">C</span>: <span class="ident">Compartment</span>,
+{
+   <span class="kw">let</span> <span class="kw-2">ref</span> <span class="kw-2">mut</span> <span class="ident">root</span> <span class="op">=</span> <span class="ident">cx</span>.<span class="ident">new_root</span>();
+   <span class="kw">let</span> <span class="ident">l</span> <span class="op">=</span> <span class="ident">cx</span>.<span class="ident">manage</span>(<span class="ident">NativeLoop</span> { <span class="ident">next</span>: <span class="prelude-val">None</span> }).<span class="ident">in_root</span>(<span class="ident">root</span>);
+   <span class="ident">l</span>.<span class="ident">borrow_mut</span>(<span class="ident">cx</span>).<span class="ident">next</span> <span class="op">=</span> <span class="prelude-val">Some</span>(<span class="ident">l</span>);
+}</pre>
+
+<h1 id='snapshots' class='section-header'><a href='#snapshots'>Snapshots</a></h1>
+<p>Some cases of building JS managed data require rooting, but in some cases
+the rooting can be avoided, since the program does nothing to trigger
+garbage collection. In this case, we can snapshot the JS context after
+performing allocation. The snapshot supports accessing JS managed data,
+but does not support any calls that might trigger garbage collection.
+As a result, we know that any data which is live at the beginning of
+the snapshot is also live at the end.</p>
+
+<pre class="rust rust-example-rendered">
+<span class="kw">fn</span> <span class="ident">example</span><span class="op">&lt;</span><span class="ident">C</span>, <span class="ident">S</span><span class="op">&gt;</span>(<span class="ident">cx</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">JSContext</span><span class="op">&lt;</span><span class="ident">S</span><span class="op">&gt;</span>) <span class="kw">where</span>
+    <span class="ident">S</span>: <span class="ident">CanAccess</span> <span class="op">+</span> <span class="ident">CanAlloc</span> <span class="op">+</span> <span class="ident">InCompartment</span><span class="op">&lt;</span><span class="ident">C</span><span class="op">&gt;</span>,
+    <span class="ident">C</span>: <span class="ident">Compartment</span>,
+{
+   <span class="kw">let</span> (<span class="kw-2">ref</span> <span class="kw-2">mut</span> <span class="ident">cx</span>, <span class="ident">l</span>) <span class="op">=</span> <span class="ident">cx</span>.<span class="ident">snapshot_manage</span>(<span class="ident">NativeLoop</span> { <span class="ident">next</span>: <span class="prelude-val">None</span> });
+   <span class="ident">l</span>.<span class="ident">borrow_mut</span>(<span class="ident">cx</span>).<span class="ident">next</span> <span class="op">=</span> <span class="prelude-val">Some</span>(<span class="ident">l</span>);
+}</pre>
+
+<p>A program which tries to use a function which might trigger GC will
+not typecheck, as the snapshotted JS context state does not support
+the appropriate traits. For example:</p>
+
+<div class='information'><div class='tooltip ignore'>⚠<span class='tooltiptext'>Be careful when using this code, it's not being tested!</span></div></div><pre class="rust rust-example-rendered ignore">
+<span class="kw">fn</span> <span class="ident">might_trigger_gc</span><span class="op">&lt;</span><span class="ident">C</span>, <span class="ident">S</span><span class="op">&gt;</span>(<span class="ident">cx</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">JSContext</span><span class="op">&lt;</span><span class="ident">S</span><span class="op">&gt;</span>) <span class="kw">where</span>
+    <span class="ident">S</span>: <span class="ident">CanAccess</span> <span class="op">+</span> <span class="ident">CanAlloc</span> <span class="op">+</span> <span class="ident">InCompartment</span><span class="op">&lt;</span><span class="ident">C</span><span class="op">&gt;</span>,
+    <span class="ident">C</span>: <span class="ident">Compartment</span>,
+{ }
+
+<span class="kw">fn</span> <span class="ident">unsafe_example</span><span class="op">&lt;</span><span class="ident">C</span>, <span class="ident">S</span><span class="op">&gt;</span>(<span class="ident">cx</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">JSContext</span><span class="op">&lt;</span><span class="ident">S</span><span class="op">&gt;</span>) <span class="kw">where</span>
+    <span class="ident">S</span>: <span class="ident">CanAccess</span> <span class="op">+</span> <span class="ident">CanAlloc</span> <span class="op">+</span> <span class="ident">InCompartment</span><span class="op">&lt;</span><span class="ident">C</span><span class="op">&gt;</span>,
+    <span class="ident">C</span>: <span class="ident">Compartment</span>,
+{
+   <span class="kw">let</span> (<span class="kw-2">ref</span> <span class="kw-2">mut</span> <span class="ident">cx</span>, <span class="ident">l</span>) <span class="op">=</span> <span class="ident">cx</span>.<span class="ident">snapshot_manage</span>(<span class="ident">NativeLoop</span> { <span class="ident">next</span>: <span class="prelude-val">None</span> });
+   <span class="ident">might_trigger_gc</span>(<span class="ident">cx</span>);
+   <span class="ident">l</span>.<span class="ident">borrow_mut</span>(<span class="ident">cx</span>).<span class="ident">next</span> <span class="op">=</span> <span class="prelude-val">Some</span>(<span class="ident">l</span>);
+}</pre>
+
+<p>In this program, the function <code>might_trigger_gc</code> requires the state
+to support <code>CanAlloc&lt;C&gt;</code>, which is not allowed by the snapshotted state.</p>
+
+<pre><code class="language-text">    error[E0277]: the trait bound `josephine::Snapshotted&lt;&#39;_, S&gt;: josephine::CanAlloc` is not satisfied
+  --&gt; src/lib.rs:19:4
+   |
+19 |    might_trigger_gc(cx);
+   |    ^^^^^^^^^^^^^^^^ the trait `josephine::CanAlloc` is not implemented for `josephine::Snapshotted&lt;&#39;_, S&gt;`
+   |
+   = note: required by `might_trigger_gc`
+</code></pre>
+
+<h1 id='globals' class='section-header'><a href='#globals'>Globals</a></h1>
+<p>JS contexts require initialization. In particular, each compartment has a global,
+which should be JS managed data. The global can be created using <code>cx.create_compartment()</code>,
+and given native data to manage with <code>cx.global_manage(data)</code>. The global can be accessed
+with <code>cx.global()</code>.</p>
+
+<pre class="rust rust-example-rendered">
+<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">JSInitializable</span>, <span class="ident">JSTraceable</span>, <span class="ident">JSRootable</span>, <span class="ident">JSTransplantable</span>)]</span>
+<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">NativeMyGlobal</span> { <span class="ident">name</span>: <span class="ident">String</span> }
+<span class="kw">type</span> <span class="ident">MyGlobal</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span>, <span class="ident">C</span><span class="op">&gt;</span> <span class="op">=</span> <span class="ident">JSManaged</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span>, <span class="ident">C</span>, <span class="ident">NativeMyGlobal</span><span class="op">&gt;</span>;
+
+<span class="kw">fn</span> <span class="ident">example</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span>, <span class="ident">S</span><span class="op">&gt;</span>(<span class="ident">cx</span>: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a</span> <span class="kw-2">mut</span> <span class="ident">JSContext</span><span class="op">&lt;</span><span class="ident">S</span><span class="op">&gt;</span>) <span class="op">-&gt;</span> <span class="ident">MyGlobal</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span>, <span class="ident">SOMEWHERE</span><span class="op">&gt;</span> <span class="kw">where</span>
+   <span class="ident">S</span>: <span class="ident">CanCreateCompartments</span>,
+{
+   <span class="kw">let</span> <span class="ident">cx</span> <span class="op">=</span> <span class="ident">cx</span>.<span class="ident">create_compartment</span>();
+   <span class="kw">let</span> <span class="ident">name</span> <span class="op">=</span> <span class="ident">String</span>::<span class="ident">from</span>(<span class="string">&quot;Alice&quot;</span>);
+   <span class="kw">let</span> <span class="ident">cx</span> <span class="op">=</span> <span class="ident">cx</span>.<span class="ident">global_manage</span>(<span class="ident">NativeMyGlobal</span> { <span class="ident">name</span>: <span class="ident">name</span> });
+   <span class="ident">cx</span>.<span class="ident">global</span>().<span class="ident">forget_compartment</span>()
+}</pre>
+
+<p>In some cases, the global contains some JS-managed data, which is why the initialization
+is split into two steps: creating the compartment, and
+providing the JS-managed data for the global, for example:</p>
+
+<pre class="rust rust-example-rendered">
+<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">JSInitializable</span>, <span class="ident">JSTraceable</span>, <span class="ident">JSRootable</span>, <span class="ident">JSTransplantable</span>)]</span>
+<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">NativeMyGlobal</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span>, <span class="ident">C</span><span class="op">&gt;</span> { <span class="ident">name</span>: <span class="ident">JSManaged</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span>, <span class="ident">C</span>, <span class="ident">String</span><span class="op">&gt;</span> }
+<span class="kw">type</span> <span class="ident">MyGlobal</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span>, <span class="ident">C</span><span class="op">&gt;</span> <span class="op">=</span> <span class="ident">JSManaged</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span>, <span class="ident">C</span>, <span class="ident">NativeMyGlobal</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span>, <span class="ident">C</span><span class="op">&gt;&gt;</span>;
+
+<span class="kw">fn</span> <span class="ident">example</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span>, <span class="ident">S</span><span class="op">&gt;</span>(<span class="ident">cx</span>: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a</span> <span class="kw-2">mut</span> <span class="ident">JSContext</span><span class="op">&lt;</span><span class="ident">S</span><span class="op">&gt;</span>) <span class="op">-&gt;</span> <span class="ident">MyGlobal</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span>, <span class="ident">SOMEWHERE</span><span class="op">&gt;</span> <span class="kw">where</span>
+   <span class="ident">S</span>: <span class="ident">CanCreateCompartments</span>,
+{
+   <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">cx</span> <span class="op">=</span> <span class="ident">cx</span>.<span class="ident">create_compartment</span>();
+   <span class="kw">let</span> <span class="kw-2">ref</span> <span class="kw-2">mut</span> <span class="ident">root</span> <span class="op">=</span> <span class="ident">cx</span>.<span class="ident">new_root</span>();
+   <span class="kw">let</span> <span class="ident">name</span> <span class="op">=</span> <span class="ident">cx</span>.<span class="ident">manage</span>(<span class="ident">String</span>::<span class="ident">from</span>(<span class="string">&quot;Alice&quot;</span>)).<span class="ident">in_root</span>(<span class="ident">root</span>);
+   <span class="kw">let</span> <span class="kw-2">ref</span> <span class="ident">cx</span> <span class="op">=</span> <span class="ident">cx</span>.<span class="ident">global_manage</span>(<span class="ident">NativeMyGlobal</span> { <span class="ident">name</span>: <span class="ident">name</span> });
+   <span class="ident">cx</span>.<span class="ident">global</span>().<span class="ident">forget_compartment</span>()
+}</pre>
+
+<h1 id='bootstrapping' class='section-header'><a href='#bootstrapping'>Bootstrapping</a></h1>
+<p>The JSContext is built using <code>JSContext::new</code>.</p>
+
+<pre class="rust rust-example-rendered">
+<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">JSInitializable</span>, <span class="ident">JSTraceable</span>, <span class="ident">JSRootable</span>, <span class="ident">JSTransplantable</span>)]</span>
+<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">NativeMyGlobal</span> { <span class="ident">name</span>: <span class="ident">String</span> }
+<span class="kw">type</span> <span class="ident">MyGlobal</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span>, <span class="ident">C</span><span class="op">&gt;</span> <span class="op">=</span> <span class="ident">JSManaged</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span>, <span class="ident">C</span>, <span class="ident">NativeMyGlobal</span><span class="op">&gt;</span>;
+
+<span class="kw">fn</span> <span class="ident">example</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span>, <span class="ident">S</span><span class="op">&gt;</span>(<span class="ident">cx</span>: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a</span> <span class="kw-2">mut</span> <span class="ident">JSContext</span><span class="op">&lt;</span><span class="ident">S</span><span class="op">&gt;</span>) <span class="op">-&gt;</span> <span class="ident">MyGlobal</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span>, <span class="ident">SOMEWHERE</span><span class="op">&gt;</span> <span class="kw">where</span>
+   <span class="ident">S</span>: <span class="ident">CanCreateCompartments</span>,
+{
+   <span class="kw">let</span> <span class="ident">cx</span> <span class="op">=</span> <span class="ident">cx</span>.<span class="ident">create_compartment</span>();
+   <span class="kw">let</span> <span class="ident">name</span> <span class="op">=</span> <span class="ident">String</span>::<span class="ident">from</span>(<span class="string">&quot;Alice&quot;</span>);
+   <span class="kw">let</span> <span class="ident">cx</span> <span class="op">=</span> <span class="ident">cx</span>.<span class="ident">global_manage</span>(<span class="ident">NativeMyGlobal</span> { <span class="ident">name</span>: <span class="ident">name</span> });
+   <span class="ident">cx</span>.<span class="ident">global</span>().<span class="ident">forget_compartment</span>()
+}
+<span class="kw">fn</span> <span class="ident">main</span>() {
+   <span class="kw">let</span> <span class="kw-2">ref</span> <span class="kw-2">mut</span> <span class="ident">cx</span> <span class="op">=</span> <span class="ident">JSContext</span>::<span class="ident">new</span>();
+   <span class="ident">example</span>(<span class="ident">cx</span>);
+}</pre>
+</div><h2 id='structs' class='section-header'><a href="#structs">Structs</a></h2>
+<table>
+                       <tr class=' module-item'>
+                           <td><a class="struct" href="struct.BOUND.html"
+                                  title='struct josephine::BOUND'>BOUND</a></td>
+                           <td class='docblock-short'>
+                                <p>A compartment name that remembers the lifetime it was bound for.</p>
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="struct" href="struct.DefaultInitializer.html"
+                                  title='struct josephine::DefaultInitializer'>DefaultInitializer</a></td>
+                           <td class='docblock-short'>
+                                <p>A default class.</p>
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="struct" href="struct.Entered.html"
+                                  title='struct josephine::Entered'>Entered</a></td>
+                           <td class='docblock-short'>
+                                <p>A context state that has entered compartment <code>C</code> via an object with lifetime <code>&#39;a</code> and global type <code>T</code>.
+The previous context state was <code>S</code>.</p>
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="struct" href="struct.FromJS.html"
+                                  title='struct josephine::FromJS'>FromJS</a></td>
+                           <td class='docblock-short'>
+                                <p>A context state for callbacks from JS,</p>
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="struct" href="struct.Initialized.html"
+                                  title='struct josephine::Initialized'>Initialized</a></td>
+                           <td class='docblock-short'>
+                                <p>A context state in an initialized compartment <code>C</code> with lifetime <code>&#39;a</code> and global type <code>T</code>.</p>
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="struct" href="struct.Initializing.html"
+                                  title='struct josephine::Initializing'>Initializing</a></td>
+                           <td class='docblock-short'>
+                                <p>A context state in the middTle of initializing a compartment <code>C</code> with lifetime <code>&#39;a</code> and global type <code>T</code>.</p>
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="struct" href="struct.JSContext.html"
+                                  title='struct josephine::JSContext'>JSContext</a></td>
+                           <td class='docblock-short'>
+                                <p>The type for JS contexts whose current state is <code>S</code>.</p>
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="struct" href="struct.JSManaged.html"
+                                  title='struct josephine::JSManaged'>JSManaged</a></td>
+                           <td class='docblock-short'>
+                                <p>The type of JS-managed data in a JS compartment <code>C</code>, with lifetime <code>&#39;a</code> and type <code>T</code>.</p>
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="struct" href="struct.JSPinnedRoot.html"
+                                  title='struct josephine::JSPinnedRoot'>JSPinnedRoot</a></td>
+                           <td class='docblock-short'>
+                                <p>A stack allocated root that has been pinned, so the backing store can&#39;t move.</p>
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="struct" href="struct.JSPinnedRoots.html"
+                                  title='struct josephine::JSPinnedRoots'>JSPinnedRoots</a></td>
+                           <td class='docblock-short'>
+                                <p>A doubly linked list with all the pinned roots.</p>
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="struct" href="struct.JSRoot.html"
+                                  title='struct josephine::JSRoot'>JSRoot</a></td>
+                           <td class='docblock-short'>
+                                <p>A stack allocated root containing data of type <code>T</code> with lifetime <code>&#39;a</code>.</p>
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="struct" href="struct.JSString.html"
+                                  title='struct josephine::JSString'>JSString</a></td>
+                           <td class='docblock-short'>
+                                <p>The type of JS-managed strings in the same zone as compartment <code>C</code>, with lifetime <code>a</code>.
+Rust is much happier with flat string representations, so we flatten
+strings when they come into Rust.</p>
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="struct" href="struct.JSTracer.html"
+                                  title='struct josephine::JSTracer'>JSTracer</a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="struct" href="struct.Owned.html"
+                                  title='struct josephine::Owned'>Owned</a></td>
+                           <td class='docblock-short'>
+                                <p>A context state for JS contexts owned by Rust.</p>
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="struct" href="struct.OwnedJSRuntime.html"
+                                  title='struct josephine::OwnedJSRuntime'>OwnedJSRuntime</a></td>
+                           <td class='docblock-short'>
+                                <p>A JS runtime owned by Rust</p>
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="struct" href="struct.SOMEWHERE.html"
+                                  title='struct josephine::SOMEWHERE'>SOMEWHERE</a></td>
+                           <td class='docblock-short'>
+                                <p>A wildcard compartment name.</p>
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="struct" href="struct.Snapshotted.html"
+                                  title='struct josephine::Snapshotted'>Snapshotted</a></td>
+                           <td class='docblock-short'>
+                                <p>A context state in snapshotted compartment in underlying state <code>S</code>,
+which guarantees that no GC will happen during the lifetime <code>&#39;a</code>.</p>
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="struct" href="struct.UNSAFE.html"
+                                  title='struct josephine::UNSAFE'>UNSAFE</a></td>
+                           <td class='docblock-short'>
+                                <p>An unsafe compartment name, which we only give access to via unsafe code.</p>
+                           </td>
+                       </tr></table><h2 id='enums' class='section-header'><a href="#enums">Enums</a></h2>
+<table>
+                       <tr class=' module-item'>
+                           <td><a class="enum" href="enum.JSEvaluateErr.html"
+                                  title='enum josephine::JSEvaluateErr'>JSEvaluateErr</a></td>
+                           <td class='docblock-short'>
+                                <p>The errors which might be returned from cx.evaluate(&quot;code&quot;)</p>
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="enum" href="enum.JSStringContents.html"
+                                  title='enum josephine::JSStringContents'>JSStringContents</a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr></table><h2 id='traits' class='section-header'><a href="#traits">Traits</a></h2>
+<table>
+                       <tr class=' module-item'>
+                           <td><a class="trait" href="trait.CanAccess.html"
+                                  title='trait josephine::CanAccess'>CanAccess</a></td>
+                           <td class='docblock-short'>
+                                <p>A marker trait for JS contexts that can access native state</p>
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="trait" href="trait.CanAlloc.html"
+                                  title='trait josephine::CanAlloc'>CanAlloc</a></td>
+                           <td class='docblock-short'>
+                                <p>A marker trait for JS contexts that can (de)allocate objects</p>
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="trait" href="trait.CanCreateCompartments.html"
+                                  title='trait josephine::CanCreateCompartments'>CanCreateCompartments</a></td>
+                           <td class='docblock-short'>
+                                <p>A marker trait for JS contexts that can create new compartments.</p>
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="trait" href="trait.CanExtend.html"
+                                  title='trait josephine::CanExtend'>CanExtend</a></td>
+                           <td class='docblock-short'>
+                                <p>A marker trait for JS contexts that can extend the lifetime of objects</p>
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="trait" href="trait.Compartment.html"
+                                  title='trait josephine::Compartment'>Compartment</a></td>
+                           <td class='docblock-short'>
+                                <p>A marker trait for JS compartments.
+We mark it as <code>Copy</code> so that anything that uses <code>[#derive{Copy)]</code> will be copyable.
+Ditto <code>Eq</code> and <code>Hash</code>.</p>
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="trait" href="trait.HasJSClass.html"
+                                  title='trait josephine::HasJSClass'>HasJSClass</a></td>
+                           <td class='docblock-short'>
+                                <p>A trait for a Rust class.</p>
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="trait" href="trait.InCompartment.html"
+                                  title='trait josephine::InCompartment'>InCompartment</a></td>
+                           <td class='docblock-short'>
+                                <p>A marker trait for JS contexts in compartment <code>C</code></p>
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="trait" href="trait.IsEntered.html"
+                                  title='trait josephine::IsEntered'>IsEntered</a></td>
+                           <td class='docblock-short'>
+                                <p>A marker trait for JS contexts that have been entered</p>
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="trait" href="trait.IsInitialized.html"
+                                  title='trait josephine::IsInitialized'>IsInitialized</a></td>
+                           <td class='docblock-short'>
+                                <p>A marker trait for JS contexts that have initialized a global</p>
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="trait" href="trait.IsInitializing.html"
+                                  title='trait josephine::IsInitializing'>IsInitializing</a></td>
+                           <td class='docblock-short'>
+                                <p>A marker trait for JS contexts that are in the middle of initializing</p>
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="trait" href="trait.JSInitializable.html"
+                                  title='trait josephine::JSInitializable'>JSInitializable</a></td>
+                           <td class='docblock-short'>
+                                <p>A trait for Rust data which can be reflected</p>
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="trait" href="trait.JSInitializer.html"
+                                  title='trait josephine::JSInitializer'>JSInitializer</a></td>
+                           <td class='docblock-short'>
+                                <p>Initialize JS data</p>
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="trait" href="trait.JSRootable.html"
+                                  title='trait josephine::JSRootable'>JSRootable</a></td>
+                           <td class='docblock-short'>
+                                <p>Data which can be rooted.</p>
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="trait" href="trait.JSTraceable.html"
+                                  title='trait josephine::JSTraceable'>JSTraceable</a></td>
+                           <td class='docblock-short'>
+                                <p>A trait for Rust data that can be traced.</p>
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="trait" href="trait.JSTransplantable.html"
+                                  title='trait josephine::JSTransplantable'>JSTransplantable</a></td>
+                           <td class='docblock-short'>
+                                <p>Data which can be transplanted into compartment C.</p>
+                           </td>
+                       </tr></table><h2 id='functions' class='section-header'><a href="#functions">Functions</a></h2>
+<table>
+                       <tr class=' module-item'>
+                           <td><a class="fn" href="fn.finalize_jsobject_with_native_data.html"
+                                  title='fn josephine::finalize_jsobject_with_native_data'>finalize_jsobject_with_native_data</a><a title='unsafe function' href='#'><sup>⚠</sup></a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="fn" href="fn.jsclass_global_flags_with_slots.html"
+                                  title='fn josephine::jsclass_global_flags_with_slots'>jsclass_global_flags_with_slots</a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="fn" href="fn.jsclass_has_reserved_slots.html"
+                                  title='fn josephine::jsclass_has_reserved_slots'>jsclass_has_reserved_slots</a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="fn" href="fn.jscontext_called_from_js.html"
+                                  title='fn josephine::jscontext_called_from_js'>jscontext_called_from_js</a><a title='unsafe function' href='#'><sup>⚠</sup></a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="fn" href="fn.jsmanaged_called_from_js.html"
+                                  title='fn josephine::jsmanaged_called_from_js'>jsmanaged_called_from_js</a><a title='unsafe function' href='#'><sup>⚠</sup></a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="fn" href="fn.jsstring_called_from_js.html"
+                                  title='fn josephine::jsstring_called_from_js'>jsstring_called_from_js</a><a title='unsafe function' href='#'><sup>⚠</sup></a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="fn" href="fn.null_function.html"
+                                  title='fn josephine::null_function'>null_function</a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="fn" href="fn.null_property.html"
+                                  title='fn josephine::null_property'>null_property</a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="fn" href="fn.null_wrapper.html"
+                                  title='fn josephine::null_wrapper'>null_wrapper</a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="fn" href="fn.trace_jsobject_with_native_data.html"
+                                  title='fn josephine::trace_jsobject_with_native_data'>trace_jsobject_with_native_data</a><a title='unsafe function' href='#'><sup>⚠</sup></a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr></table></section>
+    <section id='search' class="content hidden"></section>
+
+    <section class="footer"></section>
+
+    <aside id="help" class="hidden">
+        <div>
+            <h1 class="hidden">Help</h1>
+
+            <div class="shortcuts">
+                <h2>Keyboard Shortcuts</h2>
+
+                <dl>
+                    <dt>?</dt>
+                    <dd>Show this help dialog</dd>
+                    <dt>S</dt>
+                    <dd>Focus the search field</dd>
+                    <dt>↑</dt>
+                    <dd>Move up in search results</dd>
+                    <dt>↓</dt>
+                    <dd>Move down in search results</dd>
+                    <dt>&#9166;</dt>
+                    <dd>Go to active search result</dd>
+                    <dt>+</dt>
+                    <dd>Collapse/expand all sections</dd>
+                </dl>
+            </div>
+
+            <div class="infos">
+                <h2>Search Tricks</h2>
+
+                <p>
+                    Prefix searches with a type followed by a colon (e.g.
+                    <code>fn:</code>) to restrict the search to a given type.
+                </p>
+
+                <p>
+                    Accepted types are: <code>fn</code>, <code>mod</code>,
+                    <code>struct</code>, <code>enum</code>,
+                    <code>trait</code>, <code>type</code>, <code>macro</code>,
+                    and <code>const</code>.
+                </p>
+
+                <p>
+                    Search functions by type signature (e.g.
+                    <code>vec -> usize</code> or <code>* -> vec</code>)
+                </p>
+            </div>
+        </div>
+    </aside>
+
+    
+
+    <script>
+        window.rootPath = "../";
+        window.currentCrate = "josephine";
+    </script>
+    <script src="../main.js"></script>
+    <script defer src="../search-index.js"></script>
+</body>
+</html>
