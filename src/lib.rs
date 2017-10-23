@@ -3,14 +3,15 @@
 //! This library allows Rust data to be attached to JavaScript objects:
 //! the lifetime of the Rust data is then the same as the JS object it is attached to.
 //! Since JS is garbage collected, it is safe to copy and discard references to
-//! JS managed data, using an API similar to the `Rc` API, but which does not need
-//! dynamic checks since those are handled by the garbage collector. This makes it possible
-//! to implement structures like doubly-linked lists without dynamic checking.
+//! JS managed data, and allows examples like doubly-linked lists which would
+//! otherwise require reference counting. Reference counting requires dynamic checks,
+//! for example getting mutable access to reference-counted data panics if the reference
+//! count is more than 1.
 //!
 //! The goals are:
 //!
 //! 1. Use JS to manage the lifetime of Rust data.
-//! 2. Allow references JS managed data to be freely copied and discarded, relying on
+//! 2. Allow references to JS managed data to be freely copied and discarded, relying on
 //!    the garbage collector for safety.
 //! 3. Maintain Rust memory safety (for example no mutable aliasing),
 //!    without requiring additional static analysis such as a lint.
