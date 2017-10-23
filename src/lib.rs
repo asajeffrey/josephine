@@ -576,7 +576,7 @@ impl<S> JSContext<S> {
     }
 
     /// Enter a compartment.
-    pub fn enter_compartment<'a, 'b, C, T>(&'a mut self, managed: JSManaged<'b, C, T>) -> JSContext<Entered<'a, BOUND<'a>, T::Aged, S>> where
+    pub fn enter_unknown_compartment<'a, 'b, C, T>(&'a mut self, managed: JSManaged<'b, C, T>) -> JSContext<Entered<'a, BOUND<'a>, T::Aged, S>> where
         T: JSRootable<'a>,
     {
         debug!("Entering compartment.");

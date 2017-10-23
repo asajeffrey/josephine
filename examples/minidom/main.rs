@@ -28,7 +28,7 @@ fn main() {
     let window = Window::new(cx).in_root(root);
 
     debug!("Entering compartment.");
-    let ref mut cx = cx.enter_compartment(window.0);
+    let ref mut cx = cx.enter_unknown_compartment(window.0);
 
     debug!("Printing hello");
     cx.evaluate("console.log('Hello World. 😃')").unwrap();
