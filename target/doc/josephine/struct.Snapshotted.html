@@ -48,16 +48,16 @@
                    <a id="toggle-all-docs" href="javascript:void(0)" title="collapse all docs">
                        [<span class='inner'>&#x2212;</span>]
                    </a>
-               </span><a class='srclink' href='../src/josephine/lib.rs.html#505' title='goto source code'>[src]</a></span></h1>
+               </span><a class='srclink' href='../src/josephine/lib.rs.html#510' title='goto source code'>[src]</a></span></h1>
 <pre class='rust struct'>pub struct Snapshotted&lt;'a, S&gt;(_);</pre><div class='docblock'><p>A context state in snapshotted compartment in underlying state <code>S</code>,
 which guarantees that no GC will happen during the lifetime <code>&#39;a</code>.</p>
 </div>
             <h2 id='implementations' class='small-section-header'>
               Trait Implementations<a href='#implementations' class='anchor'></a>
             </h2>
-        <h3 id='impl-InCompartment&lt;C&gt;' class='impl'><span class='in-band'><code>impl&lt;'a, C, S&gt; <a class="trait" href="../josephine/trait.InCompartment.html" title="trait josephine::InCompartment">InCompartment</a>&lt;C&gt; for <a class="struct" href="../josephine/struct.Snapshotted.html" title="struct josephine::Snapshotted">Snapshotted</a>&lt;'a, S&gt; <span class="where fmt-newline">where<br>&nbsp;&nbsp;&nbsp;&nbsp;S: <a class="trait" href="../josephine/trait.InCompartment.html" title="trait josephine::InCompartment">InCompartment</a>&lt;C&gt;,&nbsp;</span></code><a href='#impl-InCompartment&lt;C&gt;' class='anchor'></a></span><span class='out-of-band'><div class='ghost'></div><a class='srclink' href='../src/josephine/lib.rs.html#512' title='goto source code'>[src]</a></span></h3>
-<div class='impl-items'></div><h3 id='impl-CanAccess' class='impl'><span class='in-band'><code>impl&lt;'a, S&gt; <a class="trait" href="../josephine/trait.CanAccess.html" title="trait josephine::CanAccess">CanAccess</a> for <a class="struct" href="../josephine/struct.Snapshotted.html" title="struct josephine::Snapshotted">Snapshotted</a>&lt;'a, S&gt; <span class="where fmt-newline">where<br>&nbsp;&nbsp;&nbsp;&nbsp;S: <a class="trait" href="../josephine/trait.CanAccess.html" title="trait josephine::CanAccess">CanAccess</a>,&nbsp;</span></code><a href='#impl-CanAccess' class='anchor'></a></span><span class='out-of-band'><div class='ghost'></div><a class='srclink' href='../src/josephine/lib.rs.html#520' title='goto source code'>[src]</a></span></h3>
-<div class='impl-items'></div><h3 id='impl-CanExtend&lt;&#39;a&gt;' class='impl'><span class='in-band'><code>impl&lt;'a, S&gt; <a class="trait" href="../josephine/trait.CanExtend.html" title="trait josephine::CanExtend">CanExtend</a>&lt;'a&gt; for <a class="struct" href="../josephine/struct.Snapshotted.html" title="struct josephine::Snapshotted">Snapshotted</a>&lt;'a, S&gt;</code><a href='#impl-CanExtend&lt;&#39;a&gt;' class='anchor'></a></span><span class='out-of-band'><div class='ghost'></div><a class='srclink' href='../src/josephine/lib.rs.html#524' title='goto source code'>[src]</a></span></h3>
+        <h3 id='impl-InCompartment&lt;C&gt;' class='impl'><span class='in-band'><code>impl&lt;'a, C, S&gt; <a class="trait" href="../josephine/trait.InCompartment.html" title="trait josephine::InCompartment">InCompartment</a>&lt;C&gt; for <a class="struct" href="../josephine/struct.Snapshotted.html" title="struct josephine::Snapshotted">Snapshotted</a>&lt;'a, S&gt; <span class="where fmt-newline">where<br>&nbsp;&nbsp;&nbsp;&nbsp;S: <a class="trait" href="../josephine/trait.InCompartment.html" title="trait josephine::InCompartment">InCompartment</a>&lt;C&gt;,&nbsp;</span></code><a href='#impl-InCompartment&lt;C&gt;' class='anchor'></a></span><span class='out-of-band'><div class='ghost'></div><a class='srclink' href='../src/josephine/lib.rs.html#517' title='goto source code'>[src]</a></span></h3>
+<div class='impl-items'></div><h3 id='impl-CanAccess' class='impl'><span class='in-band'><code>impl&lt;'a, S&gt; <a class="trait" href="../josephine/trait.CanAccess.html" title="trait josephine::CanAccess">CanAccess</a> for <a class="struct" href="../josephine/struct.Snapshotted.html" title="struct josephine::Snapshotted">Snapshotted</a>&lt;'a, S&gt; <span class="where fmt-newline">where<br>&nbsp;&nbsp;&nbsp;&nbsp;S: <a class="trait" href="../josephine/trait.CanAccess.html" title="trait josephine::CanAccess">CanAccess</a>,&nbsp;</span></code><a href='#impl-CanAccess' class='anchor'></a></span><span class='out-of-band'><div class='ghost'></div><a class='srclink' href='../src/josephine/lib.rs.html#525' title='goto source code'>[src]</a></span></h3>
+<div class='impl-items'></div><h3 id='impl-CanExtend&lt;&#39;a&gt;' class='impl'><span class='in-band'><code>impl&lt;'a, S&gt; <a class="trait" href="../josephine/trait.CanExtend.html" title="trait josephine::CanExtend">CanExtend</a>&lt;'a&gt; for <a class="struct" href="../josephine/struct.Snapshotted.html" title="struct josephine::Snapshotted">Snapshotted</a>&lt;'a, S&gt;</code><a href='#impl-CanExtend&lt;&#39;a&gt;' class='anchor'></a></span><span class='out-of-band'><div class='ghost'></div><a class='srclink' href='../src/josephine/lib.rs.html#529' title='goto source code'>[src]</a></span></h3>
 <div class='impl-items'></div></section>
     <section id='search' class="content hidden"></section>
 
@@ -79,6 +79,8 @@ which guarantees that no GC will happen during the lifetime <code>&#39;a</code>.
                     <dd>Move up in search results</dd>
                     <dt>↓</dt>
                     <dd>Move down in search results</dd>
+                    <dt>↹</dt>
+                    <dd>Switch tab</dd>
                     <dt>&#9166;</dt>
                     <dd>Go to active search result</dd>
                     <dt>+</dt>
