@@ -5,11 +5,13 @@ rust:
   - nightly
 
 script:
+  # workaround for https://github.com/budziq/rust-skeptic/issues/67
+  - rm -rf target/debug/deps/*josephine*
   - ccache -z
   - CCACHE=$(which ccache) cargo build -vv
-  - cargo test
-  - cargo run --example minidom
-  - cargo run --example dbllist
+  - CCACHE=$(which ccache) cargo test
+  - CCACHE=$(which ccache) cargo run --example minidom
+  - CCACHE=$(which ccache) cargo run --example dbllist
   - ccache -s
 
 cache:
