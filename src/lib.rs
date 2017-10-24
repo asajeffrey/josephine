@@ -44,12 +44,21 @@
 //!
 //! # JS-managed data
 //!
-//! The idea is that Rust data can be given to JS to manage, and then accessed,
-//! using the JS context. This is passed as a variable of type `JSContext<S>`,
+//! Rust data can be given to JS to manage, and then accessed,
+//! using the JS context. The JS context is passed as a variable of type `JSContext<S>`,
 //! where the type parameter `S` is used to track the state of the context.
+//! The context comes with the permissions it grants, such as `CanAlloc`
+//! and `CanAccess`. These permissions are modelled as traits, for example
+//! a context in state `S` can allocate memory when `S: CanAlloc`.
 //!
-//! For example, we can give JS some Rust data to manage in compartment
-//! `C` when the context state implements the `CanAlloc` trait:
+//! JS managed memory is split into compartments. Each JS context has a notion of
+//! the current compartment, which is part of the state. A JS context in compartment
+//! `C` has type `JSCompartment<S>` where `S: InCompartment<C>` and `C: Compartment`.
+//! A reference to JS managed data in compartment `C`, where the Rust data being
+//! managed by JS has type `T`, is given type `JSManaged<C, T>`.
+//!
+//! For example, we can give JS a Rust string to manage in compartment
+//! `C`:
 //!
 //! ```rust
 //! # use josephine::*;
@@ -61,8 +70,7 @@
 //! }
 //! ```
 //!
-//! JS-managed data in compartment `C` can be accessed if the context state
-//! implements the `CanAccess<C>` trait:
+//! and then access it:
 //!
 //! ```rust
 //! # use josephine::*;
@@ -139,14 +147,38 @@
 //!
 //! ```rust
 //! # use josephine::*;
+//! fn example<C, S>(cx: &mut JSContext<S>) where
+//!     S: CanAlloc + CanAccess + InCompartment<C>,
+//!     C: Compartment,
+//! {
+//!     // Declare a root which will be used to keep x alive during its lifetime
+//!     let ref mut root = cx.new_root();
+//!     // Store a reference to x in the root
+//!     let x = cx.manage(String::from("hello")).in_root(root);
+//!     // This is what is keeping x alive ------^
+//!     // Imagine something triggers GC here
+//!     // The root ensures that x survives GC, so is safe to use
+//!     println!("{} world", x.borrow(cx));
+//! }
+//! ```
+//!
+//! To see why this example now typechecks, we again introduce explicit lifetimes:
+//!
+//! ```rust
+//! # use josephine::*;
 //! fn example<'a, C, S>(cx: &'a mut JSContext<S>) where
 //!     S: CanAlloc + CanAccess + InCompartment<C>,
 //!     C: Compartment,
 //! {
-//!     // Function body has lifetime 'b
-//!     // x has type JSManaged<'b, C, String>
+//!     // root has type JSRoot<'b, String>
 //!     let ref mut root = cx.new_root();
-//!     let x = cx.manage(String::from("hello")).in_root(root);
+//!     // x has type JSManaged<'b, C, String>
+//!     let x = {
+//!         // x_unrooted has type JSManaged<'d, C, String>
+//!         let x_unrooted = cx.manage(String::from("hello"));
+//!         // By rooting it, its lifetime changes from 'd to 'b (the lifetime of the root)
+//!         x_unrooted.in_root(root)
+//!     };
 //!     // Imagine something triggers GC here
 //!     // x_ref has type &'c String
 //!     let x_ref = x.borrow(cx);
@@ -154,15 +186,10 @@
 //! }
 //! ```
 //!
-//! This example is now safe, since `x` is rooted during its access.
-//! The example typechecks because the root has lifetime `'b`, and there is
-//! no constraint that `'b` and `'c` don't overlap.
-//! This use of lifetimes allows safe access to JS-managed data without a special
-//! rooting lint.
-//!
-//! We can root any data which implements the `JSRootable` and `JSTraceable` traits,
-//! which includes JS-managed data. These traits can be derived,
-//! using the `#[derive(JSRootable, JSTraceable)]` type annotation.
+//! The example typechecks because the 
+//! constraints are that `'b` overlaps with `'c` and `'d`, and that
+//! `'c` and `'d` don't overlap. These constraints are satisfiable, so the
+//! example typechecks.
 //!
 //! # Mutating JS-managed data
 //!
@@ -207,28 +234,6 @@
 //!   |                            first mutable borrow occurs here
 //! ```
 //!
-//! Mutable update allows the construction of cyclic structures, for example:
-//!
-//! ```rust
-//! # extern crate josephine;
-//! # #[macro_use] extern crate josephine_derive;
-//! # use josephine::*;
-//! #[derive(JSInitializable, JSTraceable, JSRootable)]
-//! pub struct NativeLoop<'a, C> {
-//!    next: Option<Loop<'a, C>>,
-//! }
-//! type Loop<'a, C> = JSManaged<'a, C, NativeLoop<'a, C>>;
-//! fn example<C, S>(cx: &mut JSContext<S>) where
-//!     S: CanAccess + CanAlloc + InCompartment<C>,
-//!     C: Compartment,
-//! {
-//!    let ref mut root = cx.new_root();
-//!    let l = cx.manage(NativeLoop { next: None }).in_root(root);
-//!    l.borrow_mut(cx).next = Some(l);
-//! }
-//! # fn main() {}
-//! ```
-//!
 //! # Snapshots
 //!
 //! Some cases of building JS managed data require rooting, but in some cases
@@ -240,22 +245,15 @@
 //! the snapshot is also live at the end.
 //!
 //! ```rust
-//! # extern crate josephine;
-//! # #[macro_use] extern crate josephine_derive;
 //! # use josephine::*;
-//! # #[derive(JSInitializable, JSTraceable, JSRootable)]
-//! # pub struct NativeLoop<'a, C> {
-//! #    next: Option<Loop<'a, C>>,
-//! # }
-//! # type Loop<'a, C> = JSManaged<'a, C, NativeLoop<'a, C>>;
 //! fn example<C, S>(cx: &mut JSContext<S>) where
-//!     S: CanAccess + CanAlloc + InCompartment<C>,
+//!     S: CanAlloc + CanAccess + InCompartment<C>,
 //!     C: Compartment,
 //! {
-//!    let (ref mut cx, l) = cx.snapshot_manage(NativeLoop { next: None });
-//!    l.borrow_mut(cx).next = Some(l);
+//!     let (ref cx, x) = cx.snapshot_manage(String::from("hello"));
+//!     // Since the context is snapshotted it can't trigger GC
+//!     println!("{} world", x.borrow(cx));
 //! }
-//! # fn main() {}
 //! ```
 //!
 //! A program which tries to use a function which might trigger GC will
@@ -263,42 +261,44 @@
 //! the appropriate traits. For example:
 //!
 //! ```rust,ignore
-//! # extern crate josephine;
-//! # #[macro_use] extern crate josephine_derive;
 //! # use josephine::*;
-//! # #[derive(HasClass, JSTraceable, JSRootable)]
-//! # pub struct NativeLoop<'a, C> {
-//! #    next: Option<Loop<'a, C>>,
-//! # }
-//! # type Loop<'a, C> = JSManaged<'a, C, NativeLoopClass>;
-//! fn might_trigger_gc<C, S>(cx: &mut JSContext<S>) where
-//!     S: CanAccess + CanAlloc + InCompartment<C>,
-//!     C: Compartment,
-//! { }
-//!
 //! fn unsafe_example<C, S>(cx: &mut JSContext<S>) where
-//!     S: CanAccess + CanAlloc + InCompartment<C>,
+//!     S: CanAlloc + CanAccess + InCompartment<C>,
 //!     C: Compartment,
 //! {
-//!    let (ref mut cx, l) = cx.snapshot_manage(NativeLoop { next: None });
-//!    might_trigger_gc(cx);
-//!    l.borrow_mut(cx).next = Some(l);
+//!     let (ref mut cx, x) = cx.snapshot_manage(String::from("hello"));
+//!     cx.gc();
+//!     println!("{} world", x.borrow(cx));
 //! }
-//! # fn main() {}
 //! ```
 //!
-//! In this program, the function `might_trigger_gc` requires the state
+//! In this program, the call to `cx.gc()` requires the state
 //! to support `CanAlloc<C>`, which is not allowed by the snapshotted state.
 //!
 //! ```text
 //! 	error[E0277]: the trait bound `josephine::Snapshotted<'_, S>: josephine::CanAlloc` is not satisfied
-//!   --> src/lib.rs:19:4
-//!    |
-//! 19 |    might_trigger_gc(cx);
-//!    |    ^^^^^^^^^^^^^^^^ the trait `josephine::CanAlloc` is not implemented for `josephine::Snapshotted<'_, S>`
-//!    |
-//!    = note: required by `might_trigger_gc`
+//!  --> src/lib.rs:9:8
+//!   |
+//! 9 |     cx.gc();
+//!   |        ^^ the trait `josephine::CanAlloc` is not implemented for `josephine::Snapshotted<'_, S>`
 //! ```
+//!
+//! # Changing compartment
+//!
+//! `cx.enter_known_compartment(managed)`
+//!
+//! # Wildcard compartments
+//!
+//! `managed.forget_compartment()`
+//! `cx.enter_unknown_compartment(managed)`
+//!
+//! # Testing compartment equality
+//!
+//! `managed.in_compartment(cx)`
+//!
+//! # User-defined types
+//!
+//! `JSTraceable`, `JSRootable`, `JSTransplantable` and `JSInitializable`.
 //!
 //! # Globals
 //!
