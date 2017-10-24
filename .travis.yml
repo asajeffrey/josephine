@@ -7,9 +7,9 @@ rust:
 script:
   - ccache -z
   - CCACHE=$(which ccache) cargo build -vv
-  - CCACHE=$(which ccache) cargo test
-  - CCACHE=$(which ccache) cargo run --example minidom
-  - CCACHE=$(which ccache) cargo run --example dbllist
+  - cargo test
+  - cargo run --example minidom
+  - cargo run --example dbllist
   - ccache -s
 
 cache:
