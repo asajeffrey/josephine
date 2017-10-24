@@ -1,7 +1,11 @@
 # Josephine: using JavaScript to safely manage the lifetimes of Rust data
 
-[![Build Status](https://travis-ci.org/asajeffrey/josephine.svg)](https://travis-ci.org/asajeffrey/josephine) |
-[API Documentation](https://asajeffrey.github.io/josephine)
+[![Build Status](https://travis-ci.org/asajeffrey/josephine.svg)](https://travis-ci.org/asajeffrey/josephine)
+
+(
+[Doc](https://asajeffrey.github.io/josephine) |
+[CI](https://travis-ci.org/asajeffrey/josephine)
+)
 
 The josephine crate allows Rust data to be attached to JavaScript objects:
 the lifetime of the Rust data is then the same as the JS object it is attached to.
