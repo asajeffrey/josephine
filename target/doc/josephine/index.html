@@ -96,12 +96,21 @@ from Rust, and calling back into Rust from JavaScript. These bindings are unsafe
 and are intended for use by a trusted bindings generator.</p>
 
 <h1 id='js-managed-data' class='section-header'><a href='#js-managed-data'>JS-managed data</a></h1>
-<p>The idea is that Rust data can be given to JS to manage, and then accessed,
-using the JS context. This is passed as a variable of type <code>JSContext&lt;S&gt;</code>,
-where the type parameter <code>S</code> is used to track the state of the context.</p>
+<p>Rust data can be given to JS to manage, and then accessed,
+using the JS context. The JS context is passed as a variable of type <code>JSContext&lt;S&gt;</code>,
+where the type parameter <code>S</code> is used to track the state of the context.
+The context comes with the permissions it grants, such as <code>CanAlloc</code>
+and <code>CanAccess</code>. These permissions are modelled as traits, for example
+a context in state <code>S</code> can allocate memory when <code>S: CanAlloc</code>.</p>
 
-<p>For example, we can give JS some Rust data to manage in compartment
-<code>C</code> when the context state implements the <code>CanAlloc</code> trait:</p>
+<p>JS managed memory is split into compartments. Each JS context has a notion of
+the current compartment, which is part of the state. A JS context in compartment
+<code>C</code> has type <code>JSCompartment&lt;S&gt;</code> where <code>S: InCompartment&lt;C&gt;</code> and <code>C: Compartment</code>.
+A reference to JS managed data in compartment <code>C</code>, where the Rust data being
+managed by JS has type <code>T</code>, is given type <code>JSManaged&lt;C, T&gt;</code>.</p>
+
+<p>For example, we can give JS a Rust string to manage in compartment
+<code>C</code>:</p>
 
 <pre class="rust rust-example-rendered">
 <span class="kw">fn</span> <span class="ident">example</span><span class="op">&lt;</span><span class="ident">C</span>, <span class="ident">S</span><span class="op">&gt;</span>(<span class="ident">cx</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">JSContext</span><span class="op">&lt;</span><span class="ident">S</span><span class="op">&gt;</span>) <span class="kw">where</span>
@@ -111,8 +120,7 @@ where the type parameter <code>S</code> is used to track the state of the contex
     <span class="kw">let</span> <span class="ident">x</span>: <span class="ident">JSManaged</span><span class="op">&lt;</span><span class="ident">C</span>, <span class="ident">String</span><span class="op">&gt;</span> <span class="op">=</span> <span class="ident">cx</span>.<span class="ident">manage</span>(<span class="ident">String</span>::<span class="ident">from</span>(<span class="string">&quot;hello&quot;</span>));
 }</pre>
 
-<p>JS-managed data in compartment <code>C</code> can be accessed if the context state
-implements the <code>CanAccess&lt;C&gt;</code> trait:</p>
+<p>and then access it:</p>
 
 <pre class="rust rust-example-rendered">
 <span class="kw">fn</span> <span class="ident">example</span><span class="op">&lt;</span><span class="ident">C</span>, <span class="ident">S</span><span class="op">&gt;</span>(<span class="ident">cx</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">JSContext</span><span class="op">&lt;</span><span class="ident">S</span><span class="op">&gt;</span>, <span class="ident">x</span>: <span class="ident">JSManaged</span><span class="op">&lt;</span><span class="ident">C</span>, <span class="ident">String</span><span class="op">&gt;</span>) <span class="kw">where</span>
@@ -179,29 +187,46 @@ constraints cause the example to fail to compile.</p>
 to root <code>x</code>, so that it will not be garbage collected.</p>
 
 <pre class="rust rust-example-rendered">
+<span class="kw">fn</span> <span class="ident">example</span><span class="op">&lt;</span><span class="ident">C</span>, <span class="ident">S</span><span class="op">&gt;</span>(<span class="ident">cx</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">JSContext</span><span class="op">&lt;</span><span class="ident">S</span><span class="op">&gt;</span>) <span class="kw">where</span>
+    <span class="ident">S</span>: <span class="ident">CanAlloc</span> <span class="op">+</span> <span class="ident">CanAccess</span> <span class="op">+</span> <span class="ident">InCompartment</span><span class="op">&lt;</span><span class="ident">C</span><span class="op">&gt;</span>,
+    <span class="ident">C</span>: <span class="ident">Compartment</span>,
+{
+    <span class="comment">// Declare a root which will be used to keep x alive during its lifetime</span>
+    <span class="kw">let</span> <span class="kw-2">ref</span> <span class="kw-2">mut</span> <span class="ident">root</span> <span class="op">=</span> <span class="ident">cx</span>.<span class="ident">new_root</span>();
+    <span class="comment">// Store a reference to x in the root</span>
+    <span class="kw">let</span> <span class="ident">x</span> <span class="op">=</span> <span class="ident">cx</span>.<span class="ident">manage</span>(<span class="ident">String</span>::<span class="ident">from</span>(<span class="string">&quot;hello&quot;</span>)).<span class="ident">in_root</span>(<span class="ident">root</span>);
+    <span class="comment">// This is what is keeping x alive ------^</span>
+    <span class="comment">// Imagine something triggers GC here</span>
+    <span class="comment">// The root ensures that x survives GC, so is safe to use</span>
+    <span class="macro">println</span><span class="macro">!</span>(<span class="string">&quot;{} world&quot;</span>, <span class="ident">x</span>.<span class="ident">borrow</span>(<span class="ident">cx</span>));
+}</pre>
+
+<p>To see why this example now typechecks, we again introduce explicit lifetimes:</p>
+
+<pre class="rust rust-example-rendered">
 <span class="kw">fn</span> <span class="ident">example</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span>, <span class="ident">C</span>, <span class="ident">S</span><span class="op">&gt;</span>(<span class="ident">cx</span>: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a</span> <span class="kw-2">mut</span> <span class="ident">JSContext</span><span class="op">&lt;</span><span class="ident">S</span><span class="op">&gt;</span>) <span class="kw">where</span>
     <span class="ident">S</span>: <span class="ident">CanAlloc</span> <span class="op">+</span> <span class="ident">CanAccess</span> <span class="op">+</span> <span class="ident">InCompartment</span><span class="op">&lt;</span><span class="ident">C</span><span class="op">&gt;</span>,
     <span class="ident">C</span>: <span class="ident">Compartment</span>,
 {
-    <span class="comment">// Function body has lifetime &#39;b</span>
-    <span class="comment">// x has type JSManaged&lt;&#39;b, C, String&gt;</span>
+    <span class="comment">// root has type JSRoot&lt;&#39;b, String&gt;</span>
     <span class="kw">let</span> <span class="kw-2">ref</span> <span class="kw-2">mut</span> <span class="ident">root</span> <span class="op">=</span> <span class="ident">cx</span>.<span class="ident">new_root</span>();
-    <span class="kw">let</span> <span class="ident">x</span> <span class="op">=</span> <span class="ident">cx</span>.<span class="ident">manage</span>(<span class="ident">String</span>::<span class="ident">from</span>(<span class="string">&quot;hello&quot;</span>)).<span class="ident">in_root</span>(<span class="ident">root</span>);
+    <span class="comment">// x has type JSManaged&lt;&#39;b, C, String&gt;</span>
+    <span class="kw">let</span> <span class="ident">x</span> <span class="op">=</span> {
+        <span class="comment">// x_unrooted has type JSManaged&lt;&#39;d, C, String&gt;</span>
+        <span class="kw">let</span> <span class="ident">x_unrooted</span> <span class="op">=</span> <span class="ident">cx</span>.<span class="ident">manage</span>(<span class="ident">String</span>::<span class="ident">from</span>(<span class="string">&quot;hello&quot;</span>));
+        <span class="comment">// By rooting it, its lifetime changes from &#39;d to &#39;b (the lifetime of the root)</span>
+        <span class="ident">x_unrooted</span>.<span class="ident">in_root</span>(<span class="ident">root</span>)
+    };
     <span class="comment">// Imagine something triggers GC here</span>
     <span class="comment">// x_ref has type &amp;&#39;c String</span>
     <span class="kw">let</span> <span class="ident">x_ref</span> <span class="op">=</span> <span class="ident">x</span>.<span class="ident">borrow</span>(<span class="ident">cx</span>);
     <span class="macro">println</span><span class="macro">!</span>(<span class="string">&quot;{} world&quot;</span>, <span class="ident">x_ref</span>);
 }</pre>
 
-<p>This example is now safe, since <code>x</code> is rooted during its access.
-The example typechecks because the root has lifetime <code>&#39;b</code>, and there is
-no constraint that <code>&#39;b</code> and <code>&#39;c</code> don&#39;t overlap.
-This use of lifetimes allows safe access to JS-managed data without a special
-rooting lint.</p>
-
-<p>We can root any data which implements the <code>JSRootable</code> and <code>JSTraceable</code> traits,
-which includes JS-managed data. These traits can be derived,
-using the <code>#[derive(JSRootable, JSTraceable)]</code> type annotation.</p>
+<p>The example typechecks because the 
+constraints are that <code>&#39;b</code> overlaps with <code>&#39;c</code> and <code>&#39;d</code>, and that
+<code>&#39;c</code> and <code>&#39;d</code> don&#39;t overlap. These constraints are satisfiable, so the
+example typechecks.</p>
 
 <h1 id='mutating-js-managed-data' class='section-header'><a href='#mutating-js-managed-data'>Mutating JS-managed data</a></h1>
 <p>JS managed data can be accessed mutably as well as immutably.
@@ -240,23 +265,6 @@ results in an error from the borrow-checker, for example:</p>
   |                            first mutable borrow occurs here
 </code></pre>
 
-<p>Mutable update allows the construction of cyclic structures, for example:</p>
-
-<pre class="rust rust-example-rendered">
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">JSInitializable</span>, <span class="ident">JSTraceable</span>, <span class="ident">JSRootable</span>)]</span>
-<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">NativeLoop</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span>, <span class="ident">C</span><span class="op">&gt;</span> {
-   <span class="ident">next</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">Loop</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span>, <span class="ident">C</span><span class="op">&gt;&gt;</span>,
-}
-<span class="kw">type</span> <span class="ident">Loop</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span>, <span class="ident">C</span><span class="op">&gt;</span> <span class="op">=</span> <span class="ident">JSManaged</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span>, <span class="ident">C</span>, <span class="ident">NativeLoop</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span>, <span class="ident">C</span><span class="op">&gt;&gt;</span>;
-<span class="kw">fn</span> <span class="ident">example</span><span class="op">&lt;</span><span class="ident">C</span>, <span class="ident">S</span><span class="op">&gt;</span>(<span class="ident">cx</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">JSContext</span><span class="op">&lt;</span><span class="ident">S</span><span class="op">&gt;</span>) <span class="kw">where</span>
-    <span class="ident">S</span>: <span class="ident">CanAccess</span> <span class="op">+</span> <span class="ident">CanAlloc</span> <span class="op">+</span> <span class="ident">InCompartment</span><span class="op">&lt;</span><span class="ident">C</span><span class="op">&gt;</span>,
-    <span class="ident">C</span>: <span class="ident">Compartment</span>,
-{
-   <span class="kw">let</span> <span class="kw-2">ref</span> <span class="kw-2">mut</span> <span class="ident">root</span> <span class="op">=</span> <span class="ident">cx</span>.<span class="ident">new_root</span>();
-   <span class="kw">let</span> <span class="ident">l</span> <span class="op">=</span> <span class="ident">cx</span>.<span class="ident">manage</span>(<span class="ident">NativeLoop</span> { <span class="ident">next</span>: <span class="prelude-val">None</span> }).<span class="ident">in_root</span>(<span class="ident">root</span>);
-   <span class="ident">l</span>.<span class="ident">borrow_mut</span>(<span class="ident">cx</span>).<span class="ident">next</span> <span class="op">=</span> <span class="prelude-val">Some</span>(<span class="ident">l</span>);
-}</pre>
-
 <h1 id='snapshots' class='section-header'><a href='#snapshots'>Snapshots</a></h1>
 <p>Some cases of building JS managed data require rooting, but in some cases
 the rooting can be avoided, since the program does nothing to trigger
@@ -268,11 +276,12 @@ the snapshot is also live at the end.</p>
 
 <pre class="rust rust-example-rendered">
 <span class="kw">fn</span> <span class="ident">example</span><span class="op">&lt;</span><span class="ident">C</span>, <span class="ident">S</span><span class="op">&gt;</span>(<span class="ident">cx</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">JSContext</span><span class="op">&lt;</span><span class="ident">S</span><span class="op">&gt;</span>) <span class="kw">where</span>
-    <span class="ident">S</span>: <span class="ident">CanAccess</span> <span class="op">+</span> <span class="ident">CanAlloc</span> <span class="op">+</span> <span class="ident">InCompartment</span><span class="op">&lt;</span><span class="ident">C</span><span class="op">&gt;</span>,
+    <span class="ident">S</span>: <span class="ident">CanAlloc</span> <span class="op">+</span> <span class="ident">CanAccess</span> <span class="op">+</span> <span class="ident">InCompartment</span><span class="op">&lt;</span><span class="ident">C</span><span class="op">&gt;</span>,
     <span class="ident">C</span>: <span class="ident">Compartment</span>,
 {
-   <span class="kw">let</span> (<span class="kw-2">ref</span> <span class="kw-2">mut</span> <span class="ident">cx</span>, <span class="ident">l</span>) <span class="op">=</span> <span class="ident">cx</span>.<span class="ident">snapshot_manage</span>(<span class="ident">NativeLoop</span> { <span class="ident">next</span>: <span class="prelude-val">None</span> });
-   <span class="ident">l</span>.<span class="ident">borrow_mut</span>(<span class="ident">cx</span>).<span class="ident">next</span> <span class="op">=</span> <span class="prelude-val">Some</span>(<span class="ident">l</span>);
+    <span class="kw">let</span> (<span class="kw-2">ref</span> <span class="ident">cx</span>, <span class="ident">x</span>) <span class="op">=</span> <span class="ident">cx</span>.<span class="ident">snapshot_manage</span>(<span class="ident">String</span>::<span class="ident">from</span>(<span class="string">&quot;hello&quot;</span>));
+    <span class="comment">// Since the context is snapshotted it can&#39;t trigger GC</span>
+    <span class="macro">println</span><span class="macro">!</span>(<span class="string">&quot;{} world&quot;</span>, <span class="ident">x</span>.<span class="ident">borrow</span>(<span class="ident">cx</span>));
 }</pre>
 
 <p>A program which tries to use a function which might trigger GC will
@@ -280,31 +289,37 @@ not typecheck, as the snapshotted JS context state does not support
 the appropriate traits. For example:</p>
 
 <div class='information'><div class='tooltip ignore'>⚠<span class='tooltiptext'>Be careful when using this code, it's not being tested!</span></div></div><pre class="rust rust-example-rendered ignore">
-<span class="kw">fn</span> <span class="ident">might_trigger_gc</span><span class="op">&lt;</span><span class="ident">C</span>, <span class="ident">S</span><span class="op">&gt;</span>(<span class="ident">cx</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">JSContext</span><span class="op">&lt;</span><span class="ident">S</span><span class="op">&gt;</span>) <span class="kw">where</span>
-    <span class="ident">S</span>: <span class="ident">CanAccess</span> <span class="op">+</span> <span class="ident">CanAlloc</span> <span class="op">+</span> <span class="ident">InCompartment</span><span class="op">&lt;</span><span class="ident">C</span><span class="op">&gt;</span>,
-    <span class="ident">C</span>: <span class="ident">Compartment</span>,
-{ }
-
 <span class="kw">fn</span> <span class="ident">unsafe_example</span><span class="op">&lt;</span><span class="ident">C</span>, <span class="ident">S</span><span class="op">&gt;</span>(<span class="ident">cx</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">JSContext</span><span class="op">&lt;</span><span class="ident">S</span><span class="op">&gt;</span>) <span class="kw">where</span>
-    <span class="ident">S</span>: <span class="ident">CanAccess</span> <span class="op">+</span> <span class="ident">CanAlloc</span> <span class="op">+</span> <span class="ident">InCompartment</span><span class="op">&lt;</span><span class="ident">C</span><span class="op">&gt;</span>,
+    <span class="ident">S</span>: <span class="ident">CanAlloc</span> <span class="op">+</span> <span class="ident">CanAccess</span> <span class="op">+</span> <span class="ident">InCompartment</span><span class="op">&lt;</span><span class="ident">C</span><span class="op">&gt;</span>,
     <span class="ident">C</span>: <span class="ident">Compartment</span>,
 {
-   <span class="kw">let</span> (<span class="kw-2">ref</span> <span class="kw-2">mut</span> <span class="ident">cx</span>, <span class="ident">l</span>) <span class="op">=</span> <span class="ident">cx</span>.<span class="ident">snapshot_manage</span>(<span class="ident">NativeLoop</span> { <span class="ident">next</span>: <span class="prelude-val">None</span> });
-   <span class="ident">might_trigger_gc</span>(<span class="ident">cx</span>);
-   <span class="ident">l</span>.<span class="ident">borrow_mut</span>(<span class="ident">cx</span>).<span class="ident">next</span> <span class="op">=</span> <span class="prelude-val">Some</span>(<span class="ident">l</span>);
+    <span class="kw">let</span> (<span class="kw-2">ref</span> <span class="kw-2">mut</span> <span class="ident">cx</span>, <span class="ident">x</span>) <span class="op">=</span> <span class="ident">cx</span>.<span class="ident">snapshot_manage</span>(<span class="ident">String</span>::<span class="ident">from</span>(<span class="string">&quot;hello&quot;</span>));
+    <span class="ident">cx</span>.<span class="ident">gc</span>();
+    <span class="macro">println</span><span class="macro">!</span>(<span class="string">&quot;{} world&quot;</span>, <span class="ident">x</span>.<span class="ident">borrow</span>(<span class="ident">cx</span>));
 }</pre>
 
-<p>In this program, the function <code>might_trigger_gc</code> requires the state
+<p>In this program, the call to <code>cx.gc()</code> requires the state
 to support <code>CanAlloc&lt;C&gt;</code>, which is not allowed by the snapshotted state.</p>
 
 <pre><code class="language-text">    error[E0277]: the trait bound `josephine::Snapshotted&lt;&#39;_, S&gt;: josephine::CanAlloc` is not satisfied
-  --&gt; src/lib.rs:19:4
-   |
-19 |    might_trigger_gc(cx);
-   |    ^^^^^^^^^^^^^^^^ the trait `josephine::CanAlloc` is not implemented for `josephine::Snapshotted&lt;&#39;_, S&gt;`
-   |
-   = note: required by `might_trigger_gc`
+ --&gt; src/lib.rs:9:8
+  |
+9 |     cx.gc();
+  |        ^^ the trait `josephine::CanAlloc` is not implemented for `josephine::Snapshotted&lt;&#39;_, S&gt;`
 </code></pre>
+
+<h1 id='changing-compartment' class='section-header'><a href='#changing-compartment'>Changing compartment</a></h1>
+<p><code>cx.enter_known_compartment(managed)</code></p>
+
+<h1 id='wildcard-compartments' class='section-header'><a href='#wildcard-compartments'>Wildcard compartments</a></h1>
+<p><code>managed.forget_compartment()</code>
+<code>cx.enter_unknown_compartment(managed)</code></p>
+
+<h1 id='testing-compartment-equality' class='section-header'><a href='#testing-compartment-equality'>Testing compartment equality</a></h1>
+<p><code>managed.in_compartment(cx)</code></p>
+
+<h1 id='user-defined-types' class='section-header'><a href='#user-defined-types'>User-defined types</a></h1>
+<p><code>JSTraceable</code>, <code>JSRootable</code>, <code>JSTransplantable</code> and <code>JSInitializable</code>.</p>
 
 <h1 id='globals' class='section-header'><a href='#globals'>Globals</a></h1>
 <p>JS contexts require initialization. In particular, each compartment has a global,

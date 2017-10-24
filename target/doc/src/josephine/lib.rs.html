@@ -1804,12 +1804,21 @@
 <span class="doccomment">//!</span>
 <span class="doccomment">//! # JS-managed data</span>
 <span class="doccomment">//!</span>
-<span class="doccomment">//! The idea is that Rust data can be given to JS to manage, and then accessed,</span>
-<span class="doccomment">//! using the JS context. This is passed as a variable of type `JSContext&lt;S&gt;`,</span>
+<span class="doccomment">//! Rust data can be given to JS to manage, and then accessed,</span>
+<span class="doccomment">//! using the JS context. The JS context is passed as a variable of type `JSContext&lt;S&gt;`,</span>
 <span class="doccomment">//! where the type parameter `S` is used to track the state of the context.</span>
+<span class="doccomment">//! The context comes with the permissions it grants, such as `CanAlloc`</span>
+<span class="doccomment">//! and `CanAccess`. These permissions are modelled as traits, for example</span>
+<span class="doccomment">//! a context in state `S` can allocate memory when `S: CanAlloc`.</span>
 <span class="doccomment">//!</span>
-<span class="doccomment">//! For example, we can give JS some Rust data to manage in compartment</span>
-<span class="doccomment">//! `C` when the context state implements the `CanAlloc` trait:</span>
+<span class="doccomment">//! JS managed memory is split into compartments. Each JS context has a notion of</span>
+<span class="doccomment">//! the current compartment, which is part of the state. A JS context in compartment</span>
+<span class="doccomment">//! `C` has type `JSCompartment&lt;S&gt;` where `S: InCompartment&lt;C&gt;` and `C: Compartment`.</span>
+<span class="doccomment">//! A reference to JS managed data in compartment `C`, where the Rust data being</span>
+<span class="doccomment">//! managed by JS has type `T`, is given type `JSManaged&lt;C, T&gt;`.</span>
+<span class="doccomment">//!</span>
+<span class="doccomment">//! For example, we can give JS a Rust string to manage in compartment</span>
+<span class="doccomment">//! `C`:</span>
 <span class="doccomment">//!</span>
 <span class="doccomment">//! ```rust</span>
 <span class="doccomment">//! # use josephine::*;</span>
@@ -1821,8 +1830,7 @@
 <span class="doccomment">//! }</span>
 <span class="doccomment">//! ```</span>
 <span class="doccomment">//!</span>
-<span class="doccomment">//! JS-managed data in compartment `C` can be accessed if the context state</span>
-<span class="doccomment">//! implements the `CanAccess&lt;C&gt;` trait:</span>
+<span class="doccomment">//! and then access it:</span>
 <span class="doccomment">//!</span>
 <span class="doccomment">//! ```rust</span>
 <span class="doccomment">//! # use josephine::*;</span>
@@ -1899,14 +1907,38 @@
 <span class="doccomment">//!</span>
 <span class="doccomment">//! ```rust</span>
 <span class="doccomment">//! # use josephine::*;</span>
+<span class="doccomment">//! fn example&lt;C, S&gt;(cx: &amp;mut JSContext&lt;S&gt;) where</span>
+<span class="doccomment">//!     S: CanAlloc + CanAccess + InCompartment&lt;C&gt;,</span>
+<span class="doccomment">//!     C: Compartment,</span>
+<span class="doccomment">//! {</span>
+<span class="doccomment">//!     // Declare a root which will be used to keep x alive during its lifetime</span>
+<span class="doccomment">//!     let ref mut root = cx.new_root();</span>
+<span class="doccomment">//!     // Store a reference to x in the root</span>
+<span class="doccomment">//!     let x = cx.manage(String::from(&quot;hello&quot;)).in_root(root);</span>
+<span class="doccomment">//!     // This is what is keeping x alive ------^</span>
+<span class="doccomment">//!     // Imagine something triggers GC here</span>
+<span class="doccomment">//!     // The root ensures that x survives GC, so is safe to use</span>
+<span class="doccomment">//!     println!(&quot;{} world&quot;, x.borrow(cx));</span>
+<span class="doccomment">//! }</span>
+<span class="doccomment">//! ```</span>
+<span class="doccomment">//!</span>
+<span class="doccomment">//! To see why this example now typechecks, we again introduce explicit lifetimes:</span>
+<span class="doccomment">//!</span>
+<span class="doccomment">//! ```rust</span>
+<span class="doccomment">//! # use josephine::*;</span>
 <span class="doccomment">//! fn example&lt;&#39;a, C, S&gt;(cx: &amp;&#39;a mut JSContext&lt;S&gt;) where</span>
 <span class="doccomment">//!     S: CanAlloc + CanAccess + InCompartment&lt;C&gt;,</span>
 <span class="doccomment">//!     C: Compartment,</span>
 <span class="doccomment">//! {</span>
-<span class="doccomment">//!     // Function body has lifetime &#39;b</span>
-<span class="doccomment">//!     // x has type JSManaged&lt;&#39;b, C, String&gt;</span>
+<span class="doccomment">//!     // root has type JSRoot&lt;&#39;b, String&gt;</span>
 <span class="doccomment">//!     let ref mut root = cx.new_root();</span>
-<span class="doccomment">//!     let x = cx.manage(String::from(&quot;hello&quot;)).in_root(root);</span>
+<span class="doccomment">//!     // x has type JSManaged&lt;&#39;b, C, String&gt;</span>
+<span class="doccomment">//!     let x = {</span>
+<span class="doccomment">//!         // x_unrooted has type JSManaged&lt;&#39;d, C, String&gt;</span>
+<span class="doccomment">//!         let x_unrooted = cx.manage(String::from(&quot;hello&quot;));</span>
+<span class="doccomment">//!         // By rooting it, its lifetime changes from &#39;d to &#39;b (the lifetime of the root)</span>
+<span class="doccomment">//!         x_unrooted.in_root(root)</span>
+<span class="doccomment">//!     };</span>
 <span class="doccomment">//!     // Imagine something triggers GC here</span>
 <span class="doccomment">//!     // x_ref has type &amp;&#39;c String</span>
 <span class="doccomment">//!     let x_ref = x.borrow(cx);</span>
@@ -1914,15 +1946,10 @@
 <span class="doccomment">//! }</span>
 <span class="doccomment">//! ```</span>
 <span class="doccomment">//!</span>
-<span class="doccomment">//! This example is now safe, since `x` is rooted during its access.</span>
-<span class="doccomment">//! The example typechecks because the root has lifetime `&#39;b`, and there is</span>
-<span class="doccomment">//! no constraint that `&#39;b` and `&#39;c` don&#39;t overlap.</span>
-<span class="doccomment">//! This use of lifetimes allows safe access to JS-managed data without a special</span>
-<span class="doccomment">//! rooting lint.</span>
-<span class="doccomment">//!</span>
-<span class="doccomment">//! We can root any data which implements the `JSRootable` and `JSTraceable` traits,</span>
-<span class="doccomment">//! which includes JS-managed data. These traits can be derived,</span>
-<span class="doccomment">//! using the `#[derive(JSRootable, JSTraceable)]` type annotation.</span>
+<span class="doccomment">//! The example typechecks because the </span>
+<span class="doccomment">//! constraints are that `&#39;b` overlaps with `&#39;c` and `&#39;d`, and that</span>
+<span class="doccomment">//! `&#39;c` and `&#39;d` don&#39;t overlap. These constraints are satisfiable, so the</span>
+<span class="doccomment">//! example typechecks.</span>
 <span class="doccomment">//!</span>
 <span class="doccomment">//! # Mutating JS-managed data</span>
 <span class="doccomment">//!</span>
@@ -1967,28 +1994,6 @@
 <span class="doccomment">//!   |                            first mutable borrow occurs here</span>
 <span class="doccomment">//! ```</span>
 <span class="doccomment">//!</span>
-<span class="doccomment">//! Mutable update allows the construction of cyclic structures, for example:</span>
-<span class="doccomment">//!</span>
-<span class="doccomment">//! ```rust</span>
-<span class="doccomment">//! # extern crate josephine;</span>
-<span class="doccomment">//! # #[macro_use] extern crate josephine_derive;</span>
-<span class="doccomment">//! # use josephine::*;</span>
-<span class="doccomment">//! #[derive(JSInitializable, JSTraceable, JSRootable)]</span>
-<span class="doccomment">//! pub struct NativeLoop&lt;&#39;a, C&gt; {</span>
-<span class="doccomment">//!    next: Option&lt;Loop&lt;&#39;a, C&gt;&gt;,</span>
-<span class="doccomment">//! }</span>
-<span class="doccomment">//! type Loop&lt;&#39;a, C&gt; = JSManaged&lt;&#39;a, C, NativeLoop&lt;&#39;a, C&gt;&gt;;</span>
-<span class="doccomment">//! fn example&lt;C, S&gt;(cx: &amp;mut JSContext&lt;S&gt;) where</span>
-<span class="doccomment">//!     S: CanAccess + CanAlloc + InCompartment&lt;C&gt;,</span>
-<span class="doccomment">//!     C: Compartment,</span>
-<span class="doccomment">//! {</span>
-<span class="doccomment">//!    let ref mut root = cx.new_root();</span>
-<span class="doccomment">//!    let l = cx.manage(NativeLoop { next: None }).in_root(root);</span>
-<span class="doccomment">//!    l.borrow_mut(cx).next = Some(l);</span>
-<span class="doccomment">//! }</span>
-<span class="doccomment">//! # fn main() {}</span>
-<span class="doccomment">//! ```</span>
-<span class="doccomment">//!</span>
 <span class="doccomment">//! # Snapshots</span>
 <span class="doccomment">//!</span>
 <span class="doccomment">//! Some cases of building JS managed data require rooting, but in some cases</span>
@@ -2000,22 +2005,15 @@
 <span class="doccomment">//! the snapshot is also live at the end.</span>
 <span class="doccomment">//!</span>
 <span class="doccomment">//! ```rust</span>
-<span class="doccomment">//! # extern crate josephine;</span>
-<span class="doccomment">//! # #[macro_use] extern crate josephine_derive;</span>
 <span class="doccomment">//! # use josephine::*;</span>
-<span class="doccomment">//! # #[derive(JSInitializable, JSTraceable, JSRootable)]</span>
-<span class="doccomment">//! # pub struct NativeLoop&lt;&#39;a, C&gt; {</span>
-<span class="doccomment">//! #    next: Option&lt;Loop&lt;&#39;a, C&gt;&gt;,</span>
-<span class="doccomment">//! # }</span>
-<span class="doccomment">//! # type Loop&lt;&#39;a, C&gt; = JSManaged&lt;&#39;a, C, NativeLoop&lt;&#39;a, C&gt;&gt;;</span>
 <span class="doccomment">//! fn example&lt;C, S&gt;(cx: &amp;mut JSContext&lt;S&gt;) where</span>
-<span class="doccomment">//!     S: CanAccess + CanAlloc + InCompartment&lt;C&gt;,</span>
+<span class="doccomment">//!     S: CanAlloc + CanAccess + InCompartment&lt;C&gt;,</span>
 <span class="doccomment">//!     C: Compartment,</span>
 <span class="doccomment">//! {</span>
-<span class="doccomment">//!    let (ref mut cx, l) = cx.snapshot_manage(NativeLoop { next: None });</span>
-<span class="doccomment">//!    l.borrow_mut(cx).next = Some(l);</span>
+<span class="doccomment">//!     let (ref cx, x) = cx.snapshot_manage(String::from(&quot;hello&quot;));</span>
+<span class="doccomment">//!     // Since the context is snapshotted it can&#39;t trigger GC</span>
+<span class="doccomment">//!     println!(&quot;{} world&quot;, x.borrow(cx));</span>
 <span class="doccomment">//! }</span>
-<span class="doccomment">//! # fn main() {}</span>
 <span class="doccomment">//! ```</span>
 <span class="doccomment">//!</span>
 <span class="doccomment">//! A program which tries to use a function which might trigger GC will</span>
@@ -2023,42 +2021,44 @@
 <span class="doccomment">//! the appropriate traits. For example:</span>
 <span class="doccomment">//!</span>
 <span class="doccomment">//! ```rust,ignore</span>
-<span class="doccomment">//! # extern crate josephine;</span>
-<span class="doccomment">//! # #[macro_use] extern crate josephine_derive;</span>
 <span class="doccomment">//! # use josephine::*;</span>
-<span class="doccomment">//! # #[derive(HasClass, JSTraceable, JSRootable)]</span>
-<span class="doccomment">//! # pub struct NativeLoop&lt;&#39;a, C&gt; {</span>
-<span class="doccomment">//! #    next: Option&lt;Loop&lt;&#39;a, C&gt;&gt;,</span>
-<span class="doccomment">//! # }</span>
-<span class="doccomment">//! # type Loop&lt;&#39;a, C&gt; = JSManaged&lt;&#39;a, C, NativeLoopClass&gt;;</span>
-<span class="doccomment">//! fn might_trigger_gc&lt;C, S&gt;(cx: &amp;mut JSContext&lt;S&gt;) where</span>
-<span class="doccomment">//!     S: CanAccess + CanAlloc + InCompartment&lt;C&gt;,</span>
-<span class="doccomment">//!     C: Compartment,</span>
-<span class="doccomment">//! { }</span>
-<span class="doccomment">//!</span>
 <span class="doccomment">//! fn unsafe_example&lt;C, S&gt;(cx: &amp;mut JSContext&lt;S&gt;) where</span>
-<span class="doccomment">//!     S: CanAccess + CanAlloc + InCompartment&lt;C&gt;,</span>
+<span class="doccomment">//!     S: CanAlloc + CanAccess + InCompartment&lt;C&gt;,</span>
 <span class="doccomment">//!     C: Compartment,</span>
 <span class="doccomment">//! {</span>
-<span class="doccomment">//!    let (ref mut cx, l) = cx.snapshot_manage(NativeLoop { next: None });</span>
-<span class="doccomment">//!    might_trigger_gc(cx);</span>
-<span class="doccomment">//!    l.borrow_mut(cx).next = Some(l);</span>
+<span class="doccomment">//!     let (ref mut cx, x) = cx.snapshot_manage(String::from(&quot;hello&quot;));</span>
+<span class="doccomment">//!     cx.gc();</span>
+<span class="doccomment">//!     println!(&quot;{} world&quot;, x.borrow(cx));</span>
 <span class="doccomment">//! }</span>
-<span class="doccomment">//! # fn main() {}</span>
 <span class="doccomment">//! ```</span>
 <span class="doccomment">//!</span>
-<span class="doccomment">//! In this program, the function `might_trigger_gc` requires the state</span>
+<span class="doccomment">//! In this program, the call to `cx.gc()` requires the state</span>
 <span class="doccomment">//! to support `CanAlloc&lt;C&gt;`, which is not allowed by the snapshotted state.</span>
 <span class="doccomment">//!</span>
 <span class="doccomment">//! ```text</span>
 <span class="doccomment">//! 	error[E0277]: the trait bound `josephine::Snapshotted&lt;&#39;_, S&gt;: josephine::CanAlloc` is not satisfied</span>
-<span class="doccomment">//!   --&gt; src/lib.rs:19:4</span>
-<span class="doccomment">//!    |</span>
-<span class="doccomment">//! 19 |    might_trigger_gc(cx);</span>
-<span class="doccomment">//!    |    ^^^^^^^^^^^^^^^^ the trait `josephine::CanAlloc` is not implemented for `josephine::Snapshotted&lt;&#39;_, S&gt;`</span>
-<span class="doccomment">//!    |</span>
-<span class="doccomment">//!    = note: required by `might_trigger_gc`</span>
+<span class="doccomment">//!  --&gt; src/lib.rs:9:8</span>
+<span class="doccomment">//!   |</span>
+<span class="doccomment">//! 9 |     cx.gc();</span>
+<span class="doccomment">//!   |        ^^ the trait `josephine::CanAlloc` is not implemented for `josephine::Snapshotted&lt;&#39;_, S&gt;`</span>
 <span class="doccomment">//! ```</span>
+<span class="doccomment">//!</span>
+<span class="doccomment">//! # Changing compartment</span>
+<span class="doccomment">//!</span>
+<span class="doccomment">//! `cx.enter_known_compartment(managed)`</span>
+<span class="doccomment">//!</span>
+<span class="doccomment">//! # Wildcard compartments</span>
+<span class="doccomment">//!</span>
+<span class="doccomment">//! `managed.forget_compartment()`</span>
+<span class="doccomment">//! `cx.enter_unknown_compartment(managed)`</span>
+<span class="doccomment">//!</span>
+<span class="doccomment">//! # Testing compartment equality</span>
+<span class="doccomment">//!</span>
+<span class="doccomment">//! `managed.in_compartment(cx)`</span>
+<span class="doccomment">//!</span>
+<span class="doccomment">//! # User-defined types</span>
+<span class="doccomment">//!</span>
+<span class="doccomment">//! `JSTraceable`, `JSRootable`, `JSTransplantable` and `JSInitializable`.</span>
 <span class="doccomment">//!</span>
 <span class="doccomment">//! # Globals</span>
 <span class="doccomment">//!</span>
