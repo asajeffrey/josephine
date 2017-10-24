@@ -5,6 +5,8 @@ rust:
   - nightly
 
 script:
+  # workaround for https://github.com/budziq/rust-skeptic/issues/67
+  - rm -rf target/debug/deps/*josephine*
   - ccache -z
   - CCACHE=$(which ccache) cargo build -vv
   - CCACHE=$(which ccache) cargo test

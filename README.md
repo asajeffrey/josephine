@@ -1,8 +1,13 @@
-# josephine: using JavaScript to safely manage the lifetimes of Rust data
+# Josephine: using JavaScript to safely manage the lifetimes of Rust data
 
 [![Build Status](https://travis-ci.org/asajeffrey/josephine.svg)](https://travis-ci.org/asajeffrey/josephine)
 
-This library allows Rust data to be attached to JavaScript objects:
+(
+[Doc](https://asajeffrey.github.io/josephine) |
+[CI](https://travis-ci.org/asajeffrey/josephine)
+)
+
+The josephine crate allows Rust data to be attached to JavaScript objects:
 the lifetime of the Rust data is then the same as the JS object it is attached to.
 Since JS is garbage collected, it is safe to copy and discard references to
 JS managed data, and allows examples like doubly-linked lists which would
@@ -41,7 +46,7 @@ and are intended for use by a trusted bindings generator.
 
 ## Using
 
-This crate is based on the `rust-mozjs` crate for the SpiderMonkey engine,
+The josephine crate is based on the `rust-mozjs` crate for the SpiderMonkey engine,
 which uses nightly features, so `josephine` also requires nightly.
 
 In your `Cargo.toml`:
