@@ -1,6 +1,7 @@
 # josephine: using JavaScript to safely manage the lifetimes of Rust data
 
-[![Build Status](https://travis-ci.org/asajeffrey/josephine.svg)](https://travis-ci.org/asajeffrey/josephine)
+[![Build Status](https://travis-ci.org/asajeffrey/josephine.svg)](https://travis-ci.org/asajeffrey/josephine) |
+[API Documentation](https://asajeffrey.github.io/josephine)
 
 This library allows Rust data to be attached to JavaScript objects:
 the lifetime of the Rust data is then the same as the JS object it is attached to.

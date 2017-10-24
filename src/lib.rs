@@ -1,5 +1,10 @@
 //! A library which uses JavaScript to safely manage the lifetimes of Rust data.
 //!
+//! (
+//! [Repo](https://github.com/asajeffrey/josephine) |
+//! [CI](https://travis-ci.org/asajeffrey/josephine)
+//! )
+//!
 //! This library allows Rust data to be attached to JavaScript objects:
 //! the lifetime of the Rust data is then the same as the JS object it is attached to.
 //! Since JS is garbage collected, it is safe to copy and discard references to
