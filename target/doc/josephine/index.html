@@ -48,7 +48,7 @@
                    <a id="toggle-all-docs" href="javascript:void(0)" title="collapse all docs">
                        [<span class='inner'>&#x2212;</span>]
                    </a>
-               </span><a class='srclink' href='../src/josephine/lib.rs.html#1-1714' title='goto source code'>[src]</a></span></h1>
+               </span><a class='srclink' href='../src/josephine/lib.rs.html#1-1779' title='goto source code'>[src]</a></span></h1>
 <div class='docblock'><p>A library which uses JavaScript to safely manage the lifetimes of Rust data.</p>
 
 <p>(
@@ -308,15 +308,74 @@ to support <code>CanAlloc&lt;C&gt;</code>, which is not allowed by the snapshott
   |        ^^ the trait `josephine::CanAlloc` is not implemented for `josephine::Snapshotted&lt;&#39;_, S&gt;`
 </code></pre>
 
-<h1 id='changing-compartment' class='section-header'><a href='#changing-compartment'>Changing compartment</a></h1>
-<p><code>cx.enter_known_compartment(managed)</code></p>
+<h1 id='working-with-compartments' class='section-header'><a href='#working-with-compartments'>Working with compartments</a></h1>
+<p>To enter the compartment of a JS managed object, you can use <code>cx.enter_known_compartment(managed)</code>.
+This returns a context whose current compartment is that of the JS managed objecct.</p>
 
-<h1 id='wildcard-compartments' class='section-header'><a href='#wildcard-compartments'>Wildcard compartments</a></h1>
-<p><code>managed.forget_compartment()</code>
-<code>cx.enter_unknown_compartment(managed)</code></p>
+<pre class="rust rust-example-rendered">
+<span class="kw">fn</span> <span class="ident">example</span><span class="op">&lt;</span><span class="ident">C</span>, <span class="ident">S</span><span class="op">&gt;</span>(<span class="ident">cx</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">JSContext</span><span class="op">&lt;</span><span class="ident">S</span><span class="op">&gt;</span>, <span class="ident">x</span>: <span class="ident">JSManaged</span><span class="op">&lt;</span><span class="ident">C</span>, <span class="ident">String</span><span class="op">&gt;</span>) <span class="kw">where</span>
+    <span class="ident">S</span>: <span class="ident">CanAccess</span> <span class="op">+</span> <span class="ident">CanAlloc</span>,
+    <span class="ident">C</span>: <span class="ident">Compartment</span>,
+{
+    <span class="comment">// We can&#39;t allocate data without entering the comartment.</span>
+    <span class="comment">// Commenting out the next line gives an error</span>
+    <span class="comment">// the trait `josephine::InCompartment&lt;_&gt;` is not implemented for `S`.</span>
+    <span class="kw">let</span> <span class="kw-2">ref</span> <span class="kw-2">mut</span> <span class="ident">cx</span> <span class="op">=</span> <span class="ident">cx</span>.<span class="ident">enter_known_compartment</span>(<span class="ident">x</span>);
+    <span class="kw">let</span> <span class="kw-2">ref</span> <span class="kw-2">mut</span> <span class="ident">root</span> <span class="op">=</span> <span class="ident">cx</span>.<span class="ident">new_root</span>();
+    <span class="kw">let</span> <span class="ident">y</span> <span class="op">=</span> <span class="ident">cx</span>.<span class="ident">manage</span>(<span class="ident">String</span>::<span class="ident">from</span>(<span class="string">&quot;world&quot;</span>)).<span class="ident">in_root</span>(<span class="ident">root</span>);
+    <span class="macro">println</span><span class="macro">!</span>(<span class="string">&quot;Hello, {}.&quot;</span>, <span class="ident">y</span>.<span class="ident">borrow</span>(<span class="ident">cx</span>));
+}</pre>
 
-<h1 id='testing-compartment-equality' class='section-header'><a href='#testing-compartment-equality'>Testing compartment equality</a></h1>
-<p><code>managed.in_compartment(cx)</code></p>
+<p>Working with named compartmens is fine when there is a fixed number of them, but not when
+the number of compartments is unbounded. For example, the type <code>Vec&lt;JSManaged&lt;C, T&gt;&gt;</code> contains
+a vector of managed objects, all in the same compartment, but sometimes you need a vector of
+objects in different compartments. This is what <em>wildcards</em> are for (borrowed from
+<a href="https://docs.oracle.com/javase/tutorial/java/generics/wildcards.html">Java wildcards</a>
+which solve a similar problem).</p>
+
+<p>The wildcard compartment is called <code>SOMEWHERE</code>, and <code>JSManaged&lt;SOMEWHERE, T&gt;</code> refers
+to JS managed data whose compartment is unknown. For example <code>Vec&lt;JSManaged&lt;SOMEWHERE, T&gt;&gt;</code>
+contains a vector of managed objects, which may all be in different compartments.</p>
+
+<p>To create a <code>JSManaged&lt;SOMEWHERE, T&gt;</code>, we use <code>managed.forget_compartment()</code>.</p>
+
+<pre class="rust rust-example-rendered">
+<span class="kw">fn</span> <span class="ident">example</span><span class="op">&lt;</span><span class="ident">C</span>, <span class="ident">S</span><span class="op">&gt;</span>(<span class="ident">cx</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">JSContext</span><span class="op">&lt;</span><span class="ident">S</span><span class="op">&gt;</span>) <span class="op">-&gt;</span> <span class="ident">JSManaged</span><span class="op">&lt;</span><span class="ident">SOMEWHERE</span>, <span class="ident">String</span><span class="op">&gt;</span> <span class="kw">where</span>
+    <span class="ident">S</span>: <span class="ident">CanAlloc</span> <span class="op">+</span> <span class="ident">InCompartment</span><span class="op">&lt;</span><span class="ident">C</span><span class="op">&gt;</span>,
+    <span class="ident">C</span>: <span class="ident">Compartment</span>,
+{
+    <span class="ident">cx</span>.<span class="ident">manage</span>(<span class="ident">String</span>::<span class="ident">from</span>(<span class="string">&quot;hello&quot;</span>)).<span class="ident">forget_compartment</span>()
+}</pre>
+
+<p>To access data with a wildcard compartment, first enter the compartment
+using <code>cx.enter_unknown_compartment(managed)</code>.</p>
+
+<pre class="rust rust-example-rendered">
+<span class="kw">fn</span> <span class="ident">example</span><span class="op">&lt;</span><span class="ident">S</span><span class="op">&gt;</span>(<span class="ident">cx</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">JSContext</span><span class="op">&lt;</span><span class="ident">S</span><span class="op">&gt;</span>, <span class="ident">x</span>: <span class="ident">JSManaged</span><span class="op">&lt;</span><span class="ident">SOMEWHERE</span>, <span class="ident">String</span><span class="op">&gt;</span>) <span class="kw">where</span>
+    <span class="ident">S</span>: <span class="ident">CanAccess</span>,
+{
+    <span class="comment">// We can&#39;t access x without first entering its compartment.</span>
+    <span class="comment">// Commenting out the next two lines gives an error</span>
+    <span class="comment">// the trait `josephine::Compartment` is not implemented for `josephine::SOMEWHERE`.</span>
+    <span class="kw">let</span> <span class="kw-2">ref</span> <span class="kw-2">mut</span> <span class="ident">cx</span> <span class="op">=</span> <span class="ident">cx</span>.<span class="ident">enter_unknown_compartment</span>(<span class="ident">x</span>);
+    <span class="kw">let</span> <span class="ident">x</span> <span class="op">=</span> <span class="ident">cx</span>.<span class="ident">entered</span>();
+    <span class="macro">println</span><span class="macro">!</span>(<span class="string">&quot;Hello, {}.&quot;</span>, <span class="ident">x</span>.<span class="ident">borrow</span>(<span class="ident">cx</span>));
+}</pre>
+
+<p>Sometimes you need to check to see if some JS managed data is in the current compartment or not.
+This is done with <code>managed.in_compartment(cx)</code>, which returns an <code>Option&lt;JSManaged&lt;C, T&gt;&gt;</code>
+when the context&#39;s current compartment is <code>C</code>. The result is <code>Some(managed)</code> if <code>managed</code> was in
+compartment <code>C</code>, and <code>None</code> if it was in a different compartment.</p>
+
+<pre class="rust rust-example-rendered">
+<span class="kw">fn</span> <span class="ident">example</span><span class="op">&lt;</span><span class="ident">S</span>, <span class="ident">C</span><span class="op">&gt;</span>(<span class="ident">cx</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">JSContext</span><span class="op">&lt;</span><span class="ident">S</span><span class="op">&gt;</span>, <span class="ident">x</span>: <span class="ident">JSManaged</span><span class="op">&lt;</span><span class="ident">SOMEWHERE</span>, <span class="ident">String</span><span class="op">&gt;</span>) <span class="kw">where</span>
+    <span class="ident">S</span>: <span class="ident">CanAccess</span> <span class="op">+</span> <span class="ident">InCompartment</span><span class="op">&lt;</span><span class="ident">C</span><span class="op">&gt;</span>,
+    <span class="ident">C</span>: <span class="ident">Compartment</span>,
+{
+    <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">x</span>) <span class="op">=</span> <span class="ident">x</span>.<span class="ident">in_compartment</span>(<span class="ident">cx</span>) {
+        <span class="macro">println</span><span class="macro">!</span>(<span class="string">&quot;Hello, {}.&quot;</span>, <span class="ident">x</span>.<span class="ident">borrow</span>(<span class="ident">cx</span>));
+    }
+}</pre>
 
 <h1 id='user-defined-types' class='section-header'><a href='#user-defined-types'>User-defined types</a></h1>
 <p><code>JSTraceable</code>, <code>JSRootable</code>, <code>JSTransplantable</code> and <code>JSInitializable</code>.</p>
