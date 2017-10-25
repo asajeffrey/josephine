@@ -363,14 +363,131 @@
 //!
 //! # User-defined types
 //!
-//! `JSTraceable`, `JSRootable`, `JSTransplantable` and `JSInitializable`.
+//! There are more types to manage than just `String`!
 //!
+//! To be managed by `JSManageable`, a type should implement the following traits:
+//!
+//! * `JSTraceable`: values of the type can be *traced*, that is can tell the garbage
+//!    collector which objects are reachable from them.
+//! * `JSRootable`: values of the type have their lifetime managed by JS.
+//! * `JSTransplantable`: values of the type have their compartment managed by JS.
+//! * `JSInitializable`: this type knows how to initialize a JS object which is used
+//!    to manage its lifetime.
+//!
+//! Each of these traits can be derived. The fields of a `JSTraceable` type should be
+//! `JSTraceable`, and similarly for `JSRootable` and `JSTransplantable`. This requirement
+//! is *not* true for `JSInitializable`.
+//!
+//! A typical use is to define two types: the *native* type `NativeThing`
+//! and then the *managed* type `Thing<'a, C>` which is just a `JSManaged<'a, C, NativeThing>`.
+//!
+//! ```rust
+//! # extern crate josephine;
+//! # #[macro_use] extern crate josephine_derive;
+//! # use josephine::*;
+//! #[derive(JSInitializable, JSTraceable, JSRootable, JSTransplantable)]
+//! struct NativeName { name: String }
+//!
+//! #[derive(Clone, Copy, Debug, Eq, PartialEq, JSInitializable, JSTraceable, JSRootable, JSTransplantable)]
+//! pub struct Name<'a, C> (JSManaged<'a, C, NativeName>);
+//!
+//! impl<'a, C:'a> Name<'a, C> {
+//!     pub fn new<S>(cx: &'a mut JSContext<S>, name: &str) -> Name<'a, C> where
+//!         S: CanAlloc + InCompartment<C>,
+//!         C: Compartment,
+//!     {
+//!         Name(cx.manage(NativeName { name: String::from(name) }))
+//!     }
+//!     pub fn name<S>(self, cx: &'a JSContext<S>) -> &'a str where
+//!         S: CanAccess,
+//!         C: Compartment,
+//!     {
+//!         &*self.0.borrow(cx).name
+//!     }
+//! }
+//!
+//! # fn main() {
+//! # let ref mut cx = JSContext::new();
+//! # let ref mut cx = cx.create_compartment().global_manage(37);
+//! let ref mut root = cx.new_root();
+//! let hello = Name::new(cx, "hello").in_root(root);
+//! assert_eq!(hello.name(cx), "hello");
+//! # }
+//! ```
+//!
+//! Sometimes the native type will itself contain references to JS-managed data,
+//! so will need to be parameterized on a lifetime and compartment.
+//!
+//! ```rust
+//! # extern crate josephine;
+//! # #[macro_use] extern crate josephine_derive;
+//! # use josephine::*;
+//! # #[derive(JSInitializable, JSTraceable, JSRootable, JSTransplantable)]
+//! # struct NativeName { name: String }
+//! #
+//! # #[derive(Clone, Copy, Debug, Eq, PartialEq, JSInitializable, JSTraceable, JSRootable, JSTransplantable)]
+//! # pub struct Name<'a, C> (JSManaged<'a, C, NativeName>);
+//! #
+//! # impl<'a, C> Name<'a, C> {
+//! #     pub fn new<S>(cx: &'a mut JSContext<S>, name: &str) -> Name<'a, C> where
+//! #         S: CanAlloc + InCompartment<C>,
+//! #         C: Compartment,
+//! #     {
+//! #         Name(cx.manage(NativeName { name: String::from(name) }))
+//! #     }
+//! #     pub fn name<S>(self, cx: &'a JSContext<S>) -> &'a str where
+//! #         S: CanAccess,
+//! #         C: Compartment,
+//! #     {
+//! #         &*self.0.borrow(cx).name
+//! #     }
+//! # }
+//! #
+//! #[derive(JSInitializable, JSTraceable, JSRootable, JSTransplantable)]
+//! struct NativeNames<'a, C> { names: Vec<Name<'a, C>> }
+//!
+//! #[derive(Clone, Copy, Debug, JSInitializable, JSTraceable, JSRootable, JSTransplantable)]
+//! pub struct Names<'a, C> (JSManaged<'a, C, NativeNames<'a, C>>);
+//! impl<'a, C:'a> Names<'a, C> {
+//!     pub fn new<S>(cx: &'a mut JSContext<S>) -> Names<'a, C> where
+//!         S: CanAlloc + InCompartment<C>,
+//!         C: Compartment,
+//!     {
+//!         Names(cx.manage(NativeNames { names: vec![] }))
+//!     }
+//!     pub fn push_str<S>(self, cx: &'a mut JSContext<S>, name: &str) where
+//!         S: CanAccess + CanAlloc + InCompartment<C>,
+//!         C: Compartment,
+//!     {
+//!         let ref mut root = cx.new_root();
+//!         let name = Name::new(cx, name).in_root(root);
+//!         self.0.borrow_mut(cx).names.push(name);
+//!     }
+//!     pub fn get<S>(self, cx: &'a JSContext<S>, index: usize) -> Option<Name<'a, C>> where
+//!         S: CanAccess,
+//!         C: Compartment,
+//!     {
+//!         self.0.borrow(cx).names.get(index).cloned()
+//!     }
+//! }
+//!
+//! # fn main() {
+//! # let ref mut cx = JSContext::new();
+//! # let ref mut cx = cx.create_compartment().global_manage(37);
+//! let ref mut root = cx.new_root();
+//! let hello_world = Names::new(cx).in_root(root);
+//! hello_world.push_str(cx, "hello");
+//! hello_world.push_str(cx, "world");
+//! assert_eq!(hello_world.get(cx, 0).map(|name| name.name(cx)), Some("hello"));
+//! assert_eq!(hello_world.get(cx, 1).map(|name| name.name(cx)), Some("world"));
+//! # }
+//! ```
 //! # Globals
 //!
-//! JS contexts require initialization. In particular, each compartment has a global,
-//! which should be JS managed data. The global can be created using `cx.create_compartment()`,
-//! and given native data to manage with `cx.global_manage(data)`. The global can be accessed
-//! with `cx.global()`.
+//! Each JS compartment has a special object called a *global*.
+//! The compartment can be created using `cx.create_compartment()`,
+//! and the global can be given native data to manage with `cx.global_manage(data)`.
+//! The global can be accessed with `cx.global()`.
 //!
 //! ```rust
 //! # extern crate josephine;
@@ -1777,3 +1894,4 @@ unsafe impl<C> JSTransplantable<C> for usize { type Transplanted = usize; }
 unsafe impl<C, T> JSTransplantable<C> for Option<T> where T: JSTransplantable<C> { type Transplanted = Option<T::Transplanted>; }
 unsafe impl<C, T> JSTransplantable<C> for Vec<T> where T: JSTransplantable<C> { type Transplanted = Vec<T::Transplanted>; }
 unsafe impl<'a, C, D, T> JSTransplantable<C> for JSManaged<'a, D, T> where T: JSTransplantable<C> { type Transplanted = JSManaged<'a, C, T::Transplanted>; }
+
