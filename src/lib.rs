@@ -482,6 +482,13 @@
 //! assert_eq!(hello_world.get(cx, 1).map(|name| name.name(cx)), Some("world"));
 //! # }
 //! ```
+//!
+//! # Calling between JS and Rust
+//!
+//! Josephine exposes an unsafe API to allow JS to call Rust and back again.
+//! This is just a thin wrapper round the SpiderMonkey API.
+//! See the [`JSInitializer`](trait.JSInitializer.html) trait for details.
+//!
 //! # Globals
 //!
 //! Each JS compartment has a special object called a *global*.
