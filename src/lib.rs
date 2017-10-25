@@ -484,10 +484,10 @@
 //! ```
 //! # Globals
 //!
-//! JS contexts require initialization. In particular, each compartment has a global,
-//! which should be JS managed data. The global can be created using `cx.create_compartment()`,
-//! and given native data to manage with `cx.global_manage(data)`. The global can be accessed
-//! with `cx.global()`.
+//! Each JS compartment has a special object called a *global*.
+//! The compartment can be created using `cx.create_compartment()`,
+//! and the global can be given native data to manage with `cx.global_manage(data)`.
+//! The global can be accessed with `cx.global()`.
 //!
 //! ```rust
 //! # extern crate josephine;
