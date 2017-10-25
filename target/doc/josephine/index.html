@@ -48,7 +48,7 @@
                    <a id="toggle-all-docs" href="javascript:void(0)" title="collapse all docs">
                        [<span class='inner'>&#x2212;</span>]
                    </a>
-               </span><a class='srclink' href='../src/josephine/lib.rs.html#1-1779' title='goto source code'>[src]</a></span></h1>
+               </span><a class='srclink' href='../src/josephine/lib.rs.html#1-1896' title='goto source code'>[src]</a></span></h1>
 <div class='docblock'><p>A library which uses JavaScript to safely manage the lifetimes of Rust data.</p>
 
 <p>(
@@ -378,13 +378,96 @@ compartment <code>C</code>, and <code>None</code> if it was in a different compa
 }</pre>
 
 <h1 id='user-defined-types' class='section-header'><a href='#user-defined-types'>User-defined types</a></h1>
-<p><code>JSTraceable</code>, <code>JSRootable</code>, <code>JSTransplantable</code> and <code>JSInitializable</code>.</p>
+<p>There are more types to manage than just <code>String</code>!</p>
+
+<p>To be managed by <code>JSManageable</code>, a type should implement the following traits:</p>
+
+<ul>
+<li><code>JSTraceable</code>: values of the type can be <em>traced</em>, that is can tell the garbage
+collector which objects are reachable from them.</li>
+<li><code>JSRootable</code>: values of the type have their lifetime managed by JS.</li>
+<li><code>JSTransplantable</code>: values of the type have their compartment managed by JS.</li>
+<li><code>JSInitializable</code>: this type knows how to initialize a JS object which is used
+to manage its lifetime.</li>
+</ul>
+
+<p>Each of these traits can be derived. The fields of a <code>JSTraceable</code> type should be
+<code>JSTraceable</code>, and similarly for <code>JSRootable</code> and <code>JSTransplantable</code>. This requirement
+is <em>not</em> true for <code>JSInitializable</code>.</p>
+
+<p>A typical use is to define two types: the <em>native</em> type <code>NativeThing</code>
+and then the <em>managed</em> type <code>Thing&lt;&#39;a, C&gt;</code> which is just a <code>JSManaged&lt;&#39;a, C, NativeThing&gt;</code>.</p>
+
+<pre class="rust rust-example-rendered">
+<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">JSInitializable</span>, <span class="ident">JSTraceable</span>, <span class="ident">JSRootable</span>, <span class="ident">JSTransplantable</span>)]</span>
+<span class="kw">struct</span> <span class="ident">NativeName</span> { <span class="ident">name</span>: <span class="ident">String</span> }
+
+<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Clone</span>, <span class="ident">Copy</span>, <span class="ident">Debug</span>, <span class="ident">Eq</span>, <span class="ident">PartialEq</span>, <span class="ident">JSInitializable</span>, <span class="ident">JSTraceable</span>, <span class="ident">JSRootable</span>, <span class="ident">JSTransplantable</span>)]</span>
+<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">Name</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span>, <span class="ident">C</span><span class="op">&gt;</span> (<span class="ident">JSManaged</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span>, <span class="ident">C</span>, <span class="ident">NativeName</span><span class="op">&gt;</span>);
+
+<span class="kw">impl</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span>, <span class="ident">C</span>:<span class="lifetime">&#39;a</span><span class="op">&gt;</span> <span class="ident">Name</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span>, <span class="ident">C</span><span class="op">&gt;</span> {
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">new</span><span class="op">&lt;</span><span class="ident">S</span><span class="op">&gt;</span>(<span class="ident">cx</span>: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a</span> <span class="kw-2">mut</span> <span class="ident">JSContext</span><span class="op">&lt;</span><span class="ident">S</span><span class="op">&gt;</span>, <span class="ident">name</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>) <span class="op">-&gt;</span> <span class="ident">Name</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span>, <span class="ident">C</span><span class="op">&gt;</span> <span class="kw">where</span>
+        <span class="ident">S</span>: <span class="ident">CanAlloc</span> <span class="op">+</span> <span class="ident">InCompartment</span><span class="op">&lt;</span><span class="ident">C</span><span class="op">&gt;</span>,
+        <span class="ident">C</span>: <span class="ident">Compartment</span>,
+    {
+        <span class="ident">Name</span>(<span class="ident">cx</span>.<span class="ident">manage</span>(<span class="ident">NativeName</span> { <span class="ident">name</span>: <span class="ident">String</span>::<span class="ident">from</span>(<span class="ident">name</span>) }))
+    }
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">name</span><span class="op">&lt;</span><span class="ident">S</span><span class="op">&gt;</span>(<span class="self">self</span>, <span class="ident">cx</span>: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a</span> <span class="ident">JSContext</span><span class="op">&lt;</span><span class="ident">S</span><span class="op">&gt;</span>) <span class="op">-&gt;</span> <span class="kw-2">&amp;</span><span class="lifetime">&#39;a</span> <span class="ident">str</span> <span class="kw">where</span>
+        <span class="ident">S</span>: <span class="ident">CanAccess</span>,
+        <span class="ident">C</span>: <span class="ident">Compartment</span>,
+    {
+        <span class="kw-2">&amp;</span><span class="kw-2">*</span><span class="self">self</span>.<span class="number">0</span>.<span class="ident">borrow</span>(<span class="ident">cx</span>).<span class="ident">name</span>
+    }
+}
+
+<span class="kw">let</span> <span class="kw-2">ref</span> <span class="kw-2">mut</span> <span class="ident">root</span> <span class="op">=</span> <span class="ident">cx</span>.<span class="ident">new_root</span>();
+<span class="kw">let</span> <span class="ident">hello</span> <span class="op">=</span> <span class="ident">Name</span>::<span class="ident">new</span>(<span class="ident">cx</span>, <span class="string">&quot;hello&quot;</span>).<span class="ident">in_root</span>(<span class="ident">root</span>);
+<span class="macro">assert_eq</span><span class="macro">!</span>(<span class="ident">hello</span>.<span class="ident">name</span>(<span class="ident">cx</span>), <span class="string">&quot;hello&quot;</span>);</pre>
+
+<p>Sometimes the native type will itself contain references to JS-managed data,
+so will need to be parameterized on a lifetime and compartment.</p>
+
+<pre class="rust rust-example-rendered">
+<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">JSInitializable</span>, <span class="ident">JSTraceable</span>, <span class="ident">JSRootable</span>, <span class="ident">JSTransplantable</span>)]</span>
+<span class="kw">struct</span> <span class="ident">NativeNames</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span>, <span class="ident">C</span><span class="op">&gt;</span> { <span class="ident">names</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">Name</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span>, <span class="ident">C</span><span class="op">&gt;&gt;</span> }
+
+<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Clone</span>, <span class="ident">Copy</span>, <span class="ident">Debug</span>, <span class="ident">JSInitializable</span>, <span class="ident">JSTraceable</span>, <span class="ident">JSRootable</span>, <span class="ident">JSTransplantable</span>)]</span>
+<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">Names</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span>, <span class="ident">C</span><span class="op">&gt;</span> (<span class="ident">JSManaged</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span>, <span class="ident">C</span>, <span class="ident">NativeNames</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span>, <span class="ident">C</span><span class="op">&gt;&gt;</span>);
+<span class="kw">impl</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span>, <span class="ident">C</span>:<span class="lifetime">&#39;a</span><span class="op">&gt;</span> <span class="ident">Names</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span>, <span class="ident">C</span><span class="op">&gt;</span> {
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">new</span><span class="op">&lt;</span><span class="ident">S</span><span class="op">&gt;</span>(<span class="ident">cx</span>: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a</span> <span class="kw-2">mut</span> <span class="ident">JSContext</span><span class="op">&lt;</span><span class="ident">S</span><span class="op">&gt;</span>) <span class="op">-&gt;</span> <span class="ident">Names</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span>, <span class="ident">C</span><span class="op">&gt;</span> <span class="kw">where</span>
+        <span class="ident">S</span>: <span class="ident">CanAlloc</span> <span class="op">+</span> <span class="ident">InCompartment</span><span class="op">&lt;</span><span class="ident">C</span><span class="op">&gt;</span>,
+        <span class="ident">C</span>: <span class="ident">Compartment</span>,
+    {
+        <span class="ident">Names</span>(<span class="ident">cx</span>.<span class="ident">manage</span>(<span class="ident">NativeNames</span> { <span class="ident">names</span>: <span class="macro">vec</span><span class="macro">!</span>[] }))
+    }
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">push_str</span><span class="op">&lt;</span><span class="ident">S</span><span class="op">&gt;</span>(<span class="self">self</span>, <span class="ident">cx</span>: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a</span> <span class="kw-2">mut</span> <span class="ident">JSContext</span><span class="op">&lt;</span><span class="ident">S</span><span class="op">&gt;</span>, <span class="ident">name</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>) <span class="kw">where</span>
+        <span class="ident">S</span>: <span class="ident">CanAccess</span> <span class="op">+</span> <span class="ident">CanAlloc</span> <span class="op">+</span> <span class="ident">InCompartment</span><span class="op">&lt;</span><span class="ident">C</span><span class="op">&gt;</span>,
+        <span class="ident">C</span>: <span class="ident">Compartment</span>,
+    {
+        <span class="kw">let</span> <span class="kw-2">ref</span> <span class="kw-2">mut</span> <span class="ident">root</span> <span class="op">=</span> <span class="ident">cx</span>.<span class="ident">new_root</span>();
+        <span class="kw">let</span> <span class="ident">name</span> <span class="op">=</span> <span class="ident">Name</span>::<span class="ident">new</span>(<span class="ident">cx</span>, <span class="ident">name</span>).<span class="ident">in_root</span>(<span class="ident">root</span>);
+        <span class="self">self</span>.<span class="number">0</span>.<span class="ident">borrow_mut</span>(<span class="ident">cx</span>).<span class="ident">names</span>.<span class="ident">push</span>(<span class="ident">name</span>);
+    }
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">get</span><span class="op">&lt;</span><span class="ident">S</span><span class="op">&gt;</span>(<span class="self">self</span>, <span class="ident">cx</span>: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a</span> <span class="ident">JSContext</span><span class="op">&lt;</span><span class="ident">S</span><span class="op">&gt;</span>, <span class="ident">index</span>: <span class="ident">usize</span>) <span class="op">-&gt;</span> <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">Name</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span>, <span class="ident">C</span><span class="op">&gt;&gt;</span> <span class="kw">where</span>
+        <span class="ident">S</span>: <span class="ident">CanAccess</span>,
+        <span class="ident">C</span>: <span class="ident">Compartment</span>,
+    {
+        <span class="self">self</span>.<span class="number">0</span>.<span class="ident">borrow</span>(<span class="ident">cx</span>).<span class="ident">names</span>.<span class="ident">get</span>(<span class="ident">index</span>).<span class="ident">cloned</span>()
+    }
+}
+
+<span class="kw">let</span> <span class="kw-2">ref</span> <span class="kw-2">mut</span> <span class="ident">root</span> <span class="op">=</span> <span class="ident">cx</span>.<span class="ident">new_root</span>();
+<span class="kw">let</span> <span class="ident">hello_world</span> <span class="op">=</span> <span class="ident">Names</span>::<span class="ident">new</span>(<span class="ident">cx</span>).<span class="ident">in_root</span>(<span class="ident">root</span>);
+<span class="ident">hello_world</span>.<span class="ident">push_str</span>(<span class="ident">cx</span>, <span class="string">&quot;hello&quot;</span>);
+<span class="ident">hello_world</span>.<span class="ident">push_str</span>(<span class="ident">cx</span>, <span class="string">&quot;world&quot;</span>);
+<span class="macro">assert_eq</span><span class="macro">!</span>(<span class="ident">hello_world</span>.<span class="ident">get</span>(<span class="ident">cx</span>, <span class="number">0</span>).<span class="ident">map</span>(<span class="op">|</span><span class="ident">name</span><span class="op">|</span> <span class="ident">name</span>.<span class="ident">name</span>(<span class="ident">cx</span>)), <span class="prelude-val">Some</span>(<span class="string">&quot;hello&quot;</span>));
+<span class="macro">assert_eq</span><span class="macro">!</span>(<span class="ident">hello_world</span>.<span class="ident">get</span>(<span class="ident">cx</span>, <span class="number">1</span>).<span class="ident">map</span>(<span class="op">|</span><span class="ident">name</span><span class="op">|</span> <span class="ident">name</span>.<span class="ident">name</span>(<span class="ident">cx</span>)), <span class="prelude-val">Some</span>(<span class="string">&quot;world&quot;</span>));</pre>
 
 <h1 id='globals' class='section-header'><a href='#globals'>Globals</a></h1>
-<p>JS contexts require initialization. In particular, each compartment has a global,
-which should be JS managed data. The global can be created using <code>cx.create_compartment()</code>,
-and given native data to manage with <code>cx.global_manage(data)</code>. The global can be accessed
-with <code>cx.global()</code>.</p>
+<p>Each JS compartment has a special object called a <em>global</em>.
+The compartment can be created using <code>cx.create_compartment()</code>,
+and the global can be given native data to manage with <code>cx.global_manage(data)</code>.
+The global can be accessed with <code>cx.global()</code>.</p>
 
 <pre class="rust rust-example-rendered">
 <span class="attribute">#[<span class="ident">derive</span>(<span class="ident">JSInitializable</span>, <span class="ident">JSTraceable</span>, <span class="ident">JSRootable</span>, <span class="ident">JSTransplantable</span>)]</span>
@@ -785,8 +868,6 @@ Ditto <code>Eq</code> and <code>Hash</code>.</p>
                     <dd>Move up in search results</dd>
                     <dt>↓</dt>
                     <dd>Move down in search results</dd>
-                    <dt>↹</dt>
-                    <dd>Switch tab</dd>
                     <dt>&#9166;</dt>
                     <dd>Go to active search result</dd>
                     <dt>+</dt>
