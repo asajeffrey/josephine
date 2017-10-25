@@ -283,18 +283,83 @@
 //!   |        ^^ the trait `josephine::CanAlloc` is not implemented for `josephine::Snapshotted<'_, S>`
 //! ```
 //!
-//! # Changing compartment
+//! # Working with compartments
 //!
-//! `cx.enter_known_compartment(managed)`
+//! To enter the compartment of a JS managed object, you can use `cx.enter_known_compartment(managed)`.
+//! This returns a context whose current compartment is that of the JS managed objecct.
 //!
-//! # Wildcard compartments
+//! ```rust
+//! # use josephine::*;
+//! fn example<C, S>(cx: &mut JSContext<S>, x: JSManaged<C, String>) where
+//!     S: CanAccess + CanAlloc,
+//!     C: Compartment,
+//! {
+//!     // We can't allocate data without entering the comartment.
+//!     // Commenting out the next line gives an error
+//!     // the trait `josephine::InCompartment<_>` is not implemented for `S`.
+//!     let ref mut cx = cx.enter_known_compartment(x);
+//!     let ref mut root = cx.new_root();
+//!     let y = cx.manage(String::from("world")).in_root(root);
+//!     println!("Hello, {}.", y.borrow(cx));
+//! }
+//! ```
 //!
-//! `managed.forget_compartment()`
-//! `cx.enter_unknown_compartment(managed)`
+//! Working with named compartmens is fine when there is a fixed number of them, but not when
+//! the number of compartments is unbounded. For example, the type `Vec<JSManaged<C, T>>` contains
+//! a vector of managed objects, all in the same compartment, but sometimes you need a vector of
+//! objects in different compartments. This is what *wildcards* are for (borrowed from
+//! [Java wildcards](https://docs.oracle.com/javase/tutorial/java/generics/wildcards.html)
+//! which solve a similar problem).
 //!
-//! # Testing compartment equality
+//! The wildcard compartment is called `SOMEWHERE`, and `JSManaged<SOMEWHERE, T>` refers
+//! to JS managed data whose compartment is unknown. For example `Vec<JSManaged<SOMEWHERE, T>>`
+//! contains a vector of managed objects, which may all be in different compartments.
 //!
-//! `managed.in_compartment(cx)`
+//! To create a `JSManaged<SOMEWHERE, T>`, we use `managed.forget_compartment()`.
+//!
+//! ```rust
+//! # use josephine::*;
+//! fn example<C, S>(cx: &mut JSContext<S>) -> JSManaged<SOMEWHERE, String> where
+//!     S: CanAlloc + InCompartment<C>,
+//!     C: Compartment,
+//! {
+//!     cx.manage(String::from("hello")).forget_compartment()
+//! }
+//! ```
+//!
+//! To access data with a wildcard compartment, first enter the compartment
+//! using `cx.enter_unknown_compartment(managed)`.
+//!
+//! ```rust
+//! # use josephine::*;
+//! fn example<S>(cx: &mut JSContext<S>, x: JSManaged<SOMEWHERE, String>) where
+//!     S: CanAccess,
+//! {
+//!     // We can't access x without first entering its compartment.
+//!     // Commenting out the next two lines gives an error
+//!     // the trait `josephine::Compartment` is not implemented for `josephine::SOMEWHERE`.
+//!     let ref mut cx = cx.enter_unknown_compartment(x);
+//!     let x = cx.entered();
+//!     println!("Hello, {}.", x.borrow(cx));
+//! }
+//! ```
+//!
+//! Sometimes you need to check to see if some JS managed data is in the current compartment or not.
+//! This is done with `managed.in_compartment(cx)`, which returns an `Option<JSManaged<C, T>>`
+//! when the context's current compartment is `C`. The result is `Some(managed)` if `managed` was in
+//! compartment `C`, and `None` if it was in a different compartment.
+//!
+//! ```rust
+//! # use josephine::*;
+//! fn example<S, C>(cx: &mut JSContext<S>, x: JSManaged<SOMEWHERE, String>) where
+//!     S: CanAccess + InCompartment<C>,
+//!     C: Compartment,
+//! {
+//!     if let Some(x) = x.in_compartment(cx) {
+//!         println!("Hello, {}.", x.borrow(cx));
+//!     }
+//! }
+//! ```
 //!
 //! # User-defined types
 //!
