@@ -369,13 +369,13 @@
 //!
 //! * `JSTraceable`: values of the type can be *traced*, that is can tell the garbage
 //!    collector which objects are reachable from them.
-//! * `JSRootable`: values of the type have their lifetime managed by JS.
-//! * `JSTransplantable`: values of the type have their compartment managed by JS.
+//! * `JSLifetime`: values of the type have their lifetime managed by JS.
+//! * `JSCompartmental`: values of the type have their compartment managed by JS.
 //! * `JSInitializable`: this type knows how to initialize a JS object which is used
 //!    to manage its lifetime.
 //!
 //! Each of these traits can be derived. The fields of a `JSTraceable` type should be
-//! `JSTraceable`, and similarly for `JSRootable` and `JSTransplantable`. This requirement
+//! `JSTraceable`, and similarly for `JSLifetime` and `JSCompartmental`. This requirement
 //! is *not* true for `JSInitializable`.
 //!
 //! A typical use is to define two types: the *native* type `NativeThing`
@@ -385,10 +385,10 @@
 //! # extern crate josephine;
 //! # #[macro_use] extern crate josephine_derive;
 //! # use josephine::*;
-//! #[derive(JSInitializable, JSTraceable, JSRootable, JSTransplantable)]
+//! #[derive(JSInitializable, JSTraceable, JSLifetime, JSCompartmental)]
 //! struct NativeName { name: String }
 //!
-//! #[derive(Clone, Copy, Debug, Eq, PartialEq, JSInitializable, JSTraceable, JSRootable, JSTransplantable)]
+//! #[derive(Clone, Copy, Debug, Eq, PartialEq, JSInitializable, JSTraceable, JSLifetime, JSCompartmental)]
 //! pub struct Name<'a, C> (JSManaged<'a, C, NativeName>);
 //!
 //! impl<'a, C:'a> Name<'a, C> {
@@ -422,10 +422,10 @@
 //! # extern crate josephine;
 //! # #[macro_use] extern crate josephine_derive;
 //! # use josephine::*;
-//! # #[derive(JSInitializable, JSTraceable, JSRootable, JSTransplantable)]
+//! # #[derive(JSInitializable, JSTraceable, JSLifetime, JSCompartmental)]
 //! # struct NativeName { name: String }
 //! #
-//! # #[derive(Clone, Copy, Debug, Eq, PartialEq, JSInitializable, JSTraceable, JSRootable, JSTransplantable)]
+//! # #[derive(Clone, Copy, Debug, Eq, PartialEq, JSInitializable, JSTraceable, JSLifetime, JSCompartmental)]
 //! # pub struct Name<'a, C> (JSManaged<'a, C, NativeName>);
 //! #
 //! # impl<'a, C> Name<'a, C> {
@@ -443,10 +443,10 @@
 //! #     }
 //! # }
 //! #
-//! #[derive(JSInitializable, JSTraceable, JSRootable, JSTransplantable)]
+//! #[derive(JSInitializable, JSTraceable, JSLifetime, JSCompartmental)]
 //! struct NativeNames<'a, C> { names: Vec<Name<'a, C>> }
 //!
-//! #[derive(Clone, Copy, Debug, JSInitializable, JSTraceable, JSRootable, JSTransplantable)]
+//! #[derive(Clone, Copy, Debug, JSInitializable, JSTraceable, JSLifetime, JSCompartmental)]
 //! pub struct Names<'a, C> (JSManaged<'a, C, NativeNames<'a, C>>);
 //! impl<'a, C:'a> Names<'a, C> {
 //!     pub fn new<S>(cx: &'a mut JSContext<S>) -> Names<'a, C> where
@@ -500,7 +500,7 @@
 //! # extern crate josephine;
 //! # #[macro_use] extern crate josephine_derive;
 //! # use josephine::*;
-//! #[derive(JSInitializable, JSTraceable, JSRootable, JSTransplantable)]
+//! #[derive(JSInitializable, JSTraceable, JSLifetime, JSCompartmental)]
 //! pub struct NativeMyGlobal { name: String }
 //! type MyGlobal<'a, C> = JSManaged<'a, C, NativeMyGlobal>;
 //!
@@ -523,7 +523,7 @@
 //! # extern crate josephine;
 //! # #[macro_use] extern crate josephine_derive;
 //! # use josephine::*;
-//! #[derive(JSInitializable, JSTraceable, JSRootable, JSTransplantable)]
+//! #[derive(JSInitializable, JSTraceable, JSLifetime, JSCompartmental)]
 //! pub struct NativeMyGlobal<'a, C> { name: JSManaged<'a, C, String> }
 //! type MyGlobal<'a, C> = JSManaged<'a, C, NativeMyGlobal<'a, C>>;
 //!
@@ -547,7 +547,7 @@
 //! # extern crate josephine;
 //! # #[macro_use] extern crate josephine_derive;
 //! # use josephine::*;
-//! #[derive(JSInitializable, JSTraceable, JSRootable, JSTransplantable)]
+//! #[derive(JSInitializable, JSTraceable, JSLifetime, JSCompartmental)]
 //! pub struct NativeMyGlobal { name: String }
 //! type MyGlobal<'a, C> = JSManaged<'a, C, NativeMyGlobal>;
 //!
@@ -588,7 +588,7 @@ pub use context::IsSnapshot;
 pub mod compartment;
 pub use compartment::SOMEWHERE;
 pub use compartment::Compartment;
-pub use compartment::JSTransplantable;
+pub use compartment::JSCompartmental;
 
 pub mod runtime;
 
@@ -600,7 +600,7 @@ pub use managed::JSManaged;
 
 pub mod root;
 pub use root::JSRoot;
-pub use root::JSRootable;
+pub use root::JSLifetime;
 
 pub mod string;
 pub use string::JSString;

@@ -5,9 +5,9 @@ use super::InCompartment;
 use super::IsSnapshot;
 use super::JSContext;
 use super::JSInitializable;
-use super::JSRootable;
+use super::JSLifetime;
 use super::JSTraceable;
-use super::JSTransplantable;
+use super::JSCompartmental;
 use super::SOMEWHERE;
 use super::ffi::JSEvaluateErr;
 use super::ffi::JSInitializer;
@@ -95,7 +95,7 @@ impl<'a, C, T> JSManaged<'a, C, T> {
     pub fn new<S>(cx: &'a mut JSContext<S>, value: T) -> JSManaged<'a, C, T::Aged> where
         S: CanAlloc + InCompartment<C>,
         C: Compartment,
-        T: JSTraceable + JSInitializable + JSRootable<'a>,
+        T: JSTraceable + JSInitializable + JSLifetime<'a>,
     {
         debug!("Managing native data.");
         let jsapi_context = cx.cx();
@@ -138,7 +138,7 @@ impl<'a, C, T> JSManaged<'a, C, T> {
     pub fn get<'b, S>(self, _: &'b JSContext<S>) -> T::Aged where
         S: CanAccess,
         C: Compartment,
-        T: JSRootable<'b>,
+        T: JSLifetime<'b>,
         T::Aged: Copy,
         'a: 'b,
     {
@@ -149,7 +149,7 @@ impl<'a, C, T> JSManaged<'a, C, T> {
     pub fn borrow<'b, S>(self, _: &'b JSContext<S>) -> &'b T::Aged where
         S: CanAccess,
         C: Compartment,
-        T: JSRootable<'b>,
+        T: JSLifetime<'b>,
         'a: 'b,
     {
         let result = unsafe { &*(self.raw as *mut Option<T::Aged>) };
@@ -160,7 +160,7 @@ impl<'a, C, T> JSManaged<'a, C, T> {
     pub fn borrow_mut<'b, S>(self, _: &'b mut JSContext<S>) -> &'b mut T::Aged where
         S: CanAccess,
         C: Compartment,
-        T: JSRootable<'b>,
+        T: JSLifetime<'b>,
         'a: 'b,
     {
         let result = unsafe { &mut *(self.raw as *mut Option<T::Aged>) };
@@ -168,8 +168,8 @@ impl<'a, C, T> JSManaged<'a, C, T> {
     }
 
     /// Change the compartment of JS-managed data.
-    pub unsafe fn change_compartment<D>(self) -> JSManaged<'a, D, T::Transplanted> where
-        T: JSTransplantable<C, D>,
+    pub unsafe fn change_compartment<D>(self) -> JSManaged<'a, D, T::ChangeCompartment> where
+        T: JSCompartmental<C, D>,
     {
         JSManaged {
             js_object: self.js_object,
@@ -180,7 +180,7 @@ impl<'a, C, T> JSManaged<'a, C, T> {
 
     /// Change the lifetime of JS-managed data.
     pub unsafe fn change_lifetime<'b>(self) -> JSManaged<'b, C, T::Aged> where
-        T: JSRootable<'b>,
+        T: JSLifetime<'b>,
     {
         JSManaged {
             js_object: self.js_object,
@@ -192,7 +192,7 @@ impl<'a, C, T> JSManaged<'a, C, T> {
     /// It's safe to extend the lifetime of JS-managed data if it has been snapshotted.
     pub fn extend_lifetime<'b, 'c, S>(self, _: &'c JSContext<S>) -> JSManaged<'b, C, T::Aged> where
         S: IsSnapshot<'b>,
-        T: JSRootable<'b>,
+        T: JSLifetime<'b>,
     {
         unsafe { self.change_lifetime() }
     }
@@ -200,15 +200,15 @@ impl<'a, C, T> JSManaged<'a, C, T> {
     /// Forget about which compartment the managed data is in.
     /// This is safe because when we mutate data in compartment `C` we require
     /// `C: Compartment`, which means it is never `SOMEWHERE`.
-    pub fn forget_compartment(self) -> JSManaged<'a, SOMEWHERE, T::Transplanted> where
-        T: JSTransplantable<C, SOMEWHERE>,
+    pub fn forget_compartment(self) -> JSManaged<'a, SOMEWHERE, T::ChangeCompartment> where
+        T: JSCompartmental<C, SOMEWHERE>,
     {
         unsafe { self.change_compartment() }
     }
 
     /// Check to see if the current object is in the same compartment as another.
-    pub fn in_compartment<S, D>(self, cx: &JSContext<S>) -> Option<JSManaged<'a, D, T::Transplanted>> where
-        T: JSTransplantable<C, D>,
+    pub fn in_compartment<S, D>(self, cx: &JSContext<S>) -> Option<JSManaged<'a, D, T::ChangeCompartment>> where
+        T: JSCompartmental<C, D>,
         S: InCompartment<D>,
     {
         let self_compartment = unsafe { get_object_compartment(self.to_jsobject()) };

@@ -2,7 +2,7 @@ use super::CanAlloc;
 use super::InCompartment;
 use super::JSTraceable;
 use super::JSContext;
-use super::JSRootable;
+use super::JSLifetime;
 use super::ffi::JSEvaluateErr;
 use super::ffi::UNSAFE;
 
@@ -161,7 +161,7 @@ unsafe impl<'a, C> JSTraceable for JSString<'a, C> {
     }
 }
 
-unsafe impl<'a, 'b, C> JSRootable<'a> for JSString<'b, C> {
+unsafe impl<'a, 'b, C> JSLifetime<'a> for JSString<'b, C> {
     type Aged = JSString<'a, C>;
 }
 

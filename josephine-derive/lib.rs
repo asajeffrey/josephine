@@ -14,7 +14,7 @@ use std::iter;
 
 //  -------------------------------------------------------------------------------------------------------
 
-#[proc_macro_derive(JSRootable)]
+#[proc_macro_derive(JSLifetime)]
 pub fn derive_js_rootable(input: TokenStream) -> TokenStream {
     let s = input.to_string();
     let ast = syn::parse_derive_input(&s).unwrap();
@@ -44,21 +44,21 @@ fn impl_js_rootable(ast: &syn::DeriveInput) -> quote::Tokens {
     };
 
     // For types without any liftime parameters, we provide a trivial
-    // implementation of `JSRootable`.
+    // implementation of `JSLifetime`.
     if ast.generics.lifetimes.is_empty() {
         return quote! {
             #[allow(unsafe_code)]
-            unsafe impl<'a, #impl_generics> ::josephine::JSRootable<'a> for #name #ty_generics #where_clause {
+            unsafe impl<'a, #impl_generics> ::josephine::JSLifetime<'a> for #name #ty_generics #where_clause {
                 type Aged = #name #ty_generics;
             }
         }
     }
 
     // we assume there's only one lifetime param, not named 'b
-    assert!(ast.generics.lifetimes.len() == 1, "deriving JSRootable requires a single lifetime");
+    assert!(ast.generics.lifetimes.len() == 1, "deriving JSLifetime requires a single lifetime");
 
     let impl_lifetime = &ast.generics.lifetimes[0].lifetime.ident;
-    assert!(impl_lifetime != "'b", "deriving JSRootable requires the lifetime to not be named 'b");
+    assert!(impl_lifetime != "'b", "deriving JSLifetime requires the lifetime to not be named 'b");
 
     // the `Aged` associated type params are the ty_params without their bounds
     let aged_ty_params = ast.generics.ty_params.iter().map(|ty| {
@@ -69,7 +69,7 @@ fn impl_js_rootable(ast: &syn::DeriveInput) -> quote::Tokens {
 
     quote! {
         #[allow(unsafe_code)]
-        unsafe impl<#impl_lifetime, 'b, #impl_generics> ::josephine::JSRootable<'b> for #name #ty_generics #where_clause {
+        unsafe impl<#impl_lifetime, 'b, #impl_generics> ::josephine::JSLifetime<'b> for #name #ty_generics #where_clause {
             type Aged = #name<'b, #aged_ty_params>;
         }
     }
@@ -77,7 +77,7 @@ fn impl_js_rootable(ast: &syn::DeriveInput) -> quote::Tokens {
 
 //  -------------------------------------------------------------------------------------------------------
 
-#[proc_macro_derive(JSTransplantable)]
+#[proc_macro_derive(JSCompartmental)]
 pub fn derive_js_transplantable(input: TokenStream) -> TokenStream {
     let s = input.to_string();
     let ast = syn::parse_derive_input(&s).unwrap();
@@ -93,20 +93,20 @@ fn impl_js_transplantable(ast: &syn::DeriveInput) -> quote::Tokens {
         .collect::<Vec<_>>();
 
     // For types without any generic parameters, we provide a trivial
-    // implementation of `JSTransplantable`.
+    // implementation of `JSCompartmental`.
     if ast.generics.ty_params.is_empty() {
         let style = synstructure::BindStyle::Ref.into();
         let match_body = synstructure::each_field(&ast, &style, |binding| {
             let ty = &binding.field.ty;
             quote! {
-                if !<#ty as ::josephine::JSTransplantable<C, D>>::is_in_compartment(#binding, cx) { return false; }
+                if !<#ty as ::josephine::JSCompartmental<C, D>>::is_in_compartment(#binding, cx) { return false; }
             }
         });
 
         return quote! {
             #[allow(unsafe_code)]
-            unsafe impl<#(#lifetimes_and_d),*, C> ::josephine::JSTransplantable<C, D> for #name #ty_generics #where_clause {
-                type Transplanted = #name #ty_generics;
+            unsafe impl<#(#lifetimes_and_d),*, C> ::josephine::JSCompartmental<C, D> for #name #ty_generics #where_clause {
+                type ChangeCompartment = #name #ty_generics;
                 fn is_in_compartment<S>(&self, cx: &::josephine::JSContext<S>) -> bool where
                     S: InCompartment<D>
                 {
@@ -120,23 +120,23 @@ fn impl_js_transplantable(ast: &syn::DeriveInput) -> quote::Tokens {
     }
 
     // we assume there's only one type param, not named D
-    assert!(ast.generics.ty_params.len() == 1, "deriving JSTransplantable requires a single type parameter");
+    assert!(ast.generics.ty_params.len() == 1, "deriving JSCompartmental requires a single type parameter");
 
     let impl_ty_param = &ast.generics.ty_params[0].ident;
-    assert!(impl_ty_param != "D", "deriving JSTransplantable requires the type parameter to not be named D");
+    assert!(impl_ty_param != "D", "deriving JSCompartmental requires the type parameter to not be named D");
 
     let style = synstructure::BindStyle::Ref.into();
     let match_body = synstructure::each_field(&ast, &style, |binding| {
         let ty = &binding.field.ty;
         quote! {
-            if !<#ty as ::josephine::JSTransplantable<#impl_ty_param, D>>::is_in_compartment(#binding, cx) { return false; }
+            if !<#ty as ::josephine::JSCompartmental<#impl_ty_param, D>>::is_in_compartment(#binding, cx) { return false; }
         }
     });
 
     quote! {
         #[allow(unsafe_code)]
-        unsafe impl<#(#lifetimes_and_d),*, #impl_ty_param> ::josephine::JSTransplantable<#impl_ty_param, D> for #name #ty_generics #where_clause {
-            type Transplanted = #name<#(#lifetimes_and_d),*>;
+        unsafe impl<#(#lifetimes_and_d),*, #impl_ty_param> ::josephine::JSCompartmental<#impl_ty_param, D> for #name #ty_generics #where_clause {
+            type ChangeCompartment = #name<#(#lifetimes_and_d),*>;
             fn is_in_compartment<S>(&self, cx: &::josephine::JSContext<S>) -> bool where
                 S: InCompartment<D>
             {

@@ -14,7 +14,7 @@ mod fake_codegen;
 mod minidom;
 
 use josephine::JSContext;
-use josephine::JSRootable;
+use josephine::JSLifetime;
 use minidom::Window;
 
 fn main() {

@@ -106,7 +106,7 @@ impl Drop for JSUntypedPinnedRoot {
 
 /// Data which can be rooted.
 
-pub unsafe trait JSRootable<'a> {
+pub unsafe trait JSLifetime<'a> {
     type Aged;
 
     unsafe fn change_lifetime(self) -> Self::Aged where Self: Sized {
@@ -127,13 +127,13 @@ pub unsafe trait JSRootable<'a> {
     }
 }
 
-unsafe impl<'a> JSRootable<'a> for String { type Aged = String; }
-unsafe impl<'a> JSRootable<'a> for usize { type Aged = usize; }
-unsafe impl<'a, T> JSRootable<'a> for Option<T> where T: JSRootable<'a> { type Aged = Option<T::Aged>; }
-unsafe impl<'a, T> JSRootable<'a> for Vec<T> where T: JSRootable<'a> { type Aged = Vec<T::Aged>; }
+unsafe impl<'a> JSLifetime<'a> for String { type Aged = String; }
+unsafe impl<'a> JSLifetime<'a> for usize { type Aged = usize; }
+unsafe impl<'a, T> JSLifetime<'a> for Option<T> where T: JSLifetime<'a> { type Aged = Option<T::Aged>; }
+unsafe impl<'a, T> JSLifetime<'a> for Vec<T> where T: JSLifetime<'a> { type Aged = Vec<T::Aged>; }
 
-unsafe impl<'a, 'b, C, T> JSRootable<'a> for JSManaged<'b, C, T> where
-    T: JSRootable<'a>,
+unsafe impl<'a, 'b, C, T> JSLifetime<'a> for JSManaged<'b, C, T> where
+    T: JSLifetime<'a>,
 {
     type Aged = JSManaged<'a, C, T::Aged>;
 }
@@ -144,7 +144,7 @@ impl<'a, T> JSRoot<'a, T> {
     // duration of `'a`, so the type is no longer valid after the pin is dropped.
     pub fn pin<U>(&'a mut self, value: U) -> &'a T where
         T: JSTraceable,
-        U: JSRootable<'a, Aged=T>,
+        U: JSLifetime<'a, Aged=T>,
     {
         let roots = unsafe { &mut *thread_local_roots() };
         self.value = Some(unsafe { value.change_lifetime() });
@@ -155,7 +155,7 @@ impl<'a, T> JSRoot<'a, T> {
 
     pub fn set<U>(&'a mut self, value: U) -> T where
         T: Copy + JSTraceable,
-        U: JSRootable<'a, Aged=T>,
+        U: JSLifetime<'a, Aged=T>,
     {
         *self.pin(value)
     }

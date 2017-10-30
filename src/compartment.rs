@@ -22,14 +22,14 @@ pub struct BOUND<'a>(PhantomData<&'a mut &'a ()>);
 impl<'a> Compartment for BOUND<'a> {}
 
 /// Data which can be transplanted from compartment C into compartment D.
-pub unsafe trait JSTransplantable<C, D> {
-    type Transplanted;
+pub unsafe trait JSCompartmental<C, D> {
+    type ChangeCompartment;
     fn is_in_compartment<S>(&self, _cx: &JSContext<S>) -> bool where
         S: InCompartment<D>;
 }
 
-unsafe impl<C, D> JSTransplantable<C, D> for String {
-    type Transplanted = String;
+unsafe impl<C, D> JSCompartmental<C, D> for String {
+    type ChangeCompartment = String;
     fn is_in_compartment<S>(&self, _cx: &JSContext<S>) -> bool where
         S: InCompartment<D>
     {
@@ -37,8 +37,8 @@ unsafe impl<C, D> JSTransplantable<C, D> for String {
     }
 }
 
-unsafe impl<C, D> JSTransplantable<C, D> for usize {
-    type Transplanted = usize;
+unsafe impl<C, D> JSCompartmental<C, D> for usize {
+    type ChangeCompartment = usize;
     fn is_in_compartment<S>(&self, _cx: &JSContext<S>) -> bool where
         S: InCompartment<D>
     {
@@ -46,8 +46,8 @@ unsafe impl<C, D> JSTransplantable<C, D> for usize {
     }
 }
 
-unsafe impl<C, D> JSTransplantable<C, D> for () {
-    type Transplanted = ();
+unsafe impl<C, D> JSCompartmental<C, D> for () {
+    type ChangeCompartment = ();
     fn is_in_compartment<S>(&self, _cx: &JSContext<S>) -> bool where
         S: InCompartment<D>
     {
@@ -55,10 +55,10 @@ unsafe impl<C, D> JSTransplantable<C, D> for () {
     }
 }
 
-unsafe impl<C, D, T> JSTransplantable<C, D> for Option<T> where
-    T: JSTransplantable<C, D>
+unsafe impl<C, D, T> JSCompartmental<C, D> for Option<T> where
+    T: JSCompartmental<C, D>
 {
-    type Transplanted = Option<T::Transplanted>;
+    type ChangeCompartment = Option<T::ChangeCompartment>;
     fn is_in_compartment<S>(&self, cx: &JSContext<S>) -> bool where
         S: InCompartment<D>
     {
@@ -66,10 +66,10 @@ unsafe impl<C, D, T> JSTransplantable<C, D> for Option<T> where
     }
 }
 
-unsafe impl<C, D, T> JSTransplantable<C, D> for Vec<T> where
-    T: JSTransplantable<C, D>
+unsafe impl<C, D, T> JSCompartmental<C, D> for Vec<T> where
+    T: JSCompartmental<C, D>
 {
-    type Transplanted = Vec<T::Transplanted>;
+    type ChangeCompartment = Vec<T::ChangeCompartment>;
     fn is_in_compartment<S>(&self, cx: &JSContext<S>) -> bool where
         S: InCompartment<D>
     {
@@ -77,10 +77,10 @@ unsafe impl<C, D, T> JSTransplantable<C, D> for Vec<T> where
     }
 }
 
-unsafe impl<'a, C, D, T> JSTransplantable<C, D> for JSManaged<'a, C, T> where
-    T: JSTransplantable<C, D>
+unsafe impl<'a, C, D, T> JSCompartmental<C, D> for JSManaged<'a, C, T> where
+    T: JSCompartmental<C, D>
 {
-    type Transplanted = JSManaged<'a, D, T::Transplanted>;
+    type ChangeCompartment = JSManaged<'a, D, T::ChangeCompartment>;
     fn is_in_compartment<S>(&self, cx: &JSContext<S>) -> bool where
         S: InCompartment<D>
     {
@@ -89,8 +89,8 @@ unsafe impl<'a, C, D, T> JSTransplantable<C, D> for JSManaged<'a, C, T> where
 }
 
 
-unsafe impl<'a, C, D> JSTransplantable<C, D> for JSString<'a, C> {
-    type Transplanted = JSString<'a, D>;
+unsafe impl<'a, C, D> JSCompartmental<C, D> for JSString<'a, C> {
+    type ChangeCompartment = JSString<'a, D>;
     fn is_in_compartment<S>(&self, _cx: &JSContext<S>) -> bool where
         S: InCompartment<D>
     {
