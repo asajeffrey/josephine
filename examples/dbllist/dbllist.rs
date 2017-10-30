@@ -9,21 +9,21 @@ use josephine::IsInitialized;
 use josephine::IsInitializing;
 use josephine::JSContext;
 use josephine::JSManaged;
-use josephine::JSRootable;
+use josephine::JSLifetime;
 
-#[derive(Copy, Clone, JSTraceable, JSRootable, JSCompartmental)]
+#[derive(Copy, Clone, JSTraceable, JSLifetime, JSCompartmental)]
 pub struct DoublyLinkedList<'a, C>(JSManaged<'a, C, NativeDoublyLinkedList<'a, C>>);
 
-#[derive(JSTraceable, JSRootable, JSInitializable, JSCompartmental)]
+#[derive(JSTraceable, JSLifetime, JSInitializable, JSCompartmental)]
 pub struct NativeDoublyLinkedList<'a, C> {
     first: Option<Cell<'a, C>>,
     last: Option<Cell<'a, C>>,
 }
 
-#[derive(Copy, Clone, JSTraceable, JSRootable, JSCompartmental)]
+#[derive(Copy, Clone, JSTraceable, JSLifetime, JSCompartmental)]
 pub struct Cell<'a, C>(JSManaged<'a, C, NativeCell<'a, C>>);
 
-#[derive(JSTraceable, JSRootable, JSInitializable, JSCompartmental)]
+#[derive(JSTraceable, JSLifetime, JSInitializable, JSCompartmental)]
 pub struct NativeCell<'a, C> {
     data: String,
     prev: Option<Cell<'a, C>>,

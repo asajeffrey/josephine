@@ -5,7 +5,7 @@ use josephine::InCompartment;
 use josephine::JSContext;
 use josephine::JSInitializable;
 use josephine::JSManaged;
-use josephine::JSRootable;
+use josephine::JSLifetime;
 use josephine::JSString;
 use josephine::SOMEWHERE;
 
@@ -22,10 +22,10 @@ use fake_codegen::WindowMethods;
 
 // TODO: the contents are pub so that codegen can get at it, this should be fixed!
 // https://github.com/asajeffrey/josephine/issues/27
-#[derive(Copy, Clone, Debug, Eq, PartialEq, JSTraceable, JSRootable, JSCompartmental)]
+#[derive(Copy, Clone, Debug, Eq, PartialEq, JSTraceable, JSLifetime, JSCompartmental)]
 pub struct Window<'a, C> (pub JSManaged<'a, C, NativeWindow<'a, C>>);
 
-#[derive(JSTraceable, JSRootable, JSCompartmental)]
+#[derive(JSTraceable, JSLifetime, JSCompartmental)]
 pub struct NativeWindow<'a, C> {
     console: Console<'a, C>,
     document: Document<'a, C>,
@@ -74,10 +74,10 @@ impl<'a, C> WindowMethods<'a, C> for Window<'a, C> where C: 'a {
 
 // -------------------------------------------------------------------
 
-#[derive(Copy, Clone, JSTraceable, JSRootable, JSCompartmental)]
+#[derive(Copy, Clone, JSTraceable, JSLifetime, JSCompartmental)]
 pub struct Console<'a, C> (pub JSManaged<'a, C, NativeConsole>);
 
-#[derive(JSTraceable, JSRootable, JSCompartmental)]
+#[derive(JSTraceable, JSLifetime, JSCompartmental)]
 pub struct NativeConsole(());
 
 impl JSInitializable for NativeConsole {
@@ -102,10 +102,10 @@ impl<'a, C> ConsoleMethods<'a, C> for Console<'a, C> {
 
 // -------------------------------------------------------------------
 
-#[derive(Copy, Clone, Debug, Eq, PartialEq, JSTraceable, JSRootable, JSCompartmental)]
+#[derive(Copy, Clone, Debug, Eq, PartialEq, JSTraceable, JSLifetime, JSCompartmental)]
 pub struct Document<'a, C> (pub JSManaged<'a, C, NativeDocument<'a, C>>);
 
-#[derive(JSTraceable, JSRootable, JSCompartmental)]
+#[derive(JSTraceable, JSLifetime, JSCompartmental)]
 pub struct NativeDocument<'a, C> {
     body: Element<'a, C>,
 }
@@ -140,10 +140,10 @@ impl<'a, C> DocumentMethods<'a, C> for Document<'a, C> where C: 'a {
 
 // -------------------------------------------------------------------
 
-#[derive(Copy, Clone, Debug, Eq, PartialEq, JSTraceable, JSRootable, JSCompartmental)]
+#[derive(Copy, Clone, Debug, Eq, PartialEq, JSTraceable, JSLifetime, JSCompartmental)]
 pub struct Element<'a, C> (pub JSManaged<'a, C, NativeElement<'a, C>>);
 
-#[derive(JSTraceable, JSRootable, JSCompartmental)]
+#[derive(JSTraceable, JSLifetime, JSCompartmental)]
 pub struct NativeElement<'a, C> {
     name: JSString<'a, C>,
     parent: Option<Element<'a, C>>,

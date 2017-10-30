@@ -2,7 +2,7 @@ use super::Compartment;
 use super::JSInitializable;
 use super::JSManaged;
 use super::JSRoot;
-use super::JSRootable;
+use super::JSLifetime;
 use super::JSTraceable;
 use super::JSCompartmental;
 use super::compartment::BOUND;
@@ -153,7 +153,7 @@ impl<S> JSContext<S> {
 
     /// Enter a known compartment.
     pub fn enter_known_compartment<'a, 'b, C, T>(&'a mut self, managed: JSManaged<'b, C, T>) -> JSContext<Entered<'a, C, T::Aged, S>> where
-        T: JSRootable<'a>,
+        T: JSLifetime<'a>,
         C: Compartment,
     {
         debug!("Entering compartment.");
@@ -170,7 +170,7 @@ impl<S> JSContext<S> {
 
     /// Enter a compartment.
     pub fn enter_unknown_compartment<'a, 'b, C, T>(&'a mut self, managed: JSManaged<'b, C, T>) -> JSContext<Entered<'a, BOUND<'a>, T::Aged, S>> where
-        T: JSRootable<'a>,
+        T: JSLifetime<'a>,
     {
         debug!("Entering compartment.");
         let ac = JSAutoCompartment::new(self.jsapi_context, managed.to_jsobject());
@@ -189,7 +189,7 @@ impl<S> JSContext<S> {
     pub fn manage<'a, C, T>(&'a mut self, value: T) -> JSManaged<'a, C, T::Aged> where
         S: CanAlloc + InCompartment<C>,
         C: Compartment,
-        T: JSTraceable + JSInitializable + JSRootable<'a>,
+        T: JSTraceable + JSInitializable + JSLifetime<'a>,
     {
         JSManaged::new(self, value)
     }
@@ -199,7 +199,7 @@ impl<S> JSContext<S> {
     pub fn snapshot_manage<'a, C, T>(&'a mut self, value: T) -> (JSContext<Snapshotted<'a, S>>, JSManaged<'a, C, T::Aged>) where
         S: CanAlloc + InCompartment<C>,
         C: Compartment,
-        T: JSTraceable + JSInitializable + JSRootable<'a>,
+        T: JSTraceable + JSInitializable + JSLifetime<'a>,
     {
         let jsapi_context = self.jsapi_context;
         let global_js_object = self.global_js_object;
@@ -277,7 +277,7 @@ impl<S> JSContext<S> {
     /// Finish initializing a JS Context
     pub fn global_manage<'a, C, T>(self, value: T) -> JSContext<Initialized<'a, C, T::Aged>> where
         S: IsInitializing<'a, C, T>,
-        T: JSTraceable + JSRootable<'a> + JSCompartmental<C, C, ChangeCompartment = T>,
+        T: JSTraceable + JSLifetime<'a> + JSCompartmental<C, C, ChangeCompartment = T>,
     {
         debug!("Managing native global.");
         let raw = self.global_raw as *mut Option<T>;

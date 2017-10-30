@@ -14,7 +14,7 @@ use std::iter;
 
 //  -------------------------------------------------------------------------------------------------------
 
-#[proc_macro_derive(JSRootable)]
+#[proc_macro_derive(JSLifetime)]
 pub fn derive_js_rootable(input: TokenStream) -> TokenStream {
     let s = input.to_string();
     let ast = syn::parse_derive_input(&s).unwrap();
@@ -44,21 +44,21 @@ fn impl_js_rootable(ast: &syn::DeriveInput) -> quote::Tokens {
     };
 
     // For types without any liftime parameters, we provide a trivial
-    // implementation of `JSRootable`.
+    // implementation of `JSLifetime`.
     if ast.generics.lifetimes.is_empty() {
         return quote! {
             #[allow(unsafe_code)]
-            unsafe impl<'a, #impl_generics> ::josephine::JSRootable<'a> for #name #ty_generics #where_clause {
+            unsafe impl<'a, #impl_generics> ::josephine::JSLifetime<'a> for #name #ty_generics #where_clause {
                 type Aged = #name #ty_generics;
             }
         }
     }
 
     // we assume there's only one lifetime param, not named 'b
-    assert!(ast.generics.lifetimes.len() == 1, "deriving JSRootable requires a single lifetime");
+    assert!(ast.generics.lifetimes.len() == 1, "deriving JSLifetime requires a single lifetime");
 
     let impl_lifetime = &ast.generics.lifetimes[0].lifetime.ident;
-    assert!(impl_lifetime != "'b", "deriving JSRootable requires the lifetime to not be named 'b");
+    assert!(impl_lifetime != "'b", "deriving JSLifetime requires the lifetime to not be named 'b");
 
     // the `Aged` associated type params are the ty_params without their bounds
     let aged_ty_params = ast.generics.ty_params.iter().map(|ty| {
@@ -69,7 +69,7 @@ fn impl_js_rootable(ast: &syn::DeriveInput) -> quote::Tokens {
 
     quote! {
         #[allow(unsafe_code)]
-        unsafe impl<#impl_lifetime, 'b, #impl_generics> ::josephine::JSRootable<'b> for #name #ty_generics #where_clause {
+        unsafe impl<#impl_lifetime, 'b, #impl_generics> ::josephine::JSLifetime<'b> for #name #ty_generics #where_clause {
             type Aged = #name<'b, #aged_ty_params>;
         }
     }
