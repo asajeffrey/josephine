@@ -1024,13 +1024,13 @@
 <span class="doccomment">//!</span>
 <span class="doccomment">//! * `JSTraceable`: values of the type can be *traced*, that is can tell the garbage</span>
 <span class="doccomment">//!    collector which objects are reachable from them.</span>
-<span class="doccomment">//! * `JSRootable`: values of the type have their lifetime managed by JS.</span>
-<span class="doccomment">//! * `JSTransplantable`: values of the type have their compartment managed by JS.</span>
+<span class="doccomment">//! * `JSLifetime`: values of the type have their lifetime managed by JS.</span>
+<span class="doccomment">//! * `JSCompartmental`: values of the type have their compartment managed by JS.</span>
 <span class="doccomment">//! * `JSInitializable`: this type knows how to initialize a JS object which is used</span>
 <span class="doccomment">//!    to manage its lifetime.</span>
 <span class="doccomment">//!</span>
 <span class="doccomment">//! Each of these traits can be derived. The fields of a `JSTraceable` type should be</span>
-<span class="doccomment">//! `JSTraceable`, and similarly for `JSRootable` and `JSTransplantable`. This requirement</span>
+<span class="doccomment">//! `JSTraceable`, and similarly for `JSLifetime` and `JSCompartmental`. This requirement</span>
 <span class="doccomment">//! is *not* true for `JSInitializable`.</span>
 <span class="doccomment">//!</span>
 <span class="doccomment">//! A typical use is to define two types: the *native* type `NativeThing`</span>
@@ -1040,10 +1040,10 @@
 <span class="doccomment">//! # extern crate josephine;</span>
 <span class="doccomment">//! # #[macro_use] extern crate josephine_derive;</span>
 <span class="doccomment">//! # use josephine::*;</span>
-<span class="doccomment">//! #[derive(JSInitializable, JSTraceable, JSRootable, JSTransplantable)]</span>
+<span class="doccomment">//! #[derive(JSInitializable, JSTraceable, JSLifetime, JSCompartmental)]</span>
 <span class="doccomment">//! struct NativeName { name: String }</span>
 <span class="doccomment">//!</span>
-<span class="doccomment">//! #[derive(Clone, Copy, Debug, Eq, PartialEq, JSInitializable, JSTraceable, JSRootable, JSTransplantable)]</span>
+<span class="doccomment">//! #[derive(Clone, Copy, Debug, Eq, PartialEq, JSInitializable, JSTraceable, JSLifetime, JSCompartmental)]</span>
 <span class="doccomment">//! pub struct Name&lt;&#39;a, C&gt; (JSManaged&lt;&#39;a, C, NativeName&gt;);</span>
 <span class="doccomment">//!</span>
 <span class="doccomment">//! impl&lt;&#39;a, C:&#39;a&gt; Name&lt;&#39;a, C&gt; {</span>
@@ -1077,10 +1077,10 @@
 <span class="doccomment">//! # extern crate josephine;</span>
 <span class="doccomment">//! # #[macro_use] extern crate josephine_derive;</span>
 <span class="doccomment">//! # use josephine::*;</span>
-<span class="doccomment">//! # #[derive(JSInitializable, JSTraceable, JSRootable, JSTransplantable)]</span>
+<span class="doccomment">//! # #[derive(JSInitializable, JSTraceable, JSLifetime, JSCompartmental)]</span>
 <span class="doccomment">//! # struct NativeName { name: String }</span>
 <span class="doccomment">//! #</span>
-<span class="doccomment">//! # #[derive(Clone, Copy, Debug, Eq, PartialEq, JSInitializable, JSTraceable, JSRootable, JSTransplantable)]</span>
+<span class="doccomment">//! # #[derive(Clone, Copy, Debug, Eq, PartialEq, JSInitializable, JSTraceable, JSLifetime, JSCompartmental)]</span>
 <span class="doccomment">//! # pub struct Name&lt;&#39;a, C&gt; (JSManaged&lt;&#39;a, C, NativeName&gt;);</span>
 <span class="doccomment">//! #</span>
 <span class="doccomment">//! # impl&lt;&#39;a, C&gt; Name&lt;&#39;a, C&gt; {</span>
@@ -1098,10 +1098,10 @@
 <span class="doccomment">//! #     }</span>
 <span class="doccomment">//! # }</span>
 <span class="doccomment">//! #</span>
-<span class="doccomment">//! #[derive(JSInitializable, JSTraceable, JSRootable, JSTransplantable)]</span>
+<span class="doccomment">//! #[derive(JSInitializable, JSTraceable, JSLifetime, JSCompartmental)]</span>
 <span class="doccomment">//! struct NativeNames&lt;&#39;a, C&gt; { names: Vec&lt;Name&lt;&#39;a, C&gt;&gt; }</span>
 <span class="doccomment">//!</span>
-<span class="doccomment">//! #[derive(Clone, Copy, Debug, JSInitializable, JSTraceable, JSRootable, JSTransplantable)]</span>
+<span class="doccomment">//! #[derive(Clone, Copy, Debug, JSInitializable, JSTraceable, JSLifetime, JSCompartmental)]</span>
 <span class="doccomment">//! pub struct Names&lt;&#39;a, C&gt; (JSManaged&lt;&#39;a, C, NativeNames&lt;&#39;a, C&gt;&gt;);</span>
 <span class="doccomment">//! impl&lt;&#39;a, C:&#39;a&gt; Names&lt;&#39;a, C&gt; {</span>
 <span class="doccomment">//!     pub fn new&lt;S&gt;(cx: &amp;&#39;a mut JSContext&lt;S&gt;) -&gt; Names&lt;&#39;a, C&gt; where</span>
@@ -1155,7 +1155,7 @@
 <span class="doccomment">//! # extern crate josephine;</span>
 <span class="doccomment">//! # #[macro_use] extern crate josephine_derive;</span>
 <span class="doccomment">//! # use josephine::*;</span>
-<span class="doccomment">//! #[derive(JSInitializable, JSTraceable, JSRootable, JSTransplantable)]</span>
+<span class="doccomment">//! #[derive(JSInitializable, JSTraceable, JSLifetime, JSCompartmental)]</span>
 <span class="doccomment">//! pub struct NativeMyGlobal { name: String }</span>
 <span class="doccomment">//! type MyGlobal&lt;&#39;a, C&gt; = JSManaged&lt;&#39;a, C, NativeMyGlobal&gt;;</span>
 <span class="doccomment">//!</span>
@@ -1178,7 +1178,7 @@
 <span class="doccomment">//! # extern crate josephine;</span>
 <span class="doccomment">//! # #[macro_use] extern crate josephine_derive;</span>
 <span class="doccomment">//! # use josephine::*;</span>
-<span class="doccomment">//! #[derive(JSInitializable, JSTraceable, JSRootable, JSTransplantable)]</span>
+<span class="doccomment">//! #[derive(JSInitializable, JSTraceable, JSLifetime, JSCompartmental)]</span>
 <span class="doccomment">//! pub struct NativeMyGlobal&lt;&#39;a, C&gt; { name: JSManaged&lt;&#39;a, C, String&gt; }</span>
 <span class="doccomment">//! type MyGlobal&lt;&#39;a, C&gt; = JSManaged&lt;&#39;a, C, NativeMyGlobal&lt;&#39;a, C&gt;&gt;;</span>
 <span class="doccomment">//!</span>
@@ -1202,7 +1202,7 @@
 <span class="doccomment">//! # extern crate josephine;</span>
 <span class="doccomment">//! # #[macro_use] extern crate josephine_derive;</span>
 <span class="doccomment">//! # use josephine::*;</span>
-<span class="doccomment">//! #[derive(JSInitializable, JSTraceable, JSRootable, JSTransplantable)]</span>
+<span class="doccomment">//! #[derive(JSInitializable, JSTraceable, JSLifetime, JSCompartmental)]</span>
 <span class="doccomment">//! pub struct NativeMyGlobal { name: String }</span>
 <span class="doccomment">//! type MyGlobal&lt;&#39;a, C&gt; = JSManaged&lt;&#39;a, C, NativeMyGlobal&gt;;</span>
 <span class="doccomment">//!</span>
@@ -1243,7 +1243,7 @@
 <span class="kw">pub</span> <span class="kw">mod</span> <span class="ident">compartment</span>;
 <span class="kw">pub</span> <span class="kw">use</span> <span class="ident">compartment</span>::<span class="ident">SOMEWHERE</span>;
 <span class="kw">pub</span> <span class="kw">use</span> <span class="ident">compartment</span>::<span class="ident">Compartment</span>;
-<span class="kw">pub</span> <span class="kw">use</span> <span class="ident">compartment</span>::<span class="ident">JSTransplantable</span>;
+<span class="kw">pub</span> <span class="kw">use</span> <span class="ident">compartment</span>::<span class="ident">JSCompartmental</span>;
 
 <span class="kw">pub</span> <span class="kw">mod</span> <span class="ident">runtime</span>;
 
@@ -1255,7 +1255,7 @@
 
 <span class="kw">pub</span> <span class="kw">mod</span> <span class="ident">root</span>;
 <span class="kw">pub</span> <span class="kw">use</span> <span class="ident">root</span>::<span class="ident">JSRoot</span>;
-<span class="kw">pub</span> <span class="kw">use</span> <span class="ident">root</span>::<span class="ident">JSRootable</span>;
+<span class="kw">pub</span> <span class="kw">use</span> <span class="ident">root</span>::<span class="ident">JSLifetime</span>;
 
 <span class="kw">pub</span> <span class="kw">mod</span> <span class="ident">string</span>;
 <span class="kw">pub</span> <span class="kw">use</span> <span class="ident">string</span>::<span class="ident">JSString</span>;
