@@ -582,14 +582,11 @@ pub use context::CanAlloc;
 pub use context::CanCreateCompartments;
 pub use context::CanExtend;
 pub use context::InCompartment;
-pub use context::FromJS;
 pub use context::Initialized;
 pub use context::IsInitialized;
 pub use context::IsInitializing;
-pub use context::jscontext_called_from_js;
 
 pub mod compartment;
-pub use compartment::BOUND;
 pub use compartment::SOMEWHERE;
 pub use compartment::Compartment;
 pub use compartment::JSTransplantable;
@@ -598,7 +595,6 @@ pub mod runtime;
 
 pub mod ffi;
 pub use ffi::JSInitializable;
-use ffi::JSInitializer;
 
 pub mod managed;
 pub use managed::JSManaged;

@@ -1,13 +1,13 @@
-use super::BOUND;
 use super::Compartment;
-use super::JSInitializer;
 use super::JSInitializable;
 use super::JSManaged;
 use super::JSRoot;
 use super::JSRootable;
 use super::JSTraceable;
 use super::JSTransplantable;
+use super::compartment::BOUND;
 use super::ffi::JSEvaluateErr;
+use super::ffi::JSInitializer;
 use super::managed::JSManageable;
 use super::root::trace_thread_local_roots;
 use super::runtime::OwnedJSRuntime;
