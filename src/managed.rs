@@ -169,7 +169,7 @@ impl<'a, C, T> JSManaged<'a, C, T> {
 
     /// Change the compartment of JS-managed data.
     pub unsafe fn change_compartment<D>(self) -> JSManaged<'a, D, T::Transplanted> where
-        T: JSTransplantable<D>,
+        T: JSTransplantable<C, D>,
     {
         JSManaged {
             js_object: self.js_object,
@@ -201,14 +201,14 @@ impl<'a, C, T> JSManaged<'a, C, T> {
     /// This is safe because when we mutate data in compartment `C` we require
     /// `C: Compartment`, which means it is never `SOMEWHERE`.
     pub fn forget_compartment(self) -> JSManaged<'a, SOMEWHERE, T::Transplanted> where
-        T: JSTransplantable<SOMEWHERE>,
+        T: JSTransplantable<C, SOMEWHERE>,
     {
         unsafe { self.change_compartment() }
     }
 
     /// Check to see if the current object is in the same compartment as another.
     pub fn in_compartment<S, D>(self, cx: &JSContext<S>) -> Option<JSManaged<'a, D, T::Transplanted>> where
-        T: JSTransplantable<D>,
+        T: JSTransplantable<C, D>,
         S: InCompartment<D>,
     {
         let self_compartment = unsafe { get_object_compartment(self.to_jsobject()) };
