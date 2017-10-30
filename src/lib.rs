@@ -579,11 +579,11 @@ pub mod context;
 pub use context::JSContext;
 pub use context::CanAccess;
 pub use context::CanAlloc;
-pub use context::CanExtend;
 pub use context::InCompartment;
 pub use context::Initialized;
 pub use context::IsInitialized;
 pub use context::IsInitializing;
+pub use context::IsSnapshot;
 
 pub mod compartment;
 pub use compartment::SOMEWHERE;

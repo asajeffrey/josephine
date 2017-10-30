@@ -92,10 +92,10 @@ impl CanAccess for Owned {}
 impl<'a, C, T, S> CanAccess for Entered<'a, C, T, S> where S: CanAccess {}
 impl<'a, S> CanAccess for Snapshotted<'a, S> where S: CanAccess {}
 
-/// A marker trait for JS contexts that can extend the lifetime of objects
-pub trait CanExtend<'a> {}
-impl<'a, S> CanExtend<'a> for Snapshotted<'a, S> {}
-impl<'a, 'b, C, T, S> CanExtend<'a> for Entered<'b, C, T, S> where S: CanExtend<'a> {}
+/// A marker trait for JS contexts that are snapshots
+pub trait IsSnapshot<'a> {}
+impl<'a, S> IsSnapshot<'a> for Snapshotted<'a, S> {}
+impl<'a, 'b, C, T, S> IsSnapshot<'a> for Entered<'b, C, T, S> where S: IsSnapshot<'a> {}
 
 /// A marker trait for JS contexts that can (de)allocate objects
 pub trait CanAlloc {}

@@ -1,8 +1,8 @@
 use super::CanAccess;
 use super::CanAlloc;
-use super::CanExtend;
 use super::Compartment;
 use super::InCompartment;
+use super::IsSnapshot;
 use super::JSContext;
 use super::JSInitializable;
 use super::JSRootable;
@@ -191,7 +191,7 @@ impl<'a, C, T> JSManaged<'a, C, T> {
 
     /// It's safe to extend the lifetime of JS-managed data if it has been snapshotted.
     pub fn extend_lifetime<'b, 'c, S>(self, _: &'c JSContext<S>) -> JSManaged<'b, C, T::Aged> where
-        S: CanExtend<'b>,
+        S: IsSnapshot<'b>,
         T: JSRootable<'b>,
     {
         unsafe { self.change_lifetime() }
