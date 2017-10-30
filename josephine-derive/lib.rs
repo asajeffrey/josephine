@@ -173,7 +173,7 @@ fn expand_string(input: &str) -> String {
         unsafe impl #impl_generics ::josephine::JSTraceable for #name #ty_generics #where_clause {
             #[inline]
             #[allow(unused_variables, unused_imports)]
-            unsafe fn trace(&self, tracer: *mut ::josephine::JSTracer) {
+            unsafe fn trace(&self, tracer: *mut ::josephine::trace::JSTracer) {
                 use ::josephine::JSTraceable;
                 match *self {
                     #match_body
