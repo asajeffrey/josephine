@@ -1,7 +1,6 @@
 use josephine::CanAccess;
 use josephine::CanAlloc;
 use josephine::Compartment;
-use josephine::CanCreateCompartments;
 use josephine::InCompartment;
 use josephine::JSContext;
 use josephine::JSInitializable;
@@ -38,7 +37,7 @@ impl<'a, C> JSInitializable for NativeWindow<'a, C> {
 
 impl<'a> Window<'a, SOMEWHERE> {
     pub fn new<S>(cx: &'a mut JSContext<S>) -> Window<'a, SOMEWHERE> where
-        S: CanAlloc + CanCreateCompartments,
+        S: CanAccess + CanAlloc,
     {
         let mut cx = cx.create_compartment();
         let ref mut console_root = cx.new_root();

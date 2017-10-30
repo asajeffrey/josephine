@@ -1,4 +1,7 @@
+use super::InCompartment;
+use super::JSContext;
 use super::JSManaged;
+use super::JSString;
 
 use std::fmt::Debug;
 use std::hash::Hash;
@@ -18,14 +21,82 @@ pub struct SOMEWHERE(());
 pub struct BOUND<'a>(PhantomData<&'a mut &'a ()>);
 impl<'a> Compartment for BOUND<'a> {}
 
-/// Data which can be transplanted into compartment C.
-pub unsafe trait JSTransplantable<C> {
+/// Data which can be transplanted from compartment C into compartment D.
+pub unsafe trait JSTransplantable<C, D> {
     type Transplanted;
+    fn is_in_compartment<S>(&self, _cx: &JSContext<S>) -> bool where
+        S: InCompartment<D>;
 }
 
-unsafe impl<C> JSTransplantable<C> for String { type Transplanted = String; }
-unsafe impl<C> JSTransplantable<C> for usize { type Transplanted = usize; }
-unsafe impl<C, T> JSTransplantable<C> for Option<T> where T: JSTransplantable<C> { type Transplanted = Option<T::Transplanted>; }
-unsafe impl<C, T> JSTransplantable<C> for Vec<T> where T: JSTransplantable<C> { type Transplanted = Vec<T::Transplanted>; }
-unsafe impl<'a, C, D, T> JSTransplantable<C> for JSManaged<'a, D, T> where T: JSTransplantable<C> { type Transplanted = JSManaged<'a, C, T::Transplanted>; }
+unsafe impl<C, D> JSTransplantable<C, D> for String {
+    type Transplanted = String;
+    fn is_in_compartment<S>(&self, _cx: &JSContext<S>) -> bool where
+        S: InCompartment<D>
+    {
+        true
+    }
+}
+
+unsafe impl<C, D> JSTransplantable<C, D> for usize {
+    type Transplanted = usize;
+    fn is_in_compartment<S>(&self, _cx: &JSContext<S>) -> bool where
+        S: InCompartment<D>
+    {
+        true
+    }
+}
+
+unsafe impl<C, D> JSTransplantable<C, D> for () {
+    type Transplanted = ();
+    fn is_in_compartment<S>(&self, _cx: &JSContext<S>) -> bool where
+        S: InCompartment<D>
+    {
+        true
+    }
+}
+
+unsafe impl<C, D, T> JSTransplantable<C, D> for Option<T> where
+    T: JSTransplantable<C, D>
+{
+    type Transplanted = Option<T::Transplanted>;
+    fn is_in_compartment<S>(&self, cx: &JSContext<S>) -> bool where
+        S: InCompartment<D>
+    {
+        self.iter().all(|this| this.is_in_compartment(cx))
+    }
+}
+
+unsafe impl<C, D, T> JSTransplantable<C, D> for Vec<T> where
+    T: JSTransplantable<C, D>
+{
+    type Transplanted = Vec<T::Transplanted>;
+    fn is_in_compartment<S>(&self, cx: &JSContext<S>) -> bool where
+        S: InCompartment<D>
+    {
+        self.iter().all(|this| this.is_in_compartment(cx))
+    }
+}
+
+unsafe impl<'a, C, D, T> JSTransplantable<C, D> for JSManaged<'a, C, T> where
+    T: JSTransplantable<C, D>
+{
+    type Transplanted = JSManaged<'a, D, T::Transplanted>;
+    fn is_in_compartment<S>(&self, cx: &JSContext<S>) -> bool where
+        S: InCompartment<D>
+    {
+        self.in_compartment(cx).is_some()
+    }
+}
+
+
+unsafe impl<'a, C, D> JSTransplantable<C, D> for JSString<'a, C> {
+    type Transplanted = JSString<'a, D>;
+    fn is_in_compartment<S>(&self, _cx: &JSContext<S>) -> bool where
+        S: InCompartment<D>
+    {
+        // Rather annoyingly the Rust jsapi bindings don't export
+        // GetStringZone which we'd need in order to implement this properly
+        false
+    }
+}
 

@@ -92,10 +92,10 @@ impl CanAccess for Owned {}
 impl<'a, C, T, S> CanAccess for Entered<'a, C, T, S> where S: CanAccess {}
 impl<'a, S> CanAccess for Snapshotted<'a, S> where S: CanAccess {}
 
-/// A marker trait for JS contexts that can extend the lifetime of objects
-pub trait CanExtend<'a> {}
-impl<'a, S> CanExtend<'a> for Snapshotted<'a, S> {}
-impl<'a, 'b, C, T, S> CanExtend<'a> for Entered<'b, C, T, S> where S: CanExtend<'a> {}
+/// A marker trait for JS contexts that are snapshots
+pub trait IsSnapshot<'a> {}
+impl<'a, S> IsSnapshot<'a> for Snapshotted<'a, S> {}
+impl<'a, 'b, C, T, S> IsSnapshot<'a> for Entered<'b, C, T, S> where S: IsSnapshot<'a> {}
 
 /// A marker trait for JS contexts that can (de)allocate objects
 pub trait CanAlloc {}
@@ -104,10 +104,6 @@ impl<'a, C, T> CanAlloc for Initializing<'a, C, T> {}
 impl CanAlloc for FromJS {}
 impl CanAlloc for Owned {}
 impl<'a, C, T, S> CanAlloc for Entered<'a, C, T, S> where S: CanAlloc {}
-
-/// A marker trait for JS contexts that can create new compartments.
-pub trait CanCreateCompartments {}
-impl CanCreateCompartments for Owned {}
 
 /// A marker trait for JS contexts that are in the middle of initializing
 pub trait IsInitializing<'a, C, T> {}
@@ -224,7 +220,7 @@ impl<S> JSContext<S> {
 
     /// Create a compartment
     pub fn create_compartment<'a, T>(&'a mut self) -> JSContext<Initializing<'a, BOUND<'a>, T>> where
-        S: CanCreateCompartments,
+        S: CanAlloc + CanAccess,
         T: JSInitializable + JSTraceable,
     {
         debug!("Creating compartment.");
@@ -281,7 +277,7 @@ impl<S> JSContext<S> {
     /// Finish initializing a JS Context
     pub fn global_manage<'a, C, T>(self, value: T) -> JSContext<Initialized<'a, C, T::Aged>> where
         S: IsInitializing<'a, C, T>,
-        T: JSTraceable + JSRootable<'a> + JSTransplantable<C, Transplanted = T>,
+        T: JSTraceable + JSRootable<'a> + JSTransplantable<C, C, Transplanted = T>,
     {
         debug!("Managing native global.");
         let raw = self.global_raw as *mut Option<T>;
@@ -297,14 +293,6 @@ impl<S> JSContext<S> {
             runtime: self.runtime,
             marker: PhantomData,
         }
-    }
-
-    /// Shortcut to create a compartment and finish initializing in one go.
-    pub fn create_global<'a, T>(&'a mut self, value: T) -> JSContext<Initialized<'a, BOUND<'a>, T::Aged>> where
-        S: CanCreateCompartments,
-        T: JSInitializable + JSTraceable + JSRootable<'a> + JSTransplantable<BOUND<'a>, Transplanted = T>,
-    {
-        self.create_compartment().global_manage(value)
     }
 
     /// Get the object we entered the current compartment via
