@@ -652,7 +652,6 @@
 <span id="607">607</span>
 <span id="608">608</span>
 <span id="609">609</span>
-<span id="610">610</span>
 </pre><pre class="rust ">
 <span class="doccomment">//! A library which uses JavaScript to safely manage the lifetimes of Rust data.</span>
 <span class="doccomment">//!</span>
@@ -1161,7 +1160,7 @@
 <span class="doccomment">//! type MyGlobal&lt;&#39;a, C&gt; = JSManaged&lt;&#39;a, C, NativeMyGlobal&gt;;</span>
 <span class="doccomment">//!</span>
 <span class="doccomment">//! fn example&lt;&#39;a, S&gt;(cx: &amp;&#39;a mut JSContext&lt;S&gt;) -&gt; MyGlobal&lt;&#39;a, SOMEWHERE&gt; where</span>
-<span class="doccomment">//!    S: CanCreateCompartments,</span>
+<span class="doccomment">//!    S: CanAccess + CanAlloc,</span>
 <span class="doccomment">//! {</span>
 <span class="doccomment">//!    let cx = cx.create_compartment();</span>
 <span class="doccomment">//!    let name = String::from(&quot;Alice&quot;);</span>
@@ -1184,7 +1183,7 @@
 <span class="doccomment">//! type MyGlobal&lt;&#39;a, C&gt; = JSManaged&lt;&#39;a, C, NativeMyGlobal&lt;&#39;a, C&gt;&gt;;</span>
 <span class="doccomment">//!</span>
 <span class="doccomment">//! fn example&lt;&#39;a, S&gt;(cx: &amp;&#39;a mut JSContext&lt;S&gt;) -&gt; MyGlobal&lt;&#39;a, SOMEWHERE&gt; where</span>
-<span class="doccomment">//!    S: CanCreateCompartments,</span>
+<span class="doccomment">//!    S: CanAccess + CanAlloc,</span>
 <span class="doccomment">//! {</span>
 <span class="doccomment">//!    let mut cx = cx.create_compartment();</span>
 <span class="doccomment">//!    let ref mut root = cx.new_root();</span>
@@ -1208,7 +1207,7 @@
 <span class="doccomment">//! type MyGlobal&lt;&#39;a, C&gt; = JSManaged&lt;&#39;a, C, NativeMyGlobal&gt;;</span>
 <span class="doccomment">//!</span>
 <span class="doccomment">//! fn example&lt;&#39;a, S&gt;(cx: &amp;&#39;a mut JSContext&lt;S&gt;) -&gt; MyGlobal&lt;&#39;a, SOMEWHERE&gt; where</span>
-<span class="doccomment">//!    S: CanCreateCompartments,</span>
+<span class="doccomment">//!    S: CanAccess + CanAlloc,</span>
 <span class="doccomment">//! {</span>
 <span class="doccomment">//!    let cx = cx.create_compartment();</span>
 <span class="doccomment">//!    let name = String::from(&quot;Alice&quot;);</span>
@@ -1235,12 +1234,11 @@
 <span class="kw">pub</span> <span class="kw">use</span> <span class="ident">context</span>::<span class="ident">JSContext</span>;
 <span class="kw">pub</span> <span class="kw">use</span> <span class="ident">context</span>::<span class="ident">CanAccess</span>;
 <span class="kw">pub</span> <span class="kw">use</span> <span class="ident">context</span>::<span class="ident">CanAlloc</span>;
-<span class="kw">pub</span> <span class="kw">use</span> <span class="ident">context</span>::<span class="ident">CanCreateCompartments</span>;
-<span class="kw">pub</span> <span class="kw">use</span> <span class="ident">context</span>::<span class="ident">CanExtend</span>;
 <span class="kw">pub</span> <span class="kw">use</span> <span class="ident">context</span>::<span class="ident">InCompartment</span>;
 <span class="kw">pub</span> <span class="kw">use</span> <span class="ident">context</span>::<span class="ident">Initialized</span>;
 <span class="kw">pub</span> <span class="kw">use</span> <span class="ident">context</span>::<span class="ident">IsInitialized</span>;
 <span class="kw">pub</span> <span class="kw">use</span> <span class="ident">context</span>::<span class="ident">IsInitializing</span>;
+<span class="kw">pub</span> <span class="kw">use</span> <span class="ident">context</span>::<span class="ident">IsSnapshot</span>;
 
 <span class="kw">pub</span> <span class="kw">mod</span> <span class="ident">compartment</span>;
 <span class="kw">pub</span> <span class="kw">use</span> <span class="ident">compartment</span>::<span class="ident">SOMEWHERE</span>;
