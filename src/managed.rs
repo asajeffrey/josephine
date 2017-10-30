@@ -7,7 +7,7 @@ use super::JSContext;
 use super::JSInitializable;
 use super::JSRootable;
 use super::JSTraceable;
-use super::JSTransplantable;
+use super::JSCompartmental;
 use super::SOMEWHERE;
 use super::ffi::JSEvaluateErr;
 use super::ffi::JSInitializer;
@@ -168,8 +168,8 @@ impl<'a, C, T> JSManaged<'a, C, T> {
     }
 
     /// Change the compartment of JS-managed data.
-    pub unsafe fn change_compartment<D>(self) -> JSManaged<'a, D, T::Transplanted> where
-        T: JSTransplantable<C, D>,
+    pub unsafe fn change_compartment<D>(self) -> JSManaged<'a, D, T::ChangeCompartment> where
+        T: JSCompartmental<C, D>,
     {
         JSManaged {
             js_object: self.js_object,
@@ -200,15 +200,15 @@ impl<'a, C, T> JSManaged<'a, C, T> {
     /// Forget about which compartment the managed data is in.
     /// This is safe because when we mutate data in compartment `C` we require
     /// `C: Compartment`, which means it is never `SOMEWHERE`.
-    pub fn forget_compartment(self) -> JSManaged<'a, SOMEWHERE, T::Transplanted> where
-        T: JSTransplantable<C, SOMEWHERE>,
+    pub fn forget_compartment(self) -> JSManaged<'a, SOMEWHERE, T::ChangeCompartment> where
+        T: JSCompartmental<C, SOMEWHERE>,
     {
         unsafe { self.change_compartment() }
     }
 
     /// Check to see if the current object is in the same compartment as another.
-    pub fn in_compartment<S, D>(self, cx: &JSContext<S>) -> Option<JSManaged<'a, D, T::Transplanted>> where
-        T: JSTransplantable<C, D>,
+    pub fn in_compartment<S, D>(self, cx: &JSContext<S>) -> Option<JSManaged<'a, D, T::ChangeCompartment>> where
+        T: JSCompartmental<C, D>,
         S: InCompartment<D>,
     {
         let self_compartment = unsafe { get_object_compartment(self.to_jsobject()) };

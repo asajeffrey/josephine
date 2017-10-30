@@ -4,7 +4,7 @@ use super::JSManaged;
 use super::JSRoot;
 use super::JSRootable;
 use super::JSTraceable;
-use super::JSTransplantable;
+use super::JSCompartmental;
 use super::compartment::BOUND;
 use super::ffi::JSEvaluateErr;
 use super::ffi::JSInitializer;
@@ -277,7 +277,7 @@ impl<S> JSContext<S> {
     /// Finish initializing a JS Context
     pub fn global_manage<'a, C, T>(self, value: T) -> JSContext<Initialized<'a, C, T::Aged>> where
         S: IsInitializing<'a, C, T>,
-        T: JSTraceable + JSRootable<'a> + JSTransplantable<C, C, Transplanted = T>,
+        T: JSTraceable + JSRootable<'a> + JSCompartmental<C, C, ChangeCompartment = T>,
     {
         debug!("Managing native global.");
         let raw = self.global_raw as *mut Option<T>;

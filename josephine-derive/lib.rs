@@ -77,7 +77,7 @@ fn impl_js_rootable(ast: &syn::DeriveInput) -> quote::Tokens {
 
 //  -------------------------------------------------------------------------------------------------------
 
-#[proc_macro_derive(JSTransplantable)]
+#[proc_macro_derive(JSCompartmental)]
 pub fn derive_js_transplantable(input: TokenStream) -> TokenStream {
     let s = input.to_string();
     let ast = syn::parse_derive_input(&s).unwrap();
@@ -93,20 +93,20 @@ fn impl_js_transplantable(ast: &syn::DeriveInput) -> quote::Tokens {
         .collect::<Vec<_>>();
 
     // For types without any generic parameters, we provide a trivial
-    // implementation of `JSTransplantable`.
+    // implementation of `JSCompartmental`.
     if ast.generics.ty_params.is_empty() {
         let style = synstructure::BindStyle::Ref.into();
         let match_body = synstructure::each_field(&ast, &style, |binding| {
             let ty = &binding.field.ty;
             quote! {
-                if !<#ty as ::josephine::JSTransplantable<C, D>>::is_in_compartment(#binding, cx) { return false; }
+                if !<#ty as ::josephine::JSCompartmental<C, D>>::is_in_compartment(#binding, cx) { return false; }
             }
         });
 
         return quote! {
             #[allow(unsafe_code)]
-            unsafe impl<#(#lifetimes_and_d),*, C> ::josephine::JSTransplantable<C, D> for #name #ty_generics #where_clause {
-                type Transplanted = #name #ty_generics;
+            unsafe impl<#(#lifetimes_and_d),*, C> ::josephine::JSCompartmental<C, D> for #name #ty_generics #where_clause {
+                type ChangeCompartment = #name #ty_generics;
                 fn is_in_compartment<S>(&self, cx: &::josephine::JSContext<S>) -> bool where
                     S: InCompartment<D>
                 {
@@ -120,23 +120,23 @@ fn impl_js_transplantable(ast: &syn::DeriveInput) -> quote::Tokens {
     }
 
     // we assume there's only one type param, not named D
-    assert!(ast.generics.ty_params.len() == 1, "deriving JSTransplantable requires a single type parameter");
+    assert!(ast.generics.ty_params.len() == 1, "deriving JSCompartmental requires a single type parameter");
 
     let impl_ty_param = &ast.generics.ty_params[0].ident;
-    assert!(impl_ty_param != "D", "deriving JSTransplantable requires the type parameter to not be named D");
+    assert!(impl_ty_param != "D", "deriving JSCompartmental requires the type parameter to not be named D");
 
     let style = synstructure::BindStyle::Ref.into();
     let match_body = synstructure::each_field(&ast, &style, |binding| {
         let ty = &binding.field.ty;
         quote! {
-            if !<#ty as ::josephine::JSTransplantable<#impl_ty_param, D>>::is_in_compartment(#binding, cx) { return false; }
+            if !<#ty as ::josephine::JSCompartmental<#impl_ty_param, D>>::is_in_compartment(#binding, cx) { return false; }
         }
     });
 
     quote! {
         #[allow(unsafe_code)]
-        unsafe impl<#(#lifetimes_and_d),*, #impl_ty_param> ::josephine::JSTransplantable<#impl_ty_param, D> for #name #ty_generics #where_clause {
-            type Transplanted = #name<#(#lifetimes_and_d),*>;
+        unsafe impl<#(#lifetimes_and_d),*, #impl_ty_param> ::josephine::JSCompartmental<#impl_ty_param, D> for #name #ty_generics #where_clause {
+            type ChangeCompartment = #name<#(#lifetimes_and_d),*>;
             fn is_in_compartment<S>(&self, cx: &::josephine::JSContext<S>) -> bool where
                 S: InCompartment<D>
             {
