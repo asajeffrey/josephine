@@ -505,7 +505,7 @@
 //! type MyGlobal<'a, C> = JSManaged<'a, C, NativeMyGlobal>;
 //!
 //! fn example<'a, S>(cx: &'a mut JSContext<S>) -> MyGlobal<'a, SOMEWHERE> where
-//!    S: CanCreateCompartments,
+//!    S: CanAccess + CanAlloc,
 //! {
 //!    let cx = cx.create_compartment();
 //!    let name = String::from("Alice");
@@ -528,7 +528,7 @@
 //! type MyGlobal<'a, C> = JSManaged<'a, C, NativeMyGlobal<'a, C>>;
 //!
 //! fn example<'a, S>(cx: &'a mut JSContext<S>) -> MyGlobal<'a, SOMEWHERE> where
-//!    S: CanCreateCompartments,
+//!    S: CanAccess + CanAlloc,
 //! {
 //!    let mut cx = cx.create_compartment();
 //!    let ref mut root = cx.new_root();
@@ -552,7 +552,7 @@
 //! type MyGlobal<'a, C> = JSManaged<'a, C, NativeMyGlobal>;
 //!
 //! fn example<'a, S>(cx: &'a mut JSContext<S>) -> MyGlobal<'a, SOMEWHERE> where
-//!    S: CanCreateCompartments,
+//!    S: CanAccess + CanAlloc,
 //! {
 //!    let cx = cx.create_compartment();
 //!    let name = String::from("Alice");
@@ -579,7 +579,6 @@ pub mod context;
 pub use context::JSContext;
 pub use context::CanAccess;
 pub use context::CanAlloc;
-pub use context::CanCreateCompartments;
 pub use context::CanExtend;
 pub use context::InCompartment;
 pub use context::Initialized;

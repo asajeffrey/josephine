@@ -105,10 +105,6 @@ impl CanAlloc for FromJS {}
 impl CanAlloc for Owned {}
 impl<'a, C, T, S> CanAlloc for Entered<'a, C, T, S> where S: CanAlloc {}
 
-/// A marker trait for JS contexts that can create new compartments.
-pub trait CanCreateCompartments {}
-impl CanCreateCompartments for Owned {}
-
 /// A marker trait for JS contexts that are in the middle of initializing
 pub trait IsInitializing<'a, C, T> {}
 impl<'a, C, T> IsInitializing<'a, C, T> for Initializing<'a, C, T> {}
@@ -224,7 +220,7 @@ impl<S> JSContext<S> {
 
     /// Create a compartment
     pub fn create_compartment<'a, T>(&'a mut self) -> JSContext<Initializing<'a, BOUND<'a>, T>> where
-        S: CanCreateCompartments,
+        S: CanAlloc + CanAccess,
         T: JSInitializable + JSTraceable,
     {
         debug!("Creating compartment.");
@@ -297,14 +293,6 @@ impl<S> JSContext<S> {
             runtime: self.runtime,
             marker: PhantomData,
         }
-    }
-
-    /// Shortcut to create a compartment and finish initializing in one go.
-    pub fn create_global<'a, T>(&'a mut self, value: T) -> JSContext<Initialized<'a, BOUND<'a>, T::Aged>> where
-        S: CanCreateCompartments,
-        T: JSInitializable + JSTraceable + JSRootable<'a> + JSTransplantable<BOUND<'a>, Transplanted = T>,
-    {
-        self.create_compartment().global_manage(value)
     }
 
     /// Get the object we entered the current compartment via
