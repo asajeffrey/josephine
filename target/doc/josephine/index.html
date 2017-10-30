@@ -29,7 +29,7 @@
 
     <nav class="sidebar">
         
-        <p class='location'>Crate josephine</p><div class="block items"><ul><li><a href="#structs">Structs</a></li><li><a href="#enums">Enums</a></li><li><a href="#traits">Traits</a></li><li><a href="#functions">Functions</a></li></ul></div><p class='location'></p><script>window.sidebarCurrent = {name: 'josephine', ty: 'mod', relpath: '../'};</script>
+        <p class='location'>Crate josephine</p><div class="block items"><ul><li><a href="#reexports">Reexports</a></li><li><a href="#modules">Modules</a></li></ul></div><p class='location'></p><script>window.sidebarCurrent = {name: 'josephine', ty: 'mod', relpath: '../'};</script>
     </nav>
 
     <nav class="sub">
@@ -48,7 +48,7 @@
                    <a id="toggle-all-docs" href="javascript:void(0)" title="collapse all docs">
                        [<span class='inner'>&#x2212;</span>]
                    </a>
-               </span><a class='srclink' href='../src/josephine/lib.rs.html#1-1896' title='goto source code'>[src]</a></span></h1>
+               </span><a class='srclink' href='../src/josephine/lib.rs.html#1-610' title='goto source code'>[src]</a></span></h1>
 <div class='docblock'><p>A library which uses JavaScript to safely manage the lifetimes of Rust data.</p>
 
 <p>(
@@ -463,6 +463,11 @@ so will need to be parameterized on a lifetime and compartment.</p>
 <span class="macro">assert_eq</span><span class="macro">!</span>(<span class="ident">hello_world</span>.<span class="ident">get</span>(<span class="ident">cx</span>, <span class="number">0</span>).<span class="ident">map</span>(<span class="op">|</span><span class="ident">name</span><span class="op">|</span> <span class="ident">name</span>.<span class="ident">name</span>(<span class="ident">cx</span>)), <span class="prelude-val">Some</span>(<span class="string">&quot;hello&quot;</span>));
 <span class="macro">assert_eq</span><span class="macro">!</span>(<span class="ident">hello_world</span>.<span class="ident">get</span>(<span class="ident">cx</span>, <span class="number">1</span>).<span class="ident">map</span>(<span class="op">|</span><span class="ident">name</span><span class="op">|</span> <span class="ident">name</span>.<span class="ident">name</span>(<span class="ident">cx</span>)), <span class="prelude-val">Some</span>(<span class="string">&quot;world&quot;</span>));</pre>
 
+<h1 id='calling-between-js-and-rust' class='section-header'><a href='#calling-between-js-and-rust'>Calling between JS and Rust</a></h1>
+<p>Josephine exposes an unsafe API to allow JS to call Rust and back again.
+This is just a thin wrapper round the SpiderMonkey API.
+See the <a href="ffi/index.html"><code>ffi</code></a> module for details.</p>
+
 <h1 id='globals' class='section-header'><a href='#globals'>Globals</a></h1>
 <p>Each JS compartment has a special object called a <em>global</em>.
 The compartment can be created using <code>cx.create_compartment()</code>,
@@ -522,328 +527,61 @@ providing the JS-managed data for the global, for example:</p>
    <span class="kw">let</span> <span class="kw-2">ref</span> <span class="kw-2">mut</span> <span class="ident">cx</span> <span class="op">=</span> <span class="ident">JSContext</span>::<span class="ident">new</span>();
    <span class="ident">example</span>(<span class="ident">cx</span>);
 }</pre>
-</div><h2 id='structs' class='section-header'><a href="#structs">Structs</a></h2>
+</div><h2 id='reexports' class='section-header'><a href="#reexports">Reexports</a></h2>
+<table><tr><td><code>pub use context::<a class="struct" href="../josephine/context/struct.JSContext.html" title="struct josephine::context::JSContext">JSContext</a>;</code></td></tr><tr><td><code>pub use context::<a class="trait" href="../josephine/context/trait.CanAccess.html" title="trait josephine::context::CanAccess">CanAccess</a>;</code></td></tr><tr><td><code>pub use context::<a class="trait" href="../josephine/context/trait.CanAlloc.html" title="trait josephine::context::CanAlloc">CanAlloc</a>;</code></td></tr><tr><td><code>pub use context::<a class="trait" href="../josephine/context/trait.CanCreateCompartments.html" title="trait josephine::context::CanCreateCompartments">CanCreateCompartments</a>;</code></td></tr><tr><td><code>pub use context::<a class="trait" href="../josephine/context/trait.CanExtend.html" title="trait josephine::context::CanExtend">CanExtend</a>;</code></td></tr><tr><td><code>pub use context::<a class="trait" href="../josephine/context/trait.InCompartment.html" title="trait josephine::context::InCompartment">InCompartment</a>;</code></td></tr><tr><td><code>pub use context::<a class="struct" href="../josephine/context/struct.Initialized.html" title="struct josephine::context::Initialized">Initialized</a>;</code></td></tr><tr><td><code>pub use context::<a class="trait" href="../josephine/context/trait.IsInitialized.html" title="trait josephine::context::IsInitialized">IsInitialized</a>;</code></td></tr><tr><td><code>pub use context::<a class="trait" href="../josephine/context/trait.IsInitializing.html" title="trait josephine::context::IsInitializing">IsInitializing</a>;</code></td></tr><tr><td><code>pub use compartment::<a class="struct" href="../josephine/compartment/struct.SOMEWHERE.html" title="struct josephine::compartment::SOMEWHERE">SOMEWHERE</a>;</code></td></tr><tr><td><code>pub use compartment::<a class="trait" href="../josephine/compartment/trait.Compartment.html" title="trait josephine::compartment::Compartment">Compartment</a>;</code></td></tr><tr><td><code>pub use compartment::<a class="trait" href="../josephine/compartment/trait.JSTransplantable.html" title="trait josephine::compartment::JSTransplantable">JSTransplantable</a>;</code></td></tr><tr><td><code>pub use ffi::<a class="trait" href="../josephine/ffi/trait.JSInitializable.html" title="trait josephine::ffi::JSInitializable">JSInitializable</a>;</code></td></tr><tr><td><code>pub use managed::<a class="struct" href="../josephine/managed/struct.JSManaged.html" title="struct josephine::managed::JSManaged">JSManaged</a>;</code></td></tr><tr><td><code>pub use root::<a class="struct" href="../josephine/root/struct.JSRoot.html" title="struct josephine::root::JSRoot">JSRoot</a>;</code></td></tr><tr><td><code>pub use root::<a class="trait" href="../josephine/root/trait.JSRootable.html" title="trait josephine::root::JSRootable">JSRootable</a>;</code></td></tr><tr><td><code>pub use string::<a class="struct" href="../josephine/string/struct.JSString.html" title="struct josephine::string::JSString">JSString</a>;</code></td></tr><tr><td><code>pub use trace::<a class="trait" href="../josephine/trace/trait.JSTraceable.html" title="trait josephine::trace::JSTraceable">JSTraceable</a>;</code></td></tr></table><h2 id='modules' class='section-header'><a href="#modules">Modules</a></h2>
 <table>
                        <tr class=' module-item'>
-                           <td><a class="struct" href="struct.BOUND.html"
-                                  title='struct josephine::BOUND'>BOUND</a></td>
-                           <td class='docblock-short'>
-                                <p>A compartment name that remembers the lifetime it was bound for.</p>
-                           </td>
-                       </tr>
-                       <tr class=' module-item'>
-                           <td><a class="struct" href="struct.DefaultInitializer.html"
-                                  title='struct josephine::DefaultInitializer'>DefaultInitializer</a></td>
-                           <td class='docblock-short'>
-                                <p>A default class.</p>
-                           </td>
-                       </tr>
-                       <tr class=' module-item'>
-                           <td><a class="struct" href="struct.Entered.html"
-                                  title='struct josephine::Entered'>Entered</a></td>
-                           <td class='docblock-short'>
-                                <p>A context state that has entered compartment <code>C</code> via an object with lifetime <code>&#39;a</code> and global type <code>T</code>.
-The previous context state was <code>S</code>.</p>
-                           </td>
-                       </tr>
-                       <tr class=' module-item'>
-                           <td><a class="struct" href="struct.FromJS.html"
-                                  title='struct josephine::FromJS'>FromJS</a></td>
-                           <td class='docblock-short'>
-                                <p>A context state for callbacks from JS,</p>
-                           </td>
-                       </tr>
-                       <tr class=' module-item'>
-                           <td><a class="struct" href="struct.Initialized.html"
-                                  title='struct josephine::Initialized'>Initialized</a></td>
-                           <td class='docblock-short'>
-                                <p>A context state in an initialized compartment <code>C</code> with lifetime <code>&#39;a</code> and global type <code>T</code>.</p>
-                           </td>
-                       </tr>
-                       <tr class=' module-item'>
-                           <td><a class="struct" href="struct.Initializing.html"
-                                  title='struct josephine::Initializing'>Initializing</a></td>
-                           <td class='docblock-short'>
-                                <p>A context state in the middTle of initializing a compartment <code>C</code> with lifetime <code>&#39;a</code> and global type <code>T</code>.</p>
-                           </td>
-                       </tr>
-                       <tr class=' module-item'>
-                           <td><a class="struct" href="struct.JSContext.html"
-                                  title='struct josephine::JSContext'>JSContext</a></td>
-                           <td class='docblock-short'>
-                                <p>The type for JS contexts whose current state is <code>S</code>.</p>
-                           </td>
-                       </tr>
-                       <tr class=' module-item'>
-                           <td><a class="struct" href="struct.JSManaged.html"
-                                  title='struct josephine::JSManaged'>JSManaged</a></td>
-                           <td class='docblock-short'>
-                                <p>The type of JS-managed data in a JS compartment <code>C</code>, with lifetime <code>&#39;a</code> and type <code>T</code>.</p>
-                           </td>
-                       </tr>
-                       <tr class=' module-item'>
-                           <td><a class="struct" href="struct.JSPinnedRoot.html"
-                                  title='struct josephine::JSPinnedRoot'>JSPinnedRoot</a></td>
-                           <td class='docblock-short'>
-                                <p>A stack allocated root that has been pinned, so the backing store can&#39;t move.</p>
-                           </td>
-                       </tr>
-                       <tr class=' module-item'>
-                           <td><a class="struct" href="struct.JSPinnedRoots.html"
-                                  title='struct josephine::JSPinnedRoots'>JSPinnedRoots</a></td>
-                           <td class='docblock-short'>
-                                <p>A doubly linked list with all the pinned roots.</p>
-                           </td>
-                       </tr>
-                       <tr class=' module-item'>
-                           <td><a class="struct" href="struct.JSRoot.html"
-                                  title='struct josephine::JSRoot'>JSRoot</a></td>
-                           <td class='docblock-short'>
-                                <p>A stack allocated root containing data of type <code>T</code> with lifetime <code>&#39;a</code>.</p>
-                           </td>
-                       </tr>
-                       <tr class=' module-item'>
-                           <td><a class="struct" href="struct.JSString.html"
-                                  title='struct josephine::JSString'>JSString</a></td>
-                           <td class='docblock-short'>
-                                <p>The type of JS-managed strings in the same zone as compartment <code>C</code>, with lifetime <code>a</code>.
-Rust is much happier with flat string representations, so we flatten
-strings when they come into Rust.</p>
-                           </td>
-                       </tr>
-                       <tr class=' module-item'>
-                           <td><a class="struct" href="struct.JSTracer.html"
-                                  title='struct josephine::JSTracer'>JSTracer</a></td>
+                           <td><a class="mod" href="compartment/index.html"
+                                  title='mod josephine::compartment'>compartment</a></td>
                            <td class='docblock-short'>
                                 
                            </td>
                        </tr>
                        <tr class=' module-item'>
-                           <td><a class="struct" href="struct.Owned.html"
-                                  title='struct josephine::Owned'>Owned</a></td>
-                           <td class='docblock-short'>
-                                <p>A context state for JS contexts owned by Rust.</p>
-                           </td>
-                       </tr>
-                       <tr class=' module-item'>
-                           <td><a class="struct" href="struct.OwnedJSRuntime.html"
-                                  title='struct josephine::OwnedJSRuntime'>OwnedJSRuntime</a></td>
-                           <td class='docblock-short'>
-                                <p>A JS runtime owned by Rust</p>
-                           </td>
-                       </tr>
-                       <tr class=' module-item'>
-                           <td><a class="struct" href="struct.SOMEWHERE.html"
-                                  title='struct josephine::SOMEWHERE'>SOMEWHERE</a></td>
-                           <td class='docblock-short'>
-                                <p>A wildcard compartment name.</p>
-                           </td>
-                       </tr>
-                       <tr class=' module-item'>
-                           <td><a class="struct" href="struct.Snapshotted.html"
-                                  title='struct josephine::Snapshotted'>Snapshotted</a></td>
-                           <td class='docblock-short'>
-                                <p>A context state in snapshotted compartment in underlying state <code>S</code>,
-which guarantees that no GC will happen during the lifetime <code>&#39;a</code>.</p>
-                           </td>
-                       </tr>
-                       <tr class=' module-item'>
-                           <td><a class="struct" href="struct.UNSAFE.html"
-                                  title='struct josephine::UNSAFE'>UNSAFE</a></td>
-                           <td class='docblock-short'>
-                                <p>An unsafe compartment name, which we only give access to via unsafe code.</p>
-                           </td>
-                       </tr></table><h2 id='enums' class='section-header'><a href="#enums">Enums</a></h2>
-<table>
-                       <tr class=' module-item'>
-                           <td><a class="enum" href="enum.JSEvaluateErr.html"
-                                  title='enum josephine::JSEvaluateErr'>JSEvaluateErr</a></td>
-                           <td class='docblock-short'>
-                                <p>The errors which might be returned from cx.evaluate(&quot;code&quot;)</p>
-                           </td>
-                       </tr>
-                       <tr class=' module-item'>
-                           <td><a class="enum" href="enum.JSStringContents.html"
-                                  title='enum josephine::JSStringContents'>JSStringContents</a></td>
-                           <td class='docblock-short'>
-                                
-                           </td>
-                       </tr></table><h2 id='traits' class='section-header'><a href="#traits">Traits</a></h2>
-<table>
-                       <tr class=' module-item'>
-                           <td><a class="trait" href="trait.CanAccess.html"
-                                  title='trait josephine::CanAccess'>CanAccess</a></td>
-                           <td class='docblock-short'>
-                                <p>A marker trait for JS contexts that can access native state</p>
-                           </td>
-                       </tr>
-                       <tr class=' module-item'>
-                           <td><a class="trait" href="trait.CanAlloc.html"
-                                  title='trait josephine::CanAlloc'>CanAlloc</a></td>
-                           <td class='docblock-short'>
-                                <p>A marker trait for JS contexts that can (de)allocate objects</p>
-                           </td>
-                       </tr>
-                       <tr class=' module-item'>
-                           <td><a class="trait" href="trait.CanCreateCompartments.html"
-                                  title='trait josephine::CanCreateCompartments'>CanCreateCompartments</a></td>
-                           <td class='docblock-short'>
-                                <p>A marker trait for JS contexts that can create new compartments.</p>
-                           </td>
-                       </tr>
-                       <tr class=' module-item'>
-                           <td><a class="trait" href="trait.CanExtend.html"
-                                  title='trait josephine::CanExtend'>CanExtend</a></td>
-                           <td class='docblock-short'>
-                                <p>A marker trait for JS contexts that can extend the lifetime of objects</p>
-                           </td>
-                       </tr>
-                       <tr class=' module-item'>
-                           <td><a class="trait" href="trait.Compartment.html"
-                                  title='trait josephine::Compartment'>Compartment</a></td>
-                           <td class='docblock-short'>
-                                <p>A marker trait for JS compartments.
-We mark it as <code>Copy</code> so that anything that uses <code>[#derive{Copy)]</code> will be copyable.
-Ditto <code>Eq</code> and <code>Hash</code>.</p>
-                           </td>
-                       </tr>
-                       <tr class=' module-item'>
-                           <td><a class="trait" href="trait.HasJSClass.html"
-                                  title='trait josephine::HasJSClass'>HasJSClass</a></td>
-                           <td class='docblock-short'>
-                                <p>A trait for a Rust class.</p>
-                           </td>
-                       </tr>
-                       <tr class=' module-item'>
-                           <td><a class="trait" href="trait.InCompartment.html"
-                                  title='trait josephine::InCompartment'>InCompartment</a></td>
-                           <td class='docblock-short'>
-                                <p>A marker trait for JS contexts in compartment <code>C</code></p>
-                           </td>
-                       </tr>
-                       <tr class=' module-item'>
-                           <td><a class="trait" href="trait.IsEntered.html"
-                                  title='trait josephine::IsEntered'>IsEntered</a></td>
-                           <td class='docblock-short'>
-                                <p>A marker trait for JS contexts that have been entered</p>
-                           </td>
-                       </tr>
-                       <tr class=' module-item'>
-                           <td><a class="trait" href="trait.IsInitialized.html"
-                                  title='trait josephine::IsInitialized'>IsInitialized</a></td>
-                           <td class='docblock-short'>
-                                <p>A marker trait for JS contexts that have initialized a global</p>
-                           </td>
-                       </tr>
-                       <tr class=' module-item'>
-                           <td><a class="trait" href="trait.IsInitializing.html"
-                                  title='trait josephine::IsInitializing'>IsInitializing</a></td>
-                           <td class='docblock-short'>
-                                <p>A marker trait for JS contexts that are in the middle of initializing</p>
-                           </td>
-                       </tr>
-                       <tr class=' module-item'>
-                           <td><a class="trait" href="trait.JSInitializable.html"
-                                  title='trait josephine::JSInitializable'>JSInitializable</a></td>
-                           <td class='docblock-short'>
-                                <p>A trait for Rust data which can be reflected</p>
-                           </td>
-                       </tr>
-                       <tr class=' module-item'>
-                           <td><a class="trait" href="trait.JSInitializer.html"
-                                  title='trait josephine::JSInitializer'>JSInitializer</a></td>
-                           <td class='docblock-short'>
-                                <p>Initialize JS data</p>
-                           </td>
-                       </tr>
-                       <tr class=' module-item'>
-                           <td><a class="trait" href="trait.JSRootable.html"
-                                  title='trait josephine::JSRootable'>JSRootable</a></td>
-                           <td class='docblock-short'>
-                                <p>Data which can be rooted.</p>
-                           </td>
-                       </tr>
-                       <tr class=' module-item'>
-                           <td><a class="trait" href="trait.JSTraceable.html"
-                                  title='trait josephine::JSTraceable'>JSTraceable</a></td>
-                           <td class='docblock-short'>
-                                <p>A trait for Rust data that can be traced.</p>
-                           </td>
-                       </tr>
-                       <tr class=' module-item'>
-                           <td><a class="trait" href="trait.JSTransplantable.html"
-                                  title='trait josephine::JSTransplantable'>JSTransplantable</a></td>
-                           <td class='docblock-short'>
-                                <p>Data which can be transplanted into compartment C.</p>
-                           </td>
-                       </tr></table><h2 id='functions' class='section-header'><a href="#functions">Functions</a></h2>
-<table>
-                       <tr class=' module-item'>
-                           <td><a class="fn" href="fn.finalize_jsobject_with_native_data.html"
-                                  title='fn josephine::finalize_jsobject_with_native_data'>finalize_jsobject_with_native_data</a><a title='unsafe function' href='#'><sup>⚠</sup></a></td>
+                           <td><a class="mod" href="context/index.html"
+                                  title='mod josephine::context'>context</a></td>
                            <td class='docblock-short'>
                                 
                            </td>
                        </tr>
                        <tr class=' module-item'>
-                           <td><a class="fn" href="fn.jsclass_global_flags_with_slots.html"
-                                  title='fn josephine::jsclass_global_flags_with_slots'>jsclass_global_flags_with_slots</a></td>
+                           <td><a class="mod" href="ffi/index.html"
+                                  title='mod josephine::ffi'>ffi</a></td>
                            <td class='docblock-short'>
                                 
                            </td>
                        </tr>
                        <tr class=' module-item'>
-                           <td><a class="fn" href="fn.jsclass_has_reserved_slots.html"
-                                  title='fn josephine::jsclass_has_reserved_slots'>jsclass_has_reserved_slots</a></td>
+                           <td><a class="mod" href="managed/index.html"
+                                  title='mod josephine::managed'>managed</a></td>
                            <td class='docblock-short'>
                                 
                            </td>
                        </tr>
                        <tr class=' module-item'>
-                           <td><a class="fn" href="fn.jscontext_called_from_js.html"
-                                  title='fn josephine::jscontext_called_from_js'>jscontext_called_from_js</a><a title='unsafe function' href='#'><sup>⚠</sup></a></td>
+                           <td><a class="mod" href="root/index.html"
+                                  title='mod josephine::root'>root</a></td>
                            <td class='docblock-short'>
                                 
                            </td>
                        </tr>
                        <tr class=' module-item'>
-                           <td><a class="fn" href="fn.jsmanaged_called_from_js.html"
-                                  title='fn josephine::jsmanaged_called_from_js'>jsmanaged_called_from_js</a><a title='unsafe function' href='#'><sup>⚠</sup></a></td>
+                           <td><a class="mod" href="runtime/index.html"
+                                  title='mod josephine::runtime'>runtime</a></td>
                            <td class='docblock-short'>
                                 
                            </td>
                        </tr>
                        <tr class=' module-item'>
-                           <td><a class="fn" href="fn.jsstring_called_from_js.html"
-                                  title='fn josephine::jsstring_called_from_js'>jsstring_called_from_js</a><a title='unsafe function' href='#'><sup>⚠</sup></a></td>
+                           <td><a class="mod" href="string/index.html"
+                                  title='mod josephine::string'>string</a></td>
                            <td class='docblock-short'>
                                 
                            </td>
                        </tr>
                        <tr class=' module-item'>
-                           <td><a class="fn" href="fn.null_function.html"
-                                  title='fn josephine::null_function'>null_function</a></td>
-                           <td class='docblock-short'>
-                                
-                           </td>
-                       </tr>
-                       <tr class=' module-item'>
-                           <td><a class="fn" href="fn.null_property.html"
-                                  title='fn josephine::null_property'>null_property</a></td>
-                           <td class='docblock-short'>
-                                
-                           </td>
-                       </tr>
-                       <tr class=' module-item'>
-                           <td><a class="fn" href="fn.null_wrapper.html"
-                                  title='fn josephine::null_wrapper'>null_wrapper</a></td>
-                           <td class='docblock-short'>
-                                
-                           </td>
-                       </tr>
-                       <tr class=' module-item'>
-                           <td><a class="fn" href="fn.trace_jsobject_with_native_data.html"
-                                  title='fn josephine::trace_jsobject_with_native_data'>trace_jsobject_with_native_data</a><a title='unsafe function' href='#'><sup>⚠</sup></a></td>
+                           <td><a class="mod" href="trace/index.html"
+                                  title='mod josephine::trace'>trace</a></td>
                            <td class='docblock-short'>
                                 
                            </td>
@@ -868,6 +606,8 @@ Ditto <code>Eq</code> and <code>Hash</code>.</p>
                     <dd>Move up in search results</dd>
                     <dt>↓</dt>
                     <dd>Move down in search results</dd>
+                    <dt>↹</dt>
+                    <dd>Switch tab</dd>
                     <dt>&#9166;</dt>
                     <dd>Go to active search result</dd>
                     <dt>+</dt>
