@@ -3,6 +3,8 @@ name = "josephine"
 version = "0.0.1"
 authors = ["ajeffrey@mozilla.com"]
 license = "MPL-2.0"
+description = "Josephine: using JavaScript to safely manage the lifetimes of Rust data"
+repository = "https://github.com/asajeffrey/josephine/"
 build = "build.rs"
 
 [lib]
