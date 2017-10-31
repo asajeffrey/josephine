@@ -10,8 +10,7 @@
 extern crate env_logger;
 extern crate js;
 extern crate libc;
-extern crate josephine;
-#[macro_use] extern crate josephine_derive;
+#[macro_use] extern crate josephine;
 #[macro_use] extern crate log;
 
 mod fake_codegen;
