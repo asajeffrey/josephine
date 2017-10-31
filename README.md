@@ -53,7 +53,6 @@ In your `Cargo.toml`:
 ```
 [dependencies]
 josephine = { git = "https://github.com/asajeffrey/josephine" }
-josephine_derive = { git = "https://github.com/asajeffrey/josephine" }
 ```
 Build with `cargo +nightly build`.
 

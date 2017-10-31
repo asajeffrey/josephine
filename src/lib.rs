@@ -1,3 +1,7 @@
+/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
+
 //! A library which uses JavaScript to safely manage the lifetimes of Rust data.
 //!
 //! (
@@ -382,8 +386,7 @@
 //! and then the *managed* type `Thing<'a, C>` which is just a `JSManaged<'a, C, NativeThing>`.
 //!
 //! ```rust
-//! # extern crate josephine;
-//! # #[macro_use] extern crate josephine_derive;
+//! # #[macro_use] extern crate josephine;
 //! # use josephine::*;
 //! #[derive(JSInitializable, JSTraceable, JSLifetime, JSCompartmental)]
 //! struct NativeName { name: String }
@@ -419,8 +422,7 @@
 //! so will need to be parameterized on a lifetime and compartment.
 //!
 //! ```rust
-//! # extern crate josephine;
-//! # #[macro_use] extern crate josephine_derive;
+//! # #[macro_use] extern crate josephine;
 //! # use josephine::*;
 //! # #[derive(JSInitializable, JSTraceable, JSLifetime, JSCompartmental)]
 //! # struct NativeName { name: String }
@@ -497,8 +499,7 @@
 //! The global can be accessed with `cx.global()`.
 //!
 //! ```rust
-//! # extern crate josephine;
-//! # #[macro_use] extern crate josephine_derive;
+//! # #[macro_use] extern crate josephine;
 //! # use josephine::*;
 //! #[derive(JSInitializable, JSTraceable, JSLifetime, JSCompartmental)]
 //! pub struct NativeMyGlobal { name: String }
@@ -520,8 +521,7 @@
 //! providing the JS-managed data for the global, for example:
 //!
 //! ```rust
-//! # extern crate josephine;
-//! # #[macro_use] extern crate josephine_derive;
+//! # #[macro_use] extern crate josephine;
 //! # use josephine::*;
 //! #[derive(JSInitializable, JSTraceable, JSLifetime, JSCompartmental)]
 //! pub struct NativeMyGlobal<'a, C> { name: JSManaged<'a, C, String> }
@@ -544,8 +544,7 @@
 //! The JSContext is built using `JSContext::new`.
 //!
 //! ```rust
-//! # extern crate josephine;
-//! # #[macro_use] extern crate josephine_derive;
+//! # #[macro_use] extern crate josephine;
 //! # use josephine::*;
 //! #[derive(JSInitializable, JSTraceable, JSLifetime, JSCompartmental)]
 //! pub struct NativeMyGlobal { name: String }
@@ -607,3 +606,8 @@ pub use string::JSString;
 
 pub mod trace;
 pub use trace::JSTraceable;
+
+// Re-export the derive macros
+#[allow(unused_imports)] #[macro_use] extern crate josephine_derive;
+#[doc(hidden)]
+pub use josephine_derive::*;
