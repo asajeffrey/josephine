@@ -1,6 +1,6 @@
 [package]
 name = "josephine"
-version = "0.0.1"
+version = "0.1.0"
 authors = ["ajeffrey@mozilla.com"]
 license = "MPL-2.0"
 description = "Josephine: using JavaScript to safely manage the lifetimes of Rust data"
