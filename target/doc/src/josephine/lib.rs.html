@@ -652,7 +652,15 @@
 <span id="607">607</span>
 <span id="608">608</span>
 <span id="609">609</span>
+<span id="610">610</span>
+<span id="611">611</span>
+<span id="612">612</span>
+<span id="613">613</span>
 </pre><pre class="rust ">
+<span class="comment">/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/. */</span>
+
 <span class="doccomment">//! A library which uses JavaScript to safely manage the lifetimes of Rust data.</span>
 <span class="doccomment">//!</span>
 <span class="doccomment">//! (</span>
@@ -1037,8 +1045,7 @@
 <span class="doccomment">//! and then the *managed* type `Thing&lt;&#39;a, C&gt;` which is just a `JSManaged&lt;&#39;a, C, NativeThing&gt;`.</span>
 <span class="doccomment">//!</span>
 <span class="doccomment">//! ```rust</span>
-<span class="doccomment">//! # extern crate josephine;</span>
-<span class="doccomment">//! # #[macro_use] extern crate josephine_derive;</span>
+<span class="doccomment">//! # #[macro_use] extern crate josephine;</span>
 <span class="doccomment">//! # use josephine::*;</span>
 <span class="doccomment">//! #[derive(JSInitializable, JSTraceable, JSLifetime, JSCompartmental)]</span>
 <span class="doccomment">//! struct NativeName { name: String }</span>
@@ -1074,8 +1081,7 @@
 <span class="doccomment">//! so will need to be parameterized on a lifetime and compartment.</span>
 <span class="doccomment">//!</span>
 <span class="doccomment">//! ```rust</span>
-<span class="doccomment">//! # extern crate josephine;</span>
-<span class="doccomment">//! # #[macro_use] extern crate josephine_derive;</span>
+<span class="doccomment">//! # #[macro_use] extern crate josephine;</span>
 <span class="doccomment">//! # use josephine::*;</span>
 <span class="doccomment">//! # #[derive(JSInitializable, JSTraceable, JSLifetime, JSCompartmental)]</span>
 <span class="doccomment">//! # struct NativeName { name: String }</span>
@@ -1152,8 +1158,7 @@
 <span class="doccomment">//! The global can be accessed with `cx.global()`.</span>
 <span class="doccomment">//!</span>
 <span class="doccomment">//! ```rust</span>
-<span class="doccomment">//! # extern crate josephine;</span>
-<span class="doccomment">//! # #[macro_use] extern crate josephine_derive;</span>
+<span class="doccomment">//! # #[macro_use] extern crate josephine;</span>
 <span class="doccomment">//! # use josephine::*;</span>
 <span class="doccomment">//! #[derive(JSInitializable, JSTraceable, JSLifetime, JSCompartmental)]</span>
 <span class="doccomment">//! pub struct NativeMyGlobal { name: String }</span>
@@ -1175,8 +1180,7 @@
 <span class="doccomment">//! providing the JS-managed data for the global, for example:</span>
 <span class="doccomment">//!</span>
 <span class="doccomment">//! ```rust</span>
-<span class="doccomment">//! # extern crate josephine;</span>
-<span class="doccomment">//! # #[macro_use] extern crate josephine_derive;</span>
+<span class="doccomment">//! # #[macro_use] extern crate josephine;</span>
 <span class="doccomment">//! # use josephine::*;</span>
 <span class="doccomment">//! #[derive(JSInitializable, JSTraceable, JSLifetime, JSCompartmental)]</span>
 <span class="doccomment">//! pub struct NativeMyGlobal&lt;&#39;a, C&gt; { name: JSManaged&lt;&#39;a, C, String&gt; }</span>
@@ -1199,8 +1203,7 @@
 <span class="doccomment">//! The JSContext is built using `JSContext::new`.</span>
 <span class="doccomment">//!</span>
 <span class="doccomment">//! ```rust</span>
-<span class="doccomment">//! # extern crate josephine;</span>
-<span class="doccomment">//! # #[macro_use] extern crate josephine_derive;</span>
+<span class="doccomment">//! # #[macro_use] extern crate josephine;</span>
 <span class="doccomment">//! # use josephine::*;</span>
 <span class="doccomment">//! #[derive(JSInitializable, JSTraceable, JSLifetime, JSCompartmental)]</span>
 <span class="doccomment">//! pub struct NativeMyGlobal { name: String }</span>
@@ -1262,6 +1265,11 @@
 
 <span class="kw">pub</span> <span class="kw">mod</span> <span class="ident">trace</span>;
 <span class="kw">pub</span> <span class="kw">use</span> <span class="ident">trace</span>::<span class="ident">JSTraceable</span>;
+
+<span class="comment">// Re-export the derive macros</span>
+<span class="attribute">#[<span class="ident">allow</span>(<span class="ident">unused_imports</span>)]</span> <span class="attribute">#[<span class="ident">macro_use</span>]</span> <span class="kw">extern</span> <span class="kw">crate</span> <span class="ident">josephine_derive</span>;
+<span class="attribute">#[<span class="ident">doc</span>(<span class="ident">hidden</span>)]</span>
+<span class="kw">pub</span> <span class="kw">use</span> <span class="ident">josephine_derive</span>::<span class="kw-2">*</span>;
 </pre>
 </section>
     <section id='search' class="content hidden"></section>
