@@ -82,7 +82,7 @@ static WINDOW_CLASS: JSClass = JSClass {
 const WINDOW_PROPERTIES: &[JSPropertySpec] = &[
     JSPropertySpec {
         name: b"window\0" as *const u8 as *const c_char,
-        flags: 0,
+        flags: (JSPROP_ENUMERATE | JSPROP_SHARED) as u8,
         getter: JSNativeWrapper {
             op: Some(window_window_getter_op),
             info: ptr::null(),
@@ -91,7 +91,7 @@ const WINDOW_PROPERTIES: &[JSPropertySpec] = &[
     },
     JSPropertySpec {
         name: b"console\0" as *const u8 as *const c_char,
-        flags: 0,
+        flags: (JSPROP_ENUMERATE | JSPROP_SHARED) as u8,
         getter: JSNativeWrapper {
             op: Some(window_console_getter_op),
             info: ptr::null(),
@@ -100,7 +100,7 @@ const WINDOW_PROPERTIES: &[JSPropertySpec] = &[
     },
     JSPropertySpec {
         name: b"document\0" as *const u8 as *const c_char,
-        flags: 0,
+        flags: (JSPROP_ENUMERATE | JSPROP_SHARED) as u8,
         getter: JSNativeWrapper {
             op: Some(window_document_getter_op),
             info: ptr::null(),
@@ -215,7 +215,7 @@ const CONSOLE_FUNCTIONS: &[JSFunctionSpec] = &[
     JSFunctionSpec {
         name: b"log\0" as *const u8 as *const c_char,
         selfHostedName: ptr::null(),
-        flags: 0,
+        flags: JSPROP_ENUMERATE as u16,
         nargs: 1,
         call: JSNativeWrapper {
             op: Some(console_log_op),
@@ -290,7 +290,7 @@ static DOCUMENT_CLASS: JSClass = JSClass {
 const DOCUMENT_PROPERTIES: &[JSPropertySpec] = &[
     JSPropertySpec {
         name: b"body\0" as *const u8 as *const c_char,
-        flags: 0,
+        flags: (JSPROP_ENUMERATE | JSPROP_SHARED) as u8,
         getter: JSNativeWrapper {
             op: Some(document_body_getter_op),
             info: ptr::null(),
@@ -366,7 +366,7 @@ static ELEMENT_CLASS: JSClass = JSClass {
 const ELEMENT_PROPERTIES: &[JSPropertySpec] = &[
     JSPropertySpec {
         name: b"parent\0" as *const u8 as *const c_char,
-        flags: 0,
+        flags: (JSPROP_ENUMERATE | JSPROP_SHARED) as u8,
         getter: JSNativeWrapper {
             op: Some(element_parent_getter_op),
             info: ptr::null(),
@@ -375,7 +375,7 @@ const ELEMENT_PROPERTIES: &[JSPropertySpec] = &[
     },
     JSPropertySpec {
         name: b"tagName\0" as *const u8 as *const c_char,
-        flags: 0,
+        flags: (JSPROP_ENUMERATE | JSPROP_SHARED) as u8,
         getter: JSNativeWrapper {
             op: Some(element_tagName_getter_op),
             info: ptr::null(),
