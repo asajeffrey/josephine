@@ -9,6 +9,9 @@ use js::jsapi::JSClassOps;
 use js::jsapi::JSFunctionSpec;
 use js::jsapi::JSNativeWrapper;
 use js::jsapi::JSPropertySpec;
+use js::jsapi::JS_GlobalObjectTraceHook;
+use js::jsapi::JSPROP_ENUMERATE;
+use js::jsapi::JSPROP_SHARED;
 
 use js::jsval::JSVal;
 use js::jsval::UndefinedValue;
@@ -71,7 +74,7 @@ static WINDOW_CLASS: JSClass = JSClass {
         mayResolve: None,
         resolve: None,
         setProperty: None,
-        trace: Some(trace_jsobject_with_native_data),
+        trace: Some(JS_GlobalObjectTraceHook),
     },
     reserved: [0 as *mut _; 3],
 };
