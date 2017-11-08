@@ -5,7 +5,6 @@ authors = ["ajeffrey@mozilla.com"]
 license = "MPL-2.0"
 description = "Josephine: using JavaScript to safely manage the lifetimes of Rust data"
 repository = "https://github.com/asajeffrey/josephine/"
-build = "build.rs"
 
 [lib]
 
@@ -15,12 +14,8 @@ mozjs = "0.1.7"
 libc = "0.2.30"
 log = "0.3"
 
-[build-dependencies]
-skeptic = "0.13"
-
 [dev-dependencies]
 env_logger = "0.4"
-skeptic = "0.13"
 
 [[example]]
 name = "minidom"

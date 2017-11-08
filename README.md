@@ -59,8 +59,10 @@ Build with `cargo +nightly build`.
 ## Examples
 
 A minimal example, which uses JS to manage the lifetime of a string:
-```rust,skt-josephine
-use josephine::JSContext;
+
+```rust
+# extern crate josephine;
+use ::josephine::JSContext;
 
 // Giving JavaScript some data to manage.
 pub fn main() {

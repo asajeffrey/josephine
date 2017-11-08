@@ -12,6 +12,7 @@ script:
   - CCACHE=$(which ccache) cargo test
   - CCACHE=$(which ccache) cargo run --example minidom
   - CCACHE=$(which ccache) cargo run --example dbllist
+  - CCACHE=$(which ccache) rustdoc -L target/debug/deps/ --test README.md
   - ccache -s
 
 cache:
