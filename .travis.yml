@@ -5,7 +5,7 @@ rust:
   - nightly
 
 script:
-  # workaround for https://github.com/budziq/rust-skeptic/issues/67
+  # Make sure there's only one josephine crate in scope
   - rm -rf target/debug/deps/*josephine*
   - ccache -z
   - CCACHE=$(which ccache) cargo build -vv
