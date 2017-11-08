@@ -1,6 +1,10 @@
 [package]
 name = "josephine_derive"
 version = "0.1.0"
+authors = ["ajeffrey@mozilla.com"]
+license = "MPL-2.0"
+description = "The derive macros for josephine"
+repository = "https://github.com/asajeffrey/josephine/"
 
 [dependencies]
 syn = "0.11.11"
