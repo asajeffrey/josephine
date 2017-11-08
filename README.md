@@ -52,7 +52,7 @@ which uses nightly features, so `josephine` also requires nightly.
 In your `Cargo.toml`:
 ```
 [dependencies]
-josephine = { git = "https://github.com/asajeffrey/josephine" }
+josephine = "0.1"
 ```
 Build with `cargo +nightly build`.
 

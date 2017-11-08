@@ -570,7 +570,7 @@
 #![feature(generic_param_attrs)]
 #![feature(dropck_eyepatch)]
 
-extern crate js;
+extern crate mozjs as js;
 extern crate libc;
 #[macro_use] extern crate log;
 

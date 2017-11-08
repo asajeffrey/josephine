@@ -1,6 +1,6 @@
 [package]
 name = "josephine"
-version = "0.1.0"
+version = "0.1.1"
 authors = ["ajeffrey@mozilla.com"]
 license = "MPL-2.0"
 description = "Josephine: using JavaScript to safely manage the lifetimes of Rust data"
@@ -10,8 +10,8 @@ build = "build.rs"
 [lib]
 
 [dependencies]
-josephine_derive = { path = "josephine-derive" }
-js = { git = "https://github.com/servo/rust-mozjs" }
+josephine_derive = "0.1.0"
+mozjs = "0.1.7"
 libc = "0.2.30"
 log = "0.3"
 

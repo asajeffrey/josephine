@@ -8,7 +8,7 @@
 #![deny(unsafe_code)]
 
 extern crate env_logger;
-extern crate js;
+extern crate mozjs as js;
 extern crate libc;
 #[macro_use] extern crate josephine;
 #[macro_use] extern crate log;
