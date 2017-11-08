@@ -8,6 +8,9 @@ repository = "https://github.com/asajeffrey/josephine/"
 
 [lib]
 
+[features]
+debugmozjs = ["mozjs/debugmozjs"]
+
 [dependencies]
 josephine_derive = "0.1.0"
 mozjs = "0.1.7"
