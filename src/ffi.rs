@@ -88,7 +88,7 @@ pub trait JSInitializer {
     }
 
     unsafe fn global_hook_option() -> OnNewGlobalHookOption {
-         OnNewGlobalHookOption::DontFireOnNewGlobalHook
+         OnNewGlobalHookOption::FireOnNewGlobalHook
     }
 
     unsafe fn global_options() -> CompartmentOptions {
