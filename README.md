@@ -3,7 +3,7 @@
 [![Build Status](https://travis-ci.org/asajeffrey/josephine.svg)](https://travis-ci.org/asajeffrey/josephine)
 
 (
-[Doc](https://asajeffrey.github.io/josephine) |
+[Doc](https://docs.rs/josephine/) |
 [CI](https://travis-ci.org/asajeffrey/josephine)
 )
 
