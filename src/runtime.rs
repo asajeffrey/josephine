@@ -3,6 +3,8 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 use js::jsapi::InitSelfHostedCode;
+use js::jsapi::JS_BeginRequest;
+use js::jsapi::JS_EndRequest;
 use js::jsapi::JS_ShutDown;
 use js::jsapi::JS_NewRuntime;
 use js::jsapi::JSRuntime;
@@ -25,6 +27,7 @@ impl OwnedJSRuntime {
         let js_runtime = unsafe { JS_NewRuntime(DEFAULT_HEAPSIZE, CHUNK_SIZE, ptr::null_mut()) };
         let js_context = unsafe { JS_GetContext(js_runtime) };
         unsafe { InitSelfHostedCode(js_context) };
+        unsafe { JS_BeginRequest(js_context) };
         OwnedJSRuntime(js_runtime, js_init)
     }
 
@@ -35,6 +38,7 @@ impl OwnedJSRuntime {
 
 impl Drop for OwnedJSRuntime {
     fn drop(&mut self) {
+        unsafe { JS_EndRequest(JS_GetContext(self.0)) };
         unsafe { JS_DestroyRuntime(self.0) };
     }
 }

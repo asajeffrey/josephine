@@ -23,9 +23,11 @@ use js::jsapi::JSObject;
 use js::jsapi::JSPrincipals;
 use js::jsapi::JSPropertySpec;
 use js::jsapi::JSTracer;
+use js::jsapi::JSTraceOp;
 use js::jsapi::JSVersion;
 use js::jsapi::JS_GetObjectPrototype;
 use js::jsapi::JS_GetReservedSlot;
+use js::jsapi::JS_GlobalObjectTraceHook;
 use js::jsapi::JS_InitClass;
 use js::jsapi::JS_InitStandardClasses;
 use js::jsapi::JS_IsNative;
@@ -87,14 +89,19 @@ pub trait JSInitializer {
         ptr::null_mut()
     }
 
+    unsafe fn global_trace_hook() -> JSTraceOp {
+        Some(trace_jsobject_with_native_data)
+    }
+
     unsafe fn global_hook_option() -> OnNewGlobalHookOption {
-         OnNewGlobalHookOption::DontFireOnNewGlobalHook
+         OnNewGlobalHookOption::FireOnNewGlobalHook
     }
 
     unsafe fn global_options() -> CompartmentOptions {
         let mut options = CompartmentOptions::default();
         options.behaviors_.version_ = JSVersion::JSVERSION_ECMA_5;
         options.creationOptions_.sharedMemoryAndAtomics_ = true;
+        options.creationOptions_.traceGlobal_ = Self::global_trace_hook();
         options
     }
 
@@ -179,7 +186,7 @@ static DEFAULT_GLOBAL_CLASS: JSClass = JSClass {
         mayResolve: None,
         resolve: None,
         setProperty: None,
-        trace: Some(trace_jsobject_with_native_data),
+        trace: Some(JS_GlobalObjectTraceHook),
     },
     reserved: [0 as *mut _; 3],
 };
