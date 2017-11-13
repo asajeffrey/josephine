@@ -7,16 +7,10 @@ rust:
 script:
   # Make sure there's only one josephine crate in scope
   - rm -rf target/debug/deps/*josephine*
-  - ccache -z
-  - CCACHE=$(which ccache) cargo build --features debugmozjs -vv
-  - CCACHE=$(which ccache) cargo test --features debugmozjs
-  - CCACHE=$(which ccache) cargo run --features debugmozjs --example minidom
-  - CCACHE=$(which ccache) cargo run --features debugmozjs --example dbllist
-  - CCACHE=$(which ccache) rustdoc -L target/debug/deps/ --test README.md
-  - ccache -s
+  - cargo build --features debugmozjs -vv
+  - cargo test --features debugmozjs
+  - cargo run --features debugmozjs --example minidom
+  - cargo run --features debugmozjs --example dbllist
+  - rustdoc -L target/debug/deps/ --test README.md
 
-cache:
-  - ccache: true
-  - directories:
-      - $TRAVIS_BUILD_DIR/target
-      - $HOME/.cargo
+cache: cargo
