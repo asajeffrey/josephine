@@ -21,7 +21,7 @@ use josephine::JSLifetime;
 use minidom::Window;
 
 fn main() {
-    env_logger::init().unwrap();
+    let _ = env_logger::init();
 
     debug!("Creating JSContext.");
     let ref mut cx = JSContext::new();
