@@ -4,13 +4,21 @@ dist: trusty
 rust:
   - nightly
 
-script:
+cache: cargo
+
+env:
+  - CARGO_FLAGS=""
+  - CARGO_FLAGS="--release"
+  - CARGO_FLAGS="--features debugmozjs"
+  - CARGO_FLAGS="--features debugmozjs --release"
+
+before_install:
   # Make sure there's only one josephine crate in scope
   - rm -rf target/debug/deps/*josephine*
-  - cargo build --features debugmozjs -vv
-  - cargo test --features debugmozjs
-  - cargo run --features debugmozjs --example minidom
-  - cargo run --features debugmozjs --example dbllist
-  - rustdoc -L target/debug/deps/ --test README.md
 
-cache: cargo
+script:
+  - cargo build $CARGO_FLAGS -vv
+  - cargo test $CARGO_FLAGS
+  - cargo run $CARGO_FLAGS --example minidom
+  - cargo run $CARGO_FLAGS --example dbllist
+  - rustdoc -L target/debug/deps/ --test README.md
