@@ -23,18 +23,20 @@ pub struct JSRoot<'a, T: 'a> {
     marker: PhantomData<&'a ()>, // NOTE: this is variant in `'a`.
 }
 
+const DUMMY: *mut JSTraceable = &() as *const JSTraceable as *mut JSTraceable;
+
 impl<'a, T:'a> JSRoot<'a, T> {
     pub fn new<S>(_cx: &mut JSContext<S>) -> JSRoot<'a, T> {
         JSRoot {
             value: None,
             pin: JSUntypedPinnedRoot {
-                value: unsafe { mem::zeroed() },
+                value: DUMMY,
                 next: ptr::null_mut(),
                 prev: ptr::null_mut(),
             },
             marker: PhantomData,
         }
-    }          
+    }
 }
 
 /// A stack allocated root that has been pinned, so the backing store can't move.
@@ -67,7 +69,7 @@ impl JSPinnedRoots {
             debug!("Removing root {:p} from rootset.", root);
             self.0 = root.next;
         }
-        root.value = mem::zeroed();
+        root.value = DUMMY;
         root.next = ptr::null_mut();
         root.prev = ptr::null_mut();
     }
