@@ -49,6 +49,7 @@ use std::collections::HashMap;
 use std::marker::PhantomData;
 use std::mem;
 use std::ptr;
+use std::rc::Rc;
 use std::str;
 
 /// The type for JS contexts whose current state is `S`.
@@ -57,7 +58,7 @@ pub struct JSContext<S> {
     global_js_object: *mut Heap<*mut JSObject>,
     global_raw: *mut (),
     auto_compartment: Option<JSAutoCompartment>,
-    runtime: Option<OwnedJSRuntime>,
+    runtime: Option<Rc<OwnedJSRuntime>>,
     marker: PhantomData<S>,
 }
 
@@ -133,7 +134,7 @@ impl JSContext<Owned> {
             global_js_object: ptr::null_mut(),
             global_raw: ptr::null_mut(),
             auto_compartment: None,
-            runtime: Some(runtime),
+            runtime: Some(Rc::new(runtime)),
             marker: PhantomData,
         }
     }
@@ -273,13 +274,13 @@ impl<S> JSContext<S> {
             global_js_object: Box::into_raw(boxed_jsobject),
             global_raw: fat_value[0] as *mut (),
             auto_compartment: Some(ac),
-            runtime: None,
+            runtime: self.runtime.clone(),
             marker: PhantomData,
         }
     }
 
     /// Finish initializing a JS Context
-    pub fn global_manage<'a, C, T>(self, value: T) -> JSContext<Initialized<'a, C, T::Aged>> where
+    pub fn global_manage<'a, C, T>(mut self, value: T) -> JSContext<Initialized<'a, C, T::Aged>> where
         S: IsInitializing<'a, C, T>,
         T: JSTraceable + JSLifetime<'a> + JSCompartmental<C, C, ChangeCompartment = T>,
     {
@@ -293,8 +294,8 @@ impl<S> JSContext<S> {
             jsapi_context: self.jsapi_context,
             global_js_object: self.global_js_object,
             global_raw: self.global_raw,
-            auto_compartment: self.auto_compartment,
-            runtime: self.runtime,
+            auto_compartment: self.auto_compartment.take(),
+            runtime: self.runtime.take(),
             marker: PhantomData,
         }
     }
