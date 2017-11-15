@@ -15,11 +15,11 @@ env:
 before_install:
   # Make sure there's only one josephine crate in the deps directory,
   # which is needed for the rustdoc script.
-  - rm -rf target/*/deps/*josephine*
+  - rm -rf target/debug/deps/*josephine*
 
 script:
   - cargo build $CARGO_FLAGS -vv
   - cargo test $CARGO_FLAGS
   - cargo run $CARGO_FLAGS --example minidom
   - cargo run $CARGO_FLAGS --example dbllist
-  - rustdoc -L target/debug/deps/ --test README.md
+  - if [ -z "$CARGO_FLAGS" ]; then rustdoc -L target/debug/deps/ --test README.md; fi
