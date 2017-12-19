@@ -68,7 +68,7 @@ use ::josephine::JSContext;
 pub fn main() {
     // Create a new JavaScript context.
     // All interaction with JavaScript takes place in a context.
-    let ref mut cx = JSContext::new();
+    let ref mut cx = JSContext::new().expect("Failed to initialize JS");
 
     // Create a new compartment in that context.
     // All memory managed by JavaScript is divided into compartments,

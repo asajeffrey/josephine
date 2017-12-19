@@ -10,8 +10,9 @@ pub use super::managed::jsmanaged_called_from_js;
 pub use super::string::jsstring_called_from_js;
 
 use js::jsapi;
-use js::jsapi::CompartmentOptions;
-use js::jsapi::Handle;
+use js::jsapi::JS::CompartmentOptions;
+use js::jsapi::JS::Handle;
+use js::jsapi::JS::HandleObject;
 use js::jsapi::JSCLASS_RESERVED_SLOTS_SHIFT;
 use js::jsapi::JSClass;
 use js::jsapi::JSClassOps;
@@ -31,11 +32,11 @@ use js::jsapi::JS_GlobalObjectTraceHook;
 use js::jsapi::JS_InitClass;
 use js::jsapi::JS_InitStandardClasses;
 use js::jsapi::JS_IsNative;
-use js::jsapi::OnNewGlobalHookOption;
+use js::jsapi::JS::OnNewGlobalHookOption;
 
-use js::JSCLASS_GLOBAL_SLOT_COUNT;
-use js::JSCLASS_IS_GLOBAL;
-use js::JSCLASS_RESERVED_SLOTS_MASK;
+use js::jsapi::JSCLASS_GLOBAL_SLOT_COUNT;
+use js::jsapi::JSCLASS_IS_GLOBAL;
+use js::jsapi::JSCLASS_RESERVED_SLOTS_MASK;
 
 use libc::c_char;
 use libc::c_uint;
@@ -73,7 +74,7 @@ impl JSInitializable for usize {}
 /// Initialize JS data
 
 pub trait JSInitializer {
-    unsafe fn parent_prototype(cx: *mut jsapi::JSContext, global: jsapi::HandleObject) -> *mut JSObject {
+    unsafe fn parent_prototype(cx: *mut jsapi::JSContext, global: HandleObject) -> *mut JSObject {
         JS_GetObjectPrototype(cx, global)
     }
 
@@ -125,7 +126,7 @@ pub trait JSInitializer {
         ptr::null()
     }
 
-    unsafe fn js_init_class(cx: *mut jsapi::JSContext, global: jsapi::HandleObject) -> *mut JSObject {
+    unsafe fn js_init_class(cx: *mut jsapi::JSContext, global: HandleObject) -> *mut JSObject {
         let ref parent_proto = Self::parent_prototype(cx, global);
         let parent_proto_handle = Handle::from_marked_location(parent_proto);
         let classp = Self::classp();
@@ -137,10 +138,10 @@ pub trait JSInitializer {
         JS_InitClass(cx, global, parent_proto_handle, classp, constructor, nargs, ps, fs, static_ps, static_fs)
     }
 
-    unsafe fn js_init_object(_cx: *mut jsapi::JSContext, _obj: jsapi::HandleObject) {
+    unsafe fn js_init_object(_cx: *mut jsapi::JSContext, _obj: HandleObject) {
     }
 
-    unsafe fn js_init_global(cx: *mut jsapi::JSContext, global: jsapi::HandleObject) {
+    unsafe fn js_init_global(cx: *mut jsapi::JSContext, global: HandleObject) {
         JS_InitStandardClasses(cx, global);
     }
 }
@@ -160,11 +161,15 @@ static DEFAULT_CLASS: JSClass = JSClass {
         construct: None,
         delProperty: None,
         enumerate: None,
+        #[cfg(feature = "smup")]
+        newEnumerate: None,
         finalize: Some(finalize_jsobject_with_native_data),
+        #[cfg(not(feature = "smup"))]
         getProperty: None,
         hasInstance: None,
         mayResolve: None,
         resolve: None,
+        #[cfg(not(feature = "smup"))]
         setProperty: None,
         trace: Some(trace_jsobject_with_native_data),
     },
@@ -180,11 +185,15 @@ static DEFAULT_GLOBAL_CLASS: JSClass = JSClass {
         construct: None,
         delProperty: None,
         enumerate: None,
+        #[cfg(feature = "smup")]
+        newEnumerate: None,
         finalize: Some(finalize_jsobject_with_native_data),
+        #[cfg(not(feature = "smup"))]
         getProperty: None,
         hasInstance: None,
         mayResolve: None,
         resolve: None,
+        #[cfg(not(feature = "smup"))]
         setProperty: None,
         trace: Some(JS_GlobalObjectTraceHook),
     },
@@ -198,6 +207,11 @@ pub const fn null_wrapper() -> JSNativeWrapper {
     }
 }
 
+#[cfg(feature = "smup")]
+pub const fn null_property() -> JSPropertySpec {
+    JSPropertySpec::NULL
+}
+#[cfg(not(feature = "smup"))]
 pub const fn null_property() -> JSPropertySpec {
     JSPropertySpec {
         name: ptr::null(),
@@ -207,6 +221,11 @@ pub const fn null_property() -> JSPropertySpec {
     }
 }
 
+#[cfg(feature = "smup")]
+pub const fn null_function() -> JSFunctionSpec {
+    JSFunctionSpec::NULL
+}
+#[cfg(not(feature = "smup"))]
 pub const fn null_function() -> JSFunctionSpec {
     JSFunctionSpec {
         name: ptr::null(),

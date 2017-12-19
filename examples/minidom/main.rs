@@ -24,7 +24,7 @@ fn main() {
     let _ = env_logger::init();
 
     debug!("Creating JSContext.");
-    let ref mut cx = JSContext::new();
+    let ref mut cx = JSContext::new().expect("Failed to build JSContext");
 
     debug!("Creating global.");
     let ref mut root = cx.new_root();

@@ -19,23 +19,25 @@ use super::ffi::UNSAFE;
 
 use js::glue::CallObjectTracer;
 
-use js::jsapi::GCTraceKindToAscii;
-use js::jsapi::HandleValue;
-use js::jsapi::Heap;
+use js::heap::Heap;
+
+use js::jsapi::JS::CurrentGlobalOrNull;
+use js::jsapi::JS::GCTraceKindToAscii;
+use js::jsapi::JS::HandleValue;
+use js::jsapi::JS::TraceKind;
+use js::jsapi::JS::Value;
+
+use js::jsapi::js::GetGlobalForObjectCrossCompartment;
+
 use js::jsapi::JSObject;
 use js::jsapi::JSTracer;
 use js::jsapi::JS_GetReservedSlot;
 use js::jsapi::JS_IsNative;
-use js::jsapi::TraceKind;
 use js::jsapi::JS_NewObjectWithGivenProto;
 use js::jsapi::JS_SetReservedSlot;
 
-use js::jsval::JSVal;
 use js::jsval::ObjectValue;
 use js::jsval::PrivateValue;
-
-use js::rust::get_context_compartment;
-use js::rust::get_object_compartment;
 
 use libc;
 
@@ -115,8 +117,16 @@ impl<'a, C, T> JSManaged<'a, C, T> {
         // Save a pointer to the native value in a private slot
         let boxed_value: Box<JSManageable> = Box::new(Some(value));
         let fat_value: [*const libc::c_void; 2] = unsafe { mem::transmute(boxed_value) };
-        unsafe { JS_SetReservedSlot(boxed_jsobject.get(), 0, PrivateValue(fat_value[0])) };
-        unsafe { JS_SetReservedSlot(boxed_jsobject.get(), 1, PrivateValue(fat_value[1])) };
+        #[cfg(feature = "smup")]
+        unsafe {
+            JS_SetReservedSlot(boxed_jsobject.get(), 0, &PrivateValue(fat_value[0]));
+            JS_SetReservedSlot(boxed_jsobject.get(), 1, &PrivateValue(fat_value[1]));
+        }
+        #[cfg(not(feature = "smup"))]
+        unsafe {
+            JS_SetReservedSlot(boxed_jsobject.get(), 0, PrivateValue(fat_value[0]));
+            JS_SetReservedSlot(boxed_jsobject.get(), 1, PrivateValue(fat_value[1]));
+        }
 
         // TODO: can we be sure that this won't trigger GC? Or do we need to root the boxed object?
         debug!("Initializing JS object.");
@@ -215,9 +225,11 @@ impl<'a, C, T> JSManaged<'a, C, T> {
         T: JSCompartmental<C, D>,
         S: InCompartment<D>,
     {
-        let self_compartment = unsafe { get_object_compartment(self.to_jsobject()) };
-        let cx_compartment = unsafe { get_context_compartment(cx.cx()) };
-        if self_compartment == cx_compartment {
+        // The jsapi rust bindings don't expose cx.compartment()
+        // so we compare globals rather than compartments.
+        let self_global = unsafe { GetGlobalForObjectCrossCompartment(self.to_jsobject()) };
+        let cx_global = unsafe { CurrentGlobalOrNull(cx.cx()) };
+        if self_global == cx_global {
             Some(unsafe { self.change_compartment() })
         } else {
             None
@@ -236,7 +248,7 @@ impl<'a, C, T> JSManaged<'a, C, T> {
         unsafe { &*self.to_heap_object() }.get()
     }
 
-    pub fn to_jsval(self) -> JSVal {
+    pub fn to_jsval(self) -> Value {
         ObjectValue(self.to_jsobject())
     }
 }

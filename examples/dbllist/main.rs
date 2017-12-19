@@ -12,7 +12,7 @@ use josephine::JSContext;
 
 fn main() {
     // Create a new JS context
-    let ref mut cx = JSContext::new();
+    let ref mut cx = JSContext::new().expect("Creating a JSContext failed");
 
     // Create a new doubly-linked list in its own compartment
     let ref mut cx = DoublyLinkedList::init(cx.create_compartment());
