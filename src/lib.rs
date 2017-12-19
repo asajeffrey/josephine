@@ -410,7 +410,7 @@
 //! }
 //!
 //! # fn main() {
-//! # let ref mut cx = JSContext::new();
+//! # let ref mut cx = JSContext::new().expect("Creating a JSContext failed");
 //! # let ref mut cx = cx.create_compartment().global_manage(37);
 //! let ref mut root = cx.new_root();
 //! let hello = Name::new(cx, "hello").in_root(root);
@@ -474,7 +474,7 @@
 //! }
 //!
 //! # fn main() {
-//! # let ref mut cx = JSContext::new();
+//! # let ref mut cx = JSContext::new().expect("Creating a JSContext failed");
 //! # let ref mut cx = cx.create_compartment().global_manage(37);
 //! let ref mut root = cx.new_root();
 //! let hello_world = Names::new(cx).in_root(root);
@@ -559,7 +559,7 @@
 //!    cx.global().forget_compartment()
 //! }
 //! fn main() {
-//!    let ref mut cx = JSContext::new();
+//!    let ref mut cx = JSContext::new().expect("Creating a JSContext failed");
 //!    example(cx);
 //! }
 //! ```
@@ -569,8 +569,9 @@
 #![feature(const_ptr_null)]
 #![feature(generic_param_attrs)]
 #![feature(dropck_eyepatch)]
+#![feature(refcell_replace_swap)]
 
-extern crate mozjs as js;
+extern crate mozjs;
 extern crate libc;
 #[macro_use] extern crate log;
 
@@ -589,10 +590,29 @@ pub use compartment::SOMEWHERE;
 pub use compartment::Compartment;
 pub use compartment::JSCompartmental;
 
-pub mod runtime;
-
 pub mod ffi;
 pub use ffi::JSInitializable;
+
+pub mod js {
+    pub use mozjs::glue;
+    pub use mozjs::jsval;
+    pub use mozjs::rust;
+
+    #[cfg(feature = "smup")]
+    pub use mozjs::heap;
+    #[cfg(not(feature = "smup"))]
+    pub use mozjs::jsapi as heap;
+
+    #[cfg(feature = "smup")]
+    pub use mozjs::jsapi;
+    #[cfg(not(feature = "smup"))]
+    pub mod jsapi {
+        pub use mozjs::*;
+        pub use mozjs::jsapi::*;
+        pub use mozjs::jsapi as JS;
+        pub use mozjs::jsapi as js;
+    }
+}
 
 pub mod managed;
 pub use managed::JSManaged;

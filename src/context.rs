@@ -14,14 +14,13 @@ use super::ffi::JSEvaluateErr;
 use super::ffi::JSInitializer;
 use super::managed::JSManageable;
 use super::root::trace_thread_local_roots;
-use super::runtime::OwnedJSRuntime;
 
 use js::glue::NewCompileOptions;
 
 use js::jsapi;
-use js::jsapi::Evaluate2;
-use js::jsapi::Handle;
-use js::jsapi::Heap;
+use js::jsapi::JS::Evaluate2;
+use js::jsapi::JS::Handle;
+use js::heap::Heap;
 use js::jsapi::JSAutoCompartment;
 use js::jsapi::JSObject;
 use js::jsapi::JS_AddExtraGCRootsTracer;
@@ -29,27 +28,28 @@ use js::jsapi::JS_ClearPendingException;
 use js::jsapi::JS_DefineFunctions;
 use js::jsapi::JS_DefineProperties;
 use js::jsapi::JS_GC;
-use js::jsapi::JS_GetContext;
 use js::jsapi::JS_GetPendingException;
 use js::jsapi::JS_GetReservedSlot;
 use js::jsapi::JS_GetRuntime;
 use js::jsapi::JS_IsExceptionPending;
 use js::jsapi::JS_NewGlobalObject;
 use js::jsapi::JS_SetReservedSlot;
-use js::jsapi::MutableHandle;
+use js::jsapi::JS::MutableHandle;
+use js::jsapi::JS::Value;
 
-use js::jsval::JSVal;
 use js::jsval::PrivateValue;
 use js::jsval::UndefinedValue;
+
+use js::rust::Runtime;
 
 use libc;
 
 use std::any::TypeId;
+use std::cell::RefCell;
 use std::collections::HashMap;
 use std::marker::PhantomData;
 use std::mem;
 use std::ptr;
-use std::rc::Rc;
 use std::str;
 
 /// The type for JS contexts whose current state is `S`.
@@ -58,7 +58,7 @@ pub struct JSContext<S> {
     global_js_object: *mut Heap<*mut JSObject>,
     global_raw: *mut (),
     auto_compartment: Option<JSAutoCompartment>,
-    runtime: Option<Rc<OwnedJSRuntime>>,
+    runtime: Option<Runtime>,
     marker: PhantomData<S>,
 }
 
@@ -122,21 +122,28 @@ impl<'a, C, T> IsInitialized<'a, C, T> for Initialized<'a, C, T> {}
 pub trait IsEntered<'a, C, T> {}
 impl<'a, C, T, S> IsEntered<'a, C, T> for Entered<'a, C, T, S> {}
 
+#[cfg(feature = "smup")]
+thread_local!{ static RUNTIME: RefCell<Result<Runtime,()>> = RefCell::new(Runtime::new(true)) }
+#[cfg(not(feature = "smup"))]
+thread_local!{ static RUNTIME: RefCell<Result<Runtime,()>> = RefCell::new(Runtime::new()) }
+
 impl JSContext<Owned> {
     /// Create a new JSContext.
-    pub fn new() -> JSContext<Owned> {
-        // TODO: set options on the runtime?
-        let runtime = OwnedJSRuntime::new();
-        let jsapi_context = unsafe { JS_GetContext(runtime.rt()) };
+    pub fn new() -> Result<JSContext<Owned>,()> {
+        let runtime = RUNTIME.with(|runtime| runtime.replace(Err(())))?;
+        let jsapi_context = runtime.cx();
+        #[cfg(feature = "smup")]
+        unsafe { JS_AddExtraGCRootsTracer(jsapi_context, Some(trace_thread_local_roots), ptr::null_mut()); }
+        #[cfg(not(feature = "smup"))]
         unsafe { JS_AddExtraGCRootsTracer(runtime.rt(), Some(trace_thread_local_roots), ptr::null_mut()); }
-        JSContext {
+        Ok(JSContext {
             jsapi_context: jsapi_context,
             global_js_object: ptr::null_mut(),
             global_raw: ptr::null_mut(),
             auto_compartment: None,
-            runtime: Some(Rc::new(runtime)),
+            runtime: Some(runtime),
             marker: PhantomData,
-        }
+        })
     }
 }
 
@@ -162,7 +169,8 @@ impl<S> JSContext<S> {
         C: Compartment,
     {
         debug!("Entering compartment.");
-        let ac = JSAutoCompartment::new(self.jsapi_context, managed.to_jsobject());
+        #[allow(unused_unsafe)]
+        let ac = unsafe { JSAutoCompartment::new(self.jsapi_context, managed.to_jsobject()) };
         JSContext {
             jsapi_context: self.jsapi_context,
             global_js_object: managed.to_heap_object(),
@@ -178,7 +186,8 @@ impl<S> JSContext<S> {
         T: JSLifetime<'a>,
     {
         debug!("Entering compartment.");
-        let ac = JSAutoCompartment::new(self.jsapi_context, managed.to_jsobject());
+        #[allow(unused_unsafe)]
+        let ac = unsafe { JSAutoCompartment::new(self.jsapi_context, managed.to_jsobject()) };
         JSContext {
             jsapi_context: self.jsapi_context,
             global_js_object: managed.to_heap_object(),
@@ -249,16 +258,27 @@ impl<S> JSContext<S> {
 
         // TODO: can we be sure that this won't trigger GC? Or do we need to root the boxed object?
         debug!("Entering compartment.");
-        let ac = JSAutoCompartment::new(self.jsapi_context, boxed_jsobject.get());
-
-        // Save a pointer to the native value in a private slot
-        unsafe { JS_SetReservedSlot(boxed_jsobject.get(), 0, PrivateValue(fat_value[0])) };
-        unsafe { JS_SetReservedSlot(boxed_jsobject.get(), 1, PrivateValue(fat_value[1])) };
+        #[allow(unused_unsafe)]
+        let ac = unsafe { JSAutoCompartment::new(self.jsapi_context, boxed_jsobject.get()) };
 
         // Keep a hash map of all the class prototypes
-        // TODO: Fix this space leak!
         let prototypes: Box<HashMap<TypeId, Box<Heap<*mut JSObject>>>> = Box::new(HashMap::new());
-        unsafe { JS_SetReservedSlot(boxed_jsobject.get(), 2, PrivateValue(Box::into_raw(prototypes) as *const _)) };
+
+        // Save a pointer to the native value in a private slot
+        #[cfg(feature = "smup")]
+        unsafe {
+            JS_SetReservedSlot(boxed_jsobject.get(), 0, &PrivateValue(fat_value[0]));
+            JS_SetReservedSlot(boxed_jsobject.get(), 1, &PrivateValue(fat_value[1]));
+            // TODO: Fix this space leak!
+            JS_SetReservedSlot(boxed_jsobject.get(), 2, &PrivateValue(Box::into_raw(prototypes) as *const _));
+        }
+        #[cfg(not(feature = "smup"))]
+        unsafe {
+            JS_SetReservedSlot(boxed_jsobject.get(), 0, PrivateValue(fat_value[0]));
+            JS_SetReservedSlot(boxed_jsobject.get(), 1, PrivateValue(fat_value[1]));
+            // TODO: Fix this space leak!
+            JS_SetReservedSlot(boxed_jsobject.get(), 2, PrivateValue(Box::into_raw(prototypes) as *const _));
+        }
 
         // Define the properties and functions of the global
         if !properties.is_null() { unsafe { JS_DefineProperties(self.jsapi_context, boxed_jsobject.handle(), properties) }; }
@@ -274,7 +294,7 @@ impl<S> JSContext<S> {
             global_js_object: Box::into_raw(boxed_jsobject),
             global_raw: fat_value[0] as *mut (),
             auto_compartment: Some(ac),
-            runtime: self.runtime.clone(),
+            runtime: None,
             marker: PhantomData,
         }
     }
@@ -330,6 +350,9 @@ impl<S> JSContext<S> {
     pub fn gc(&mut self) where
         S: CanAlloc,
     {
+        #[cfg(feature = "smup")]
+        unsafe { JS_GC(self.cx()); }
+        #[cfg(not(feature = "smup"))]
         unsafe { JS_GC(self.rt()); }
     }
 
@@ -345,7 +368,7 @@ impl<S> JSContext<S> {
         }).handle()
     }
 
-    pub fn evaluate<C>(&mut self, code: &str) -> Result<JSVal, JSEvaluateErr> where
+    pub fn evaluate<C>(&mut self, code: &str) -> Result<Value, JSEvaluateErr> where
         S: InCompartment<C>,
     {
         let cx = self.jsapi_context;

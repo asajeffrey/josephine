@@ -13,9 +13,9 @@ use super::ffi::UNSAFE;
 use js::glue::CallStringTracer;
 
 use js::jsapi;
-use js::jsapi::GCTraceKindToAscii;
-use js::jsapi::HandleValue;
-use js::jsapi::Heap;
+use js::jsapi::JS::GCTraceKindToAscii;
+use js::jsapi::JS::HandleValue;
+use js::heap::Heap;
 use js::jsapi::JS_FlattenString;
 use js::jsapi::JS_GetLatin1FlatStringChars;
 use js::jsapi::JS_GetStringLength;
@@ -24,9 +24,10 @@ use js::jsapi::JS_NewStringCopyN;
 use js::jsapi::JS_NewUCStringCopyN;
 use js::jsapi::JS_StringHasLatin1Chars;
 use js::jsapi::JSTracer;
-use js::jsapi::TraceKind;
+use js::jsapi::JS::TraceKind;
 
-use js::jsval::JSVal;
+use js::jsapi::JS::Value;
+
 use js::jsval::StringValue;
 
 use std::char;
@@ -67,7 +68,7 @@ impl<'a, C> JSString<'a, C> {
         self.to_jsstring() as *mut jsapi::JSFlatString
     }
 
-    pub fn to_jsval(self) -> JSVal {
+    pub fn to_jsval(self) -> Value {
         StringValue(unsafe { &*self.to_jsstring() })
     }
 
