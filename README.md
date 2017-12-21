@@ -1,6 +1,6 @@
 # Josephine: using JavaScript to safely manage the lifetimes of Rust data
 
-[![Build Status](https://travis-ci.org/asajeffrey/josephine.svg)](https://travis-ci.org/asajeffrey/josephine)
+[![Build Status](https://travis-ci.org/asajeffrey/josephine.svg?branch=master)](https://travis-ci.org/asajeffrey/josephine)
 
 (
 [Doc](https://docs.rs/josephine/) |
