@@ -16,8 +16,7 @@ smup = []
 josephine_derive = "0.1.0"
 libc = "0.2.30"
 log = "0.3"
-mozjs = "0.1"
-# mozjs = { git = "https://github.com/asajeffrey/mozjs", branch = "fitzgen-smup-smup-smup" } # needs the smup feature
+mozjs = "<0.3" # Requires the smup feature for mozjs 0.2.*
 
 [dev-dependencies]
 env_logger = "0.4"

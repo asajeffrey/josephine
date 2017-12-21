@@ -50,7 +50,6 @@ use std::collections::HashMap;
 use std::marker::PhantomData;
 use std::mem;
 use std::ptr;
-use std::rc::Rc;
 use std::str;
 
 /// The type for JS contexts whose current state is `S`.
@@ -142,7 +141,7 @@ impl JSContext<Owned> {
             global_js_object: ptr::null_mut(),
             global_raw: ptr::null_mut(),
             auto_compartment: None,
-            runtime: Some(Rc::new(runtime)),
+            runtime: Some(runtime),
             marker: PhantomData,
         })
     }
@@ -295,7 +294,7 @@ impl<S> JSContext<S> {
             global_js_object: Box::into_raw(boxed_jsobject),
             global_raw: fat_value[0] as *mut (),
             auto_compartment: Some(ac),
-            runtime: self.runtime.clone(),
+            runtime: None,
             marker: PhantomData,
         }
     }
