@@ -1,0 +1,67 @@
+% \documentclass[acmsmall,review,anonymous]{acmart}
+\documentclass[acmsmall]{acmart}
+\settopmatter{printfolios=true,printacmref=false}
+
+%% \acmJournal{PACMPL}
+%% \acmVolume{1}
+%% \acmNumber{CONF} % CONF = POPL or ICFP or OOPSLA
+%% \acmArticle{1}
+%% \acmYear{2018}
+%% \acmMonth{1}
+%% \acmDOI{} % \acmDOI{10.1145/nnnnnnn.nnnnnnn}
+%% \startPage{1}
+
+\setcopyright{none}
+%\setcopyright{rightsretained}
+
+\bibliographystyle{ACM-Reference-Format}
+\citestyle{acmauthoryear}
+
+\begin{document}
+
+\title[Josephine]{Josephine} 
+\subtitle{Using JavaScript to safely manage the lifetimes of Rust data}
+
+\author{Alan Jeffrey}
+\orcid{0000-0001-6342-0318}
+\affiliation{
+  \position{Research Engineer}
+  \institution{Mozilla Research}
+}
+\email{ajeffrey@mozilla.com}
+
+\begin{abstract}
+Text of abstract \ldots.
+\end{abstract}
+
+\begin{CCSXML}
+<ccs2012>
+<concept>
+<concept_id>10011007.10011006.10011008.10011009.10011012</concept_id>
+<concept_desc>Software and its engineering~Functional languages</concept_desc>
+<concept_significance>500</concept_significance>
+</concept>
+<concept>
+<concept_id>10011007.10011006.10011008.10011009.10011010</concept_id>
+<concept_desc>Software and its engineering~Imperative languages</concept_desc>
+<concept_significance>300</concept_significance>
+</concept>
+</ccs2012>
+\end{CCSXML}
+
+\ccsdesc[500]{Software and its engineering~Functional languages}
+\ccsdesc[300]{Software and its engineering~Imperative languages}
+
+\keywords{JavaScript, Rust, interoperability, memory safety, affine types}
+
+\maketitle
+
+\input{intro.lagda}
+
+\bibliography{paper.bib}
+
+\appendix
+
+\input{appendix.lagda}
+
+\end{document}
