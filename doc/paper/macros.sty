@@ -1,0 +1,52 @@
+\def\kw#1{%
+  \expandafter\ifx\csname#1\endcsname\relax
+    \mathsf{#1}%
+  \else
+    \csname#1\expandafter\endcsname
+  \fi
+}
+
+\def\setSlashActive{\catcode`\/=\active}
+
+{\setSlashActive
+  \gdef\activeSlash#1/{\kw{#1}}
+  \gdef\activateSlash{\setSlashActive\let/=\activeSlash}
+}
+
+\newenvironment{code}{\[\activateSlash\begin{array}{l}}{\end{array}\]}
+
+\newcommand{\fun}{\mathbin\rightarrow}
+\newcommand{\init}{\rho_0}
+\newcommand{\rhoP}{\rho'}
+\newcommand{\sigmaP}{\sigma'}
+\newcommand{\GammaP}{\Gamma'}
+\newcommand{\DeltaP}{\Delta'}
+\newcommand{\rhoPP}{\rho''}
+\newcommand{\rhoPPP}{\rho'''}
+\newcommand{\bigStep}{\mathrel\Downarrow}
+\newcommand{\bigSubst}{\mathrel\Downarrow}
+\newcommand{\words}{}
+\newcommand{\var}{}
+\newcommand{\num}{}
+\newcommand{\enum}{\mathop{\mathstrut\Sigma}}
+\newcommand{\tagged}{}
+\newcommand{\singleton}{}
+\newcommand{\append}{,}
+\newcommand{\st}{\mathbin.}
+\newcommand{\equals}{=}
+\newcommand{\with}{{::}}
+\newcommand{\where}{\mathrel{\mathrm{where}}}
+\newcommand{\wherenot}{\mathrel{\mathrm{unless}}}
+\newcommand{\andalso}{\mathrel{\mathrm{and}}}
+\newcommand{\member}{\in}
+\newcommand{\vdashv}{\vdash}
+\newcommand{\iflet}{\mathop{\mathsf{if\,let}}}
+\newcommand{\thn}{\,\{}
+\newcommand{\els}{\}\,\mathsf{else}\,\{}
+\newcommand{\telfi}{\}}
+\newcommand{\matches}{\mathrel{\mathrm{matches}}}
+\newcommand{\subst}{}
+\newcommand{\semi}{;}
+\newcommand{\override}{\oplus}
+
+\def\Lift(#1){{#1}_\bot}
