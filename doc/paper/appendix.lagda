@@ -1,32 +1,52 @@
-section{Appendix}
+\section{Appendix}
 
 [Appendix goes here]
 
 \begin{comment}
 
 \begin{code}
-postulate String : Set
-{-# BUILTIN STRING  String #-}
+data Bool : Set where
+  true false : Bool
+{-# BUILTIN BOOL Bool #-}
+{-# BUILTIN TRUE true #-}
+{-# BUILTIN FALSE false #-}
+
+postulate /String/ : Set
+{-# BUILTIN STRING  /String/ #-}
+
+private
+ primitive
+  primStringAppend   : /String/ → /String/ → /String/
+  primStringEquality : /String/ → /String/ → Bool
 
 data /Nat/ : Set where
   zero : /Nat/
-  suc  : /Nat/ -> /Nat/
+  1+  : /Nat/ -> /Nat/
 {-# BUILTIN NATURAL /Nat/  #-}
+
+data _/equals/_ {a} {A : Set a} (x : A) : A → Set a where
+  refl : (x /equals/ x)
+{-# BUILTIN EQUALITY _/equals/_  #-}
+{-# BUILTIN REFL refl #-}
+
+private
+ primitive
+  primTrustMe : ∀ {a} {A : Set a} {x y : A} → x /equals/ y
 
 infixr 3 _+_
 _+_ : /Nat/ → /Nat/ → /Nat/
 zero + y = y
-suc x + y = suc (x + y)
+1+ x + y = 1+ (x + y)
 
 _⊔_ : /Nat/ → /Nat/ → /Nat/
 zero ⊔ y = y
 x ⊔ zero = x
-suc x ⊔ suc y = suc (x ⊔ y)
-
-data _/equals/_ {A : Set} (x : A) : A → Set where
-  refl : (x /equals/ x)
+1+ x ⊔ 1+ y = 1+ (x ⊔ y)
 
 data ⊥ : Set where
+
+_/neq/_ : ∀ {A : Set} → A → A → Set
+(x /neq/ y) = (x /equals/ y) → ⊥
 
 infixr 5 _,_
 record Σ (A : Set) (B : A → Set) : Set where
@@ -79,15 +99,28 @@ _/override/_ : ∀ {A B : Set} → (A → /Lift/(B)) → (A → /Lift/(B)) → (
 ... | /bot/ = g(x)
 ... | /lift/(y) = /lift/(y)
 
+_=S?_ : (x y : /String/) → /Lift/(x /equals/ y)
+x =S? y with primStringEquality x y
+... | true = /lift/ primTrustMe
+... | false = /bot/
+
+_=ℕ?_ : (x y : /Nat/) → /Lift/(x /equals/ y)
+zero =ℕ? zero = /lift/ refl
+zero =ℕ? 1+ y = /bot/
+1+ x =ℕ? zero = /bot/
+1+ x =ℕ? 1+ y  with x =ℕ? y
+1+ x =ℕ? 1+ .x | /lift/(refl) = /lift/(refl) 
+1+ x =ℕ? 1+ y  | /bot/ = /bot/
+
 data /List/ (A : Set) : Set where
-  /epsilon/ : /List/(A)
+  /unit/ : /List/(A)
   _,_ : A → /List/(A) → /List/(A)
 
 /singleton/ : ∀ {A} → A → /List/(A)
-/singleton/ x = (x , /epsilon/)
+/singleton/ x = (x , /unit/)
 
 /length/ : ∀ {A} → /List/(A) → /Nat/
-/length/ /epsilon/ = 0
+/length/ /unit/ = 0
 /length/ (x , xs) = 1 + /length/(xs)
 
 data _/member/_ {A : Set} (x : A) : /List/(A) → Set where
@@ -95,34 +128,42 @@ data _/member/_ {A : Set} (x : A) : /List/(A) → Set where
   there : ∀ {y xs} → (x /member/ xs) → (x /member/ (y , xs))
 
 max : /List/(/Nat/) → (/Nat/ → /Nat/) → /Nat/
-max /epsilon/ f = 0
+max /unit/ f = 0
 max (x , xs) f = f(x) ⊔ max xs f
 syntax max cs (λ c → N) = /max/ c /in/ cs /st/ N
 
 infixr 3 _/append/_
 _/append/_ : ∀ {A} → /List/(A) → /List/(A) → /List/(A)
-/epsilon/ /append/ ys = ys
+/unit/ /append/ ys = ys
 (x , xs) /append/ ys = (x , (xs /append/ ys))
 \end{code}
 
 \begin{code}
-/Word/ : Set
 /Word/ = /Nat/
+/Var/ = /String/
 
-data /Var/ : Set where
-  /name/ : String → /Var/
+data /Slice/ : Set where
+  /slice/_[_/dots/_] : /Word/ → /Word/ → /Word/ → /Slice/
 
 data /Type/ : Set where
   /enum/_/st/_ : /List/(/Word/) → (/Word/ → /Type/) → /Type/
+  /unit/ : /Type/
 
 data /Pat/ : Set where
-  /var/ : /Var/ → /Pat/
+  /varref/_ : /Var/ → /Pat/
+  /var/_/in/_ : /Var/ → /Type/ → /Pat/
+  /addr/_ : /Pat/ → /Pat/
   /tagged/_/with/ : /Type/ → /Word/ → /Pat/ → /Pat/
-  
+  /unit/ : /Pat/
+
 data /Exp/ : Set where
-  /var/ : /Var/ → /Exp/
+  /var/_ : /Var/ → /Exp/
+  /val/_ : /List/(/Word/) → /Exp/
+  /slice/_[_/dots/_] : /Word/ →  /Word/ →  /Word/ → /Exp/
   /tagged/_/with/ : /Type/ → /Word/ → /Exp/ → /Exp/
   /iflet/_/equals/_/thn/_/els/_/telfi/ : /Pat/ → /Exp/ → /Exp/ → /Exp/ → /Exp/
+  /iflet/_/equals//ast/_/thn/_/els/_/telfi/ : /Pat/ → /Exp/ → /Exp/ → /Exp/ → /Exp/
+  /unit/ : /Exp/
 \end{code}
 
 \begin{code}
@@ -137,24 +178,98 @@ x \\ = x
 \end{code}
 
 \begin{code}
-/init/ : /Memory/ \\
-/init/(p) = /bot/
-\end{code}
-
-\begin{code}
 /sizeof/ : /Type/ /fun/ /Nat/ \\
-/sizeof/ (/enum/ /vec/c /st/ T) = 1 + (/max/ c /in/ /vec/c /st/ /sizeof/(T(c)))
+/sizeof/ (/enum/ /vec/c /st/ T) = 1 + (/max/ c /in/ /vec/c /st/ /sizeof/(T(c))) \\
+/sizeof/ /unit/ = 0
 \end{code}
 
 \begin{code}
 /Value/ = /List/(/Word/) \\
-/Subst/ = /Var/ /fun/ /Lift/(/Value/)
 \end{code}
 
 \begin{comment}
 \begin{code}
-_/mapsto/_ : /Var/ → /Value/ → /Subst/
-(x /mapsto/ V) y = {!!}
+_/comma/_ : ∀ {A} → /Lift/(A) → /Lift/(/List/(A)) → /Lift/(/List/(A))
+/bot/ /comma/ _ = /bot/
+/lift/ x /comma/ /bot/ = /bot/
+/lift/ x /comma/ /lift/ xs = /lift/ (x , xs)
+
+/sem//slice/_[_/dots/_]/mes/ : /Word/ → /Word/ → /Word/ → /Memory/ → /Lift/(/Value/)
+\end{code}
+\end{comment}
+
+\begin{code}
+/sem//slice/ p [ x /dots/ 0 ]/mes/ /rho/ = /lift/ /unit/ \\
+/sem//slice/ p [ 0 /dots/ (1+ y) ]/mes/ /rho/ = (/rho/(p) /comma/ /sem//slice/ (1+ p) [ 0 /dots/ y ]/mes/ /rho/) \\
+/sem//slice/ p [ (1+ x) /dots/ (1+ y) ]/mes/ /rho/ = /sem//slice/ (1+ p) [ x /dots/ y ]/mes/ /rho/
+\end{code}
+
+\begin{comment}
+\begin{code}
+_/oplus/_/mapsto/_ : /Memory/ → /Word/ → /Value/ → /Lift/(/Memory/)
+(ρ /oplus/ p /mapsto/ /unit/) = /lift/(ρ)
+(ρ /oplus/ p /mapsto/ (v , V)) with ρ(p) | (ρ /oplus/ (1+ p) /mapsto/ V)
+... | /bot/ | /lift/(ρ′) = /lift/ ρ″ where
+  ρ″ : /Memory/
+  ρ″(q)  with p =ℕ? q
+  ρ″(.p) | /lift/(refl) = /lift/(v)
+  ρ″(q)  | /bot/ = ρ′(q)
+... | _     | _          = /bot/
+
+_[_:=_] : /Exp/ → /Var/ → /Value/ → /Exp/
+_[_:=_] = {!!}
+
+\end{code}
+\end{comment}
+
+\begin{comment}
+\begin{code}
+data _/step/_ : (/Memory/ /times/ /Exp/) → (/Memory/ /times/ /Exp/) → Set where
+\end{code}
+\end{comment}
+
+\begin{code}
+  %iflet*-addr-var : ∀ /rho/ x T p V M N n →
+    (/rho/ , /iflet/ /var/ x /in/ T /equals//ast/ /val/ /singleton/ p /thn/ M /els/ N /telfi/) /step/ (/rho/ , M [ x := V ]) /where/
+    /sem//slice/ p [ 0 /dots/ n ]/mes/ /rho/ /equals/ /lift/ V /andalso/
+    n /equals/ /sizeof/(T) \\
+  %iflet*-ref : ∀ /rho/ x M N p → 
+    (/rho/ , /iflet/ /varref/ x /equals//ast/ /val/ /singleton/ p /thn/ M /els/ N /telfi/) /step/ (/rho/ , M [ x := /singleton/ p ]) \\
+  %iflet*-tagged : ∀ /rho/ T c X M N p → 
+    (/rho/ , /iflet/ /tagged/ T /with/ c(X) /equals//ast/ /val/ /singleton/ p /thn/ M /els/ N /telfi/) /step/ (/rho/ , /iflet/ X /equals//ast/ /val/ /singleton/ (1+ p) /thn/ M /els/ N /telfi/) \\
+  %iflet*-tagged-fail : ∀ /rho/ T c X M N p → 
+    (/rho/ , /iflet/ /tagged/ T /with/ c(X) /equals//ast/ /val/ /singleton/ p /thn/ M /els/ N /telfi/) /step/ (/rho/ , N)  /where/
+    /lift/ c /neq/ /rho/(p) \\
+  %iflet*-addr-unit : ∀ /rho/ p M N →
+    (/rho/ , /iflet/ /unit/ /equals//ast/ /val/ /singleton/ p /thn/ M /els/ N /telfi/) /step/ (/rho/ , M) \\
+  %iflet*-addr : ∀ /rho/ X M N p q → 
+    (/rho/ , /iflet/ /addr/ X /equals//ast/ /val/ /singleton/ p /thn/ M /els/ N /telfi/) /step/ (/rho/ , /iflet/ X /equals//ast/ /val/ /singleton/ q /thn/ M /els/ N /telfi/) /where/
+    /lift/ q /equals/ /rho/(p)
+\end{code}
+
+
+\begin{code}
+  %iflet-alloc : ∀ /rho/ X V M N /rhoP/ p →
+    (/rho/ , /iflet/ X /equals/ /val/ V /thn/ M /els/ N /telfi/) /step/ (/rhoP/ , /iflet/ X /equals//ast/ /val/ /singleton/ p /thn/ M /els/ N /telfi/) /where/
+    /lift/ /rhoP/ /equals/ (/rho/ /oplus/ p /mapsto/ V)
+\end{code}
+
+\begin{code}
+  %iflet-redn : ∀ /rho/ X L M N /rhoP/ /LP/ →
+    (/rho/ , /iflet/ X /equals/ L /thn/ M /els/ N /telfi/) /step/ (/rhoP/ , /iflet/ X /equals/ /LP/ /thn/ M /els/ N /telfi/) /where/
+    (/rho/ , L) /step/ (/rhoP/ , /LP/) \\
+  %iflet*-redn : ∀ /rho/ X L M N /rhoP/ /LP/ →
+    (/rho/ , /iflet/ X /equals//ast/ L /thn/ M /els/ N /telfi/) /step/ (/rhoP/ , /iflet/ X /equals//ast/ /LP/ /thn/ M /els/ N /telfi/) /where/
+    (/rho/ , L) /step/ (/rhoP/ , /LP/) \\
+\end{code}
+
+\begin{comment}
+\begin{code}
+/Subst/ = /Var/ → /Lift/ /Slice/
+_/mapsto/_ : /Var/ → /Slice/ → /Subst/
+(x /mapsto/ S) y  with x =S? y
+(x /mapsto/ S) y  | /bot/ = /bot/
+(x /mapsto/ S) .x | /lift/ refl = /lift/ S
 \end{code}
 \end{comment}
 
@@ -165,8 +280,9 @@ data _/bigSubst/_ : (/Memory/ /times/ /Pat/ /times/ /Value/) → (/Memory/ /time
 \end{comment}
 
 \begin{code}
-  %var : ∀ /rho/ x V →
-    (/rho/ , /var/ x , V) /bigSubst/ (/rho/ , (x /mapsto/ V)) \\
+  %var : ∀ /rho/ x T V p n →
+    (/rho/ , /var/ x /in/ T , V) /bigSubst/ (/rho/ , (x /mapsto/ /slice/ p [ 0 /dots/ n ])) /where/
+    n /equals/ /sizeof/(T) \\
   %tagged : ∀ /sigma/ /rho/ /rhoP/ X T c V W /vec/c U →
     (/rho/ , X , V) /bigSubst/ (/rhoP/ , /sigma/) /implies/
     (/rho/ , /tagged/ T /with/ c(X) , (c , V /append/ W)) /bigSubst/ (/rhoP/ , /sigma/) /where/
@@ -181,6 +297,10 @@ data _/bigStep/_ : (/Subst/ /times/ /Memory/ /times/ /Exp/) → (/Memory/ /times
 \end{comment}
 
 \begin{code}
+  %var : ∀  /sigma/ /rho/ x V p i j →
+    (/sigma/ , /rho/ , /var/ x) /bigStep/ (/rho/ , V) /where/
+    /sigma/(x) /equals/ /lift/ /slice/ p [ i /dots/ j ]  /andalso/
+    /sem//slice/ p [ i /dots/ j ]/mes/ /rho/ /equals/ /lift/ V \\
   %tagged : ∀ /sigma/ /rho/ /rhoP/ T c M V W →
     (/sigma/ , /rho/ , M) /bigStep/ (/rhoP/ , V) /implies/
     (/sigma/ , /rho/ , /tagged/ T /with/ c(M)) /bigStep/ (/rhoP/ , (c , V /append/ W)) /where/

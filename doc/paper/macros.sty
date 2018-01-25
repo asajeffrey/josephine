@@ -15,8 +15,10 @@
 
 \newenvironment{code}{\[\activateSlash\begin{array}{l}}{\end{array}\]}
 
+\newcommand{\Nat}{\mathbb{N}}
 \newcommand{\fun}{\mathbin\rightarrow}
 \newcommand{\init}{\rho_0}
+\newcommand{\LP}{L'}
 \newcommand{\rhoP}{\rho'}
 \newcommand{\sigmaP}{\sigma'}
 \newcommand{\GammaP}{\Gamma'}
@@ -33,6 +35,7 @@
 \newcommand{\singleton}{}
 \newcommand{\append}{,}
 \newcommand{\st}{\mathbin.}
+\newcommand{\comma}{,}
 \newcommand{\equals}{=}
 \newcommand{\with}{{::}}
 \newcommand{\where}{\mathrel{\mathrm{where}}}
@@ -48,5 +51,14 @@
 \newcommand{\subst}{}
 \newcommand{\semi}{;}
 \newcommand{\override}{\oplus}
+\newcommand{\lift}{}
+\newcommand{\slice}{}
+\newcommand{\sem}{\llbracket}
+\newcommand{\mes}{\rrbracket}
+\newcommand{\val}{}
+\newcommand{\varref}{\mathop{\mathsf{ref}}}
+\newcommand{\addr}{\&}
+\newcommand{\unit}{()}
+\newcommand{\step}{\longrightarrow}
 
 \def\Lift(#1){{#1}_\bot}
