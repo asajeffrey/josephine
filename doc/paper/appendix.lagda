@@ -164,7 +164,7 @@ data /Type/ : Set where
   /unit/ : /Type/
   _,_  : /Type/ → /Type/ → /Type/
   /enum/_/st/_ : /List/(/Word/) → (/Word/ → /Type/) → /Type/
-  /refer/_/after/_/of/_ : /Lifetime/ → /Lifetime/ → /Type/ → /Type/
+  /reft/_/after/_/of/_ : /Lifetime/ → /Lifetime/ → /Type/ → /Type/
 
 data /Pat/ : Set where
   /varref/_/in/_ : /Var/ → /Type/ → /Pat/
@@ -173,6 +173,7 @@ data /Pat/ : Set where
   /tagged/_/with/ : /Type/ → /Word/ → /Pat/ → /Pat/
   /unit/ : /Pat/
   _,_ : /Pat/ → /Pat/ → /Pat/
+  /Box/_ : /Pat/ → /Pat/ 
 
 data /Exp/ : Set where
   /var/_ : /Var/ → /Exp/
@@ -181,12 +182,15 @@ data /Exp/ : Set where
   /unit/ : /Exp/
   _,_ : /Exp/ → /Exp/ → /Exp/
   /lett/_/equals/_/semi/_ : /Pat/ → /Exp/ → /Exp/ → /Exp/
+  /Box/_ : /Exp/ → /Exp/ 
   _/with//drop/_ : /Type/ → /Exp/ → /Exp/
   _/with//forget/_ : /Type/ → /Exp/ → /Exp/
 infixr 8 /val/_
 infixr 8 /lett/_/equals/_/semi/_
 infixr 8 _/with//drop/_
 infixr 8 _/with//forget/_
+infixr 8 /Box/_
+infixr 8 /addr/_
 
 _[_:=_] : /Exp/ → /Var/ → /Val/ → /Exp/
 _[_:=_] = {!!}
@@ -205,7 +209,7 @@ _/oplus/_/mapsto/_ : /Memory/ → /Word/ → /Val/ → /Lift/(/Memory/)
 /sizet/ (/unit/) = 0 \\
 /sizet/ (T , U) = /sizet/(T) + /sizet/(U) \\
 /sizet/ (/enum/ /vec/c /st/ T) = 1 + (/max/ c /in/ /vec/c /st/ /sizet/ (T(c))) \\
-/sizet/ (/refer/ /alpha/ /after/ /beta/ /of/ T) = 1
+/sizet/ (/reft/ /alpha/ /after/ /beta/ /of/ T) = 1
 \end{code}
 
 \begin{comment}
@@ -220,19 +224,20 @@ _/oplus/_/mapsto/_ : /Memory/ → /Word/ → /Val/ → /Lift/(/Memory/)
 /sizep/ (X , Y) = /sizep/(X) + /sizep/(Y) \\
 /sizep/ (/tagged/ T /with/ c(X)) = /sizet/(T) \\
 /sizep/ (/addr/ X) = 1
+/sizep/ (/Box/ X) = 1
 \end{code}
 
 \begin{comment}
 \begin{code}
-/Box/ : /Type/ → /Type/
-/refer/_/of/_ : /Word/ → /Type/ → /Type/
-/refer/_/mut//of/_ : /Word/ → /Type/ → /Type/
+/Boxt/ : /Type/ → /Type/
+/reft/_/of/_ : /Word/ → /Type/ → /Type/
+/reft/_/mut//of/_ : /Word/ → /Type/ → /Type/
 \end{code}
 \end{comment}
 \begin{code}
-/Box/ T = /refer/ /always/ /after/ /never/ /of/ T \\
-/refer/ /alpha/ /of/ T = /refer/ /var/ /alpha/ /after/ /always/ /of/ T \\
-/refer/ /alpha/ /mut//of/ T = /refer/ /var/ /alpha/ /after/ /never/ /of/ T
+/Boxt/ T = /reft/ /always/ /after/ /never/ /of/ T \\
+/reft/ /alpha/ /of/ T = /reft/ /var/ /alpha/ /after/ /always/ /of/ T \\
+/reft/ /alpha/ /mut//of/ T = /reft/ /var/ /alpha/ /after/ /never/ /of/ T
 \end{code}
 
 \section{Operational semantics}
@@ -276,15 +281,25 @@ data _/step/_ : (/Memory/ /times/ /Exp/) → (/Memory/ /times/ /Exp/) → Set wh
     (/rho/ , M) /step/ (/rho//p/ , M/p/)
 \end{code}
 
+
+\subsection{Boxes}
+
+\begin{code}
+  %box : ∀ /rho/ /rhoP/ V p →
+    (/rho/ , /Box/ /val/ V) /step/ (/rhoP/ , /val/ /singleton/ p) /where/
+    /lift/ /rhoP/ /equals/ (/rho/ /oplus/ p /mapsto/ V) \\
+  %let-box : ∀ /rho/ /rhoP/ X T p V M →
+    (/rho/ , /lett/ /Box/ X /equals/ /val/ /singleton/ p /semi/ M) /step/ (/rhoP/ , /lett/ X /equals/ /val/ V /semi/ M) /where/
+    /lift/ /rho/ /equals/ /rhoP/ /oplus/ p /mapsto/ V /andalso/
+    /sizet/(T) /equals/ /length/(V) \\
+\end{code}
+
 \subsection{References}
 
 \begin{code}
   %let-varref : ∀ /rho/ /rhoP/ x T V M p →
     (/rho/ , /lett/ /varref/ x /in/ T /equals/ /val/ V /semi/ M) /step/ (/rhoP/ , M [ x := /singleton/ p ]) /where/
     /lift/ /rhoP/ /equals/ (/rho/ /oplus/ p /mapsto/ V) \\
-\end{code}
-
-\begin{code}
   %let*-var : ∀ /rho/ /rhoP/ x T p V M →
     (/rho/ , /lett/ /addr/ /var/ x /in/ T /equals/ /val/ /singleton/ p /semi/ M) /step/ (/rho/ , M [ x := V ]) /where/
     /lift/ /rho/ /equals/ /rhoP/ /oplus/ p /mapsto/ V /andalso/
@@ -299,6 +314,9 @@ data _/step/_ : (/Memory/ /times/ /Exp/) → (/Memory/ /times/ /Exp/) → Set wh
   %let*-tagged : ∀ /rho/ T c X p M →
     (/rho/ , /lett/ /addr/ /tagged/ T /with/ c(X) /equals/ /val/ /singleton/ p /semi/ M) /step/ (/rho/ , /lett/ /addr/ X /equals/ /val/ /singleton/ (1 + p) /semi/ M) /where/
     /lift/ c /equals/ /rho/(p) \\
+  %let*-box : ∀ /rho/ X p q M →
+    (/rho/ , /lett/ /addr/ /Box/ X /equals/ /val/ /singleton/ p /semi/ M) /step/ (/rho/ , /lett/ /addr/ X /equals/ /val/ /singleton/ q /semi/ M) /where/
+    /lift/ q /equals/ /rho/(p) \\
   %let** : ∀ /rho/ X p q M →
     (/rho/ , /lett/ /addr/ /addr/ X /equals/ /val/ /singleton/ p /semi/ M) /step/ (/rho/ , /lett/ /addr/ X /equals/ /val/ /singleton/ q /semi/ M) /where/
     /lift/ q /equals/ /rho/(p)
@@ -316,11 +334,11 @@ data _/step/_ : (/Memory/ /times/ /Exp/) → (/Memory/ /times/ /Exp/) → Set wh
     (/rho/ ,  (/enum/ /vec/c /st/ T) /with//drop/ /val/(c /cons/ V /append/ W)) /step/ (/rho/ , T(c) /with//drop/ /val/(V)) /where/
     /sizet/(T(c)) /equals/ /length/(V) \\
   %drop-ref : ∀ /rho/ /alpha/ T p →
-    (/rho/ ,  (/refer/ /alpha/ /of/ T) /with//drop/ /val/(/singleton/ p)) /step/ (/rho/ , /val/ /epsilon/) \\
+    (/rho/ ,  (/reft/ /alpha/ /of/ T) /with//drop/ /val/(/singleton/ p)) /step/ (/rho/ , /val/ /epsilon/) \\
   %drop-refmut : ∀ /rho/ /alpha/ T p →
-    (/rho/ ,  (/refer/ /alpha/ /mut//of/ T) /with//drop/ /val/(/singleton/ p)) /step/ (/rho/ , /val/ /epsilon/) \\
+    (/rho/ ,  (/reft/ /alpha/ /mut//of/ T) /with//drop/ /val/(/singleton/ p)) /step/ (/rho/ , /val/ /epsilon/) \\
   %drop-box : ∀ /rho/ /rho//p/ T p V →
-    (/rho/ ,  (/Box/ T) /with//drop/ /val/(/singleton/ p)) /step/ (/rho//p/ , T /with//drop/ /val/(V)) /where/
+    (/rho/ ,  (/Boxt/ T) /with//drop/ /val/(/singleton/ p)) /step/ (/rho//p/ , T /with//drop/ /val/(V)) /where/
     /lift/ /rho/ /equals/ /rho//p/ /oplus/ p /mapsto/ V /andalso/
     /sizet/(T) /equals/ /length/(V) \\
 \end{code}
