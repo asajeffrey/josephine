@@ -1,7 +1,12 @@
 \begin{comment}
 \begin{code}
+infixl 1 _\\
 _\\ : ∀ {ℓ} {A : Set(ℓ)} → A → A
 x \\ = x
+
+infixl 1 _\\\quad
+_\\\quad : ∀ {ℓ} {A : Set(ℓ)} → A → A
+x \\\quad = x
 \end{code}
 \end{comment}
 
@@ -168,6 +173,7 @@ data /Type/ : Set where
 
 data /Pat/ : Set where
   /varref/_/in/_ : /Var/ → /Type/ → /Pat/
+  /varref//mut/_/in/_ : /Var/ → /Type/ → /Pat/
   /var/_/in/_ : /Var/ → /Type/ → /Pat/
   /addr/_ : /Pat/ → /Pat/
   /tagged/_/with/ : /Type/ → /Word/ → /Pat/ → /Pat/
@@ -183,10 +189,12 @@ data /Exp/ : Set where
   _,_ : /Exp/ → /Exp/ → /Exp/
   /lett/_/equals/_/semi/_ : /Pat/ → /Exp/ → /Exp/ → /Exp/
   /Box/_ : /Exp/ → /Exp/ 
+  /set/_/equals/_ : /Exp/ → /Exp/ → /Exp/
   _/with//drop/_ : /Type/ → /Exp/ → /Exp/
   _/with//forget/_ : /Type/ → /Exp/ → /Exp/
 infixr 8 /val/_
 infixr 8 /lett/_/equals/_/semi/_
+infixr 8 /set/_/equals/_
 infixr 8 _/with//drop/_
 infixr 8 _/with//forget/_
 infixr 8 /Box/_
@@ -220,6 +228,7 @@ _/oplus/_/mapsto/_ : /Memory/ → /Word/ → /Val/ → /Lift/(/Memory/)
 \begin{code}
 /sizep/ (/var/ x /in/ T) = /sizet/(T) \\
 /sizep/ (/varref/ x /in/ T) = /sizet/(T) \\
+/sizep/ (/varref//mut/ x /in/ T) = /sizet/(T) \\
 /sizep/ (/unit/) = 0 \\
 /sizep/ (X , Y) = /sizep/(X) + /sizep/(Y) \\
 /sizep/ (/tagged/ T /with/ c(X)) = /sizet/(T) \\
@@ -281,19 +290,6 @@ data _/step/_ : (/Memory/ /times/ /Exp/) → (/Memory/ /times/ /Exp/) → Set wh
     (/rho/ , M) /step/ (/rho//p/ , M/p/)
 \end{code}
 
-
-\subsection{Boxes}
-
-\begin{code}
-  %box : ∀ /rho/ /rhoP/ V p →
-    (/rho/ , /Box/ /val/ V) /step/ (/rhoP/ , /val/ /singleton/ p) /where/
-    /lift/ /rhoP/ /equals/ (/rho/ /oplus/ p /mapsto/ V) \\
-  %let-box : ∀ /rho/ /rhoP/ X T p V M →
-    (/rho/ , /lett/ /Box/ X /equals/ /val/ /singleton/ p /semi/ M) /step/ (/rhoP/ , /lett/ X /equals/ /val/ V /semi/ M) /where/
-    /lift/ /rho/ /equals/ /rhoP/ /oplus/ p /mapsto/ V /andalso/
-    /sizet/(T) /equals/ /length/(V) \\
-\end{code}
-
 \subsection{References}
 
 \begin{code}
@@ -314,12 +310,39 @@ data _/step/_ : (/Memory/ /times/ /Exp/) → (/Memory/ /times/ /Exp/) → Set wh
   %let*-tagged : ∀ /rho/ T c X p M →
     (/rho/ , /lett/ /addr/ /tagged/ T /with/ c(X) /equals/ /val/ /singleton/ p /semi/ M) /step/ (/rho/ , /lett/ /addr/ X /equals/ /val/ /singleton/ (1 + p) /semi/ M) /where/
     /lift/ c /equals/ /rho/(p) \\
-  %let*-box : ∀ /rho/ X p q M →
-    (/rho/ , /lett/ /addr/ /Box/ X /equals/ /val/ /singleton/ p /semi/ M) /step/ (/rho/ , /lett/ /addr/ X /equals/ /val/ /singleton/ q /semi/ M) /where/
-    /lift/ q /equals/ /rho/(p) \\
   %let** : ∀ /rho/ X p q M →
     (/rho/ , /lett/ /addr/ /addr/ X /equals/ /val/ /singleton/ p /semi/ M) /step/ (/rho/ , /lett/ /addr/ X /equals/ /val/ /singleton/ q /semi/ M) /where/
     /lift/ q /equals/ /rho/(p)
+\end{code}
+
+\subsection{Mutable references}
+
+\begin{code}
+  %let-varref-mut : ∀ /rho/ /rhoP/ x T V M p →
+    (/rho/ , /lett/ /varref//mut/ x /in/ T /equals/ /val/ V /semi/ M) /step/ (/rhoP/ , M [ x := /singleton/ p ]) /where/
+    /lift/ /rhoP/ /equals/ (/rho/ /oplus/ p /mapsto/ V) \\
+  %let*-varref-mut : ∀ /rho/ x T p M →
+    (/rho/ , /lett/ /addr/ /varref//mut/ x /in/ T /equals/ /val/ /singleton/ p /semi/ M) /step/ (/rho/ , M [ x := /singleton/ p ]) \\
+  %set : ∀ /rho/ /rho//p/ /rho//pp/ p V W →
+    (/rho/ , /set/ /val/ /singleton/ p /equals/ /val/ V) /step/ (/rho//p/ , /val/ W) /where/
+    /lift/ /rho/ /equals/ (/rho//pp/ /oplus/ p /mapsto/ W) /andalso/
+    /lift/ /rho//p/ /equals/ (/rho//pp/ /oplus/ p /mapsto/ V) /andalso/
+    /length/(V) /equals/ /length/(W)
+\end{code}
+
+\subsection{Owned references}
+
+\begin{code}
+  %box : ∀ /rho/ /rhoP/ V p →
+    (/rho/ , /Box/ /val/ V) /step/ (/rhoP/ , /val/ /singleton/ p) /where/
+    /lift/ /rhoP/ /equals/ (/rho/ /oplus/ p /mapsto/ V) \\
+  %let-box : ∀ /rho/ /rhoP/ X T p V M →
+    (/rho/ , /lett/ /Box/ X /equals/ /val/ /singleton/ p /semi/ M) /step/ (/rhoP/ , /lett/ X /equals/ /val/ V /semi/ M) /where/
+    /lift/ /rho/ /equals/ /rhoP/ /oplus/ p /mapsto/ V /andalso/
+    /sizet/(T) /equals/ /length/(V) \\
+  %let*-box : ∀ /rho/ X p q M →
+    (/rho/ , /lett/ /addr/ /Box/ X /equals/ /val/ /singleton/ p /semi/ M) /step/ (/rho/ , /lett/ /addr/ X /equals/ /val/ /singleton/ q /semi/ M) /where/
+    /lift/ q /equals/ /rho/(p) \\
 \end{code}
 
 \subsection{Deallocation}
