@@ -191,12 +191,12 @@ data /Exp/ : Set where
   /Box/_ : /Exp/ → /Exp/ 
   /set/_/equals/_ : /Exp/ → /Exp/ → /Exp/
   _/with//drop/_ : /Type/ → /Exp/ → /Exp/
-  _/with//forget/_ : /Type/ → /Exp/ → /Exp/
+  /forget/_ : /Exp/ → /Exp/
 infixr 8 /val/_
 infixr 8 /lett/_/equals/_/semi/_
 infixr 8 /set/_/equals/_
 infixr 8 _/with//drop/_
-infixr 8 _/with//forget/_
+infixr 8 /forget/_
 infixr 8 /Box/_
 infixr 8 /addr/_
 
@@ -345,30 +345,11 @@ data _/step/_ : (/Memory/ /times/ /Exp/) → (/Memory/ /times/ /Exp/) → Set wh
     /lift/ q /equals/ /rho/(p) \\
 \end{code}
 
-\subsection{Deallocation}
+\subsection{Discard}
 
 \begin{code}
-  %drop-unit : ∀ /rho/ →
-    (/rho/ , (/unit/)/with//drop/ /val/(/epsilon/)) /step/ (/rho/ , /val/ /epsilon/) \\
-  %drop-pair : ∀ /rho/ T U V W →
-    (/rho/ , (T , U)/with//drop/ /val/(V /append/ W)) /step/ (/rho/ , /lett/ /unit/ /equals/ T /with//drop/ /val/(V) /semi/ (U /with//drop/ /val/(W))) /where/
-    /sizet/(T) /equals/ /length/(V) \\
-  %drop-tagged : ∀ /rho/ c /vec/c T V W →
-    (/rho/ ,  (/enum/ /vec/c /st/ T) /with//drop/ /val/(c /cons/ V /append/ W)) /step/ (/rho/ , T(c) /with//drop/ /val/(V)) /where/
-    /sizet/(T(c)) /equals/ /length/(V) \\
-  %drop-ref : ∀ /rho/ /alpha/ T p →
-    (/rho/ ,  (/reft/ /alpha/ /of/ T) /with//drop/ /val/(/singleton/ p)) /step/ (/rho/ , /val/ /epsilon/) \\
-  %drop-refmut : ∀ /rho/ /alpha/ T p →
-    (/rho/ ,  (/reft/ /alpha/ /mut//of/ T) /with//drop/ /val/(/singleton/ p)) /step/ (/rho/ , /val/ /epsilon/) \\
-  %drop-box : ∀ /rho/ /rho//p/ T p V →
-    (/rho/ ,  (/Boxt/ T) /with//drop/ /val/(/singleton/ p)) /step/ (/rho//p/ , T /with//drop/ /val/(V)) /where/
-    /lift/ /rho/ /equals/ /rho//p/ /oplus/ p /mapsto/ V /andalso/
-    /sizet/(T) /equals/ /length/(V) \\
-\end{code}
-
-\begin{code}
-  %forget : ∀ /rho/ T V →
-    (/rho/ , T /with//forget/ /val/(V)) /step/ (/rho/ , /val/ /epsilon/) \\
+  %forget : ∀ /rho/ V →
+    (/rho/ , /forget/ /val/(V)) /step/ (/rho/ , /val/ /epsilon/) \\
 \end{code}
 
 \endinput
