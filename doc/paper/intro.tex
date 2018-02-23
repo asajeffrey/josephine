@@ -1,0 +1,71 @@
+\section{Introduction}
+
+This paper discusses the Josephine API~\cite{josephine} for using
+the Spidermonkey~\cite{spidermonkey} JavaScript runtime to safely
+manage the lifetime of Rust~\cite{rust} data. That sentence needs
+some unpacking.
+
+\subsection{Rust}
+
+Rust is a systems programming language which uses fancy types to
+ensure memory safety even in the presence of mutable update, and the
+absence of a garbage collector. Rust has an affine type system, which
+allows data to be discarded but does not allow data to be arbitrarily
+copied. For example, the Rust program:
+\begin{verbatim}
+  let hello = String::from("hello");
+  let moved = hello;
+  println!("Oh look {} is hello", moved);
+\end{verbatim}
+is fine, but the program:
+\begin{verbatim}
+  let hello = String::from("hello");
+  let copied = hello;
+  println!("Oh look {} is {}", hello, copied);
+\end{verbatim}
+is not, since \verb|hello| and \verb|copied| are simultaneously live. Trying to compile
+this program produces an error:
+\begin{verbatim}
+use of moved value: `hello`
+ --> src/main.rs:4:32
+  |
+3 |   let copied = hello;
+  |       ------ value moved here
+4 |   println!("Oh look {} is {}", hello, copied);
+  |                                ^^^^^ value used here after move
+\end{verbatim}
+The use of affine types allows aliasing to be tracked. For example, a
+classic problem with aliasing is appending a string to itself. In
+Rust, an example of appending a string is:
+\begin{verbatim}
+  let mut hello = String::from("hello");
+  let ref world = String::from("world");
+  hello.push_str(world);
+  println!("Oh look hello is {}", hello);
+\end{verbatim}
+The important operation is \verb|hello.push_str(world)|, which mutates the
+string \verb|hello| (hence the \verb|mut| annotation on the declaration of \verb|hello|).
+The appended string \verb|world| is passed by reference,
+(hence the \verb|ref| annotation on the declaration of \verb|world|).
+
+A problem with mutably appending strings is ensuring that the string
+is not appended to itself, for example the documentation for
+C \verb|strcat|~\cite{strcat} states ``Source and destination may not
+overlap'', but C does not check aliasing and relies on the programmer
+to ensure correctness. In contrast, attempting to append a string
+to itself in Rust:
+\begin{verbatim}
+  let ref mut hello = String::from("hello");
+  hello.push_str(hello);
+\end{verbatim}
+produces an error:
+\begin{verbatim}
+cannot borrow `*hello` as immutable because it is also borrowed as mutable
+ --> src/main.rs:3:18
+  |
+3 |   hello.push_str(hello);
+  |   -----          ^^^^^- mutable borrow ends here
+  |   |              |
+  |   |              immutable borrow occurs here
+  |   mutable borrow occurs here
+\end{verbatim}
