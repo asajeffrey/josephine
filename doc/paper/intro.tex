@@ -72,7 +72,7 @@ cannot borrow `*hello` as immutable because it is also borrowed as mutable
 In Rust, the crucial invariant maintained by affine types is:
 \begin{quote}\em
   Any memory that can be reached simultaneously by two different paths
-  is read-only.
+  is immutable.
 \end{quote}
 For example in \verb|hello.push(hello)| there are two occurrences of \verb|hello| that
 are live simultaneously, the first of which is mutating the string, so this is outlawed.
@@ -102,3 +102,45 @@ difference is that $\REF\alpha T$ is a copyable type, but $\REFMUT\alpha T$ is n
 For example
 the type of \verb|x| is $\REF\alpha\STRING$ and the type of \verb|y| is
 $\REF\beta(\REF\alpha\STRING)$, which is well-formed because $\beta\subseteq\alpha$.
+
+Lifetimes are used to prevent another class of memory safety issues: use-after-free.
+For example, consider the program:
+\begin{verbatim}
+  let hi = String::from("hi");
+  let ref mut handle = &hi;
+  {
+    let lo = String::from("lo");
+    *handle = &lo;
+  } // lo is deallocated here
+  println!("handle is {}", **handle);
+\end{verbatim}
+If this program were to execute, its behaviour would be undefined,
+since \verb|**handle| is used after \verb|lo|
+(which \verb|handle| points to) is deallocated. Fortunately, this program
+does not pass Rust's borrow-checker:
+\begin{verbatim}
+`lo` does not live long enough
+ --> src/main.rs:6:11
+  |
+6 |     *handle = &lo;
+  |                ^^ borrowed value does not live long enough
+7 |   } // lo is deallocated here
+  |   - `lo` dropped here while still borrowed
+8 |   println!("handle is {}", **handle);
+9 | }
+  | - borrowed value needs to live until here
+\end{verbatim}
+This use-after-free error can be detected because (naming the outer lifetime to be
+$\alpha$ and the inner lifetime to be $\beta\subseteq\alpha$) \verb|handle| has type
+$\REFMUT\alpha\REF\alpha\STRING$, but \verb|&lo| only has type $\REF\beta\STRING$, no
+$\REF\alpha\STRING$ as required by the assignment.
+
+Lifetimes avoid use-after-free by maintaining two invariants:
+\begin{quote}\em
+  Any dereference happens during the lifetime of the reference, \\
+  and deallocation happens after the lifetime of all references.
+\end{quote}
+There is more to the Rust type system than described here
+(higher-order functions, traits, variance, \dots) but the important features
+are \emph{affine types} and \emph{lifetimes} for ensuring memory safety,
+even in the presence of manual memory management.
