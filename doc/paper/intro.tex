@@ -69,3 +69,36 @@ cannot borrow `*hello` as immutable because it is also borrowed as mutable
   |   |              immutable borrow occurs here
   |   mutable borrow occurs here
 \end{verbatim}
+In Rust, the crucial invariant maintained by affine types is:
+\begin{quote}\em
+  Any memory that can be reached simultaneously by two different paths
+  is read-only.
+\end{quote}
+For example in \verb|hello.push(hello)| there are two occurrences of \verb|hello| that
+are live simultaneously, the first of which is mutating the string, so this is outlawed.
+
+In order to track statically which variables are live simultaneously, Rust uses a lifetime
+system similar to that used by region-based memory~\cite{regions}. Each allocation of
+memory has a lifetime $\alpha$, and lifetimes are ordered $\alpha\subseteq\beta$.
+Each code block introduces a lifetime, and for data which does not escape from its scope,
+the nesting of blocks determines the ordering of lifetimes.
+
+For example in the program:
+\begin{verbatim}
+  let ref x = String::from("hi");
+  {
+    let ref y = x;
+    println!("y is {}", y);
+  }
+  println!("x is {}", x);
+\end{verbatim}
+the variable \verb|x| has a lifetime $\alpha$ given by the outer block,
+and the variable \verb|y| has a lifetime $\beta\subseteq\alpha$ given by the inner block.
+
+These lifetimes are mentioned in the types of references: the type $\REF\alpha T$
+is a reference giving immutable access to data of type $T$, which will live at least as long as
+$\alpha$. Similarly, the type $\REFMUT\alpha T$ gives mutable access to the data: the crucial
+difference is that $\REF\alpha T$ is a copyable type, but $\REFMUT\alpha T$ is not.
+For example
+the type of \verb|x| is $\REF\alpha\STRING$ and the type of \verb|y| is
+$\REF\beta(\REF\alpha\STRING)$, which is well-formed because $\beta\subseteq\alpha$.
