@@ -50,7 +50,7 @@ The josephine crate is based on the `rust-mozjs` crate for the SpiderMonkey engi
 which uses nightly features, so `josephine` also requires nightly.
 
 In your `Cargo.toml`:
-```
+```toml
 [dependencies]
 josephine = "0.1"
 ```
