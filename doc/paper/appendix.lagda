@@ -269,6 +269,15 @@ data _/step/_ : (/Memory/ /times/ /Exp/) → (/Memory/ /times/ /Exp/) → Set wh
     /sizet/(T) /equals/ /length/(c /cons/ V /append/ W) \\
 \end{code}
 
+\begin{code}
+  %pair-ctxt1 : ∀ /rho/ /rho//p/ M M/p/ N →
+    (/rho/ , (M , N)) /step/ (/rho//p/ , (M/p/ , N)) /where/
+    (/rho/ , M) /step/ (/rho//p/ , M/p/) \\
+  %pair-ctxt2 : ∀ /rho/ /rho//p/ V N N/p/ →
+    (/rho/ , (/val/ V , N)) /step/ (/rho//p/ , (/val/ V , N/p/)) /where/
+    (/rho/ , N) /step/ (/rho//p/ , N/p/)
+\end{code}
+
 \subsection{Pattern matching}
 
 \begin{code}
@@ -351,6 +360,155 @@ data _/step/_ : (/Memory/ /times/ /Exp/) → (/Memory/ /times/ /Exp/) → Set wh
   %forget : ∀ /rho/ V →
     (/rho/ , /forget/ /val/(V)) /step/ (/rho/ , /val/ /epsilon/) \\
 \end{code}
+
+\section{Type system}
+
+\begin{code}
+/TContext/ = (/Var/ /fun/ /Lift/(/Type/)) /times/ (/Word/ /fun/ /Lift/(/Type/))
+\end{code}
+
+\begin{comment}
+\begin{code}
+/var//lookup/ : /TContext/ → /Var/ → /Lift/(/Type/)
+/var//lookup/ (Γ , _) (x) = Γ(x)
+
+/val//lookup/ : /TContext/ → /Word/ → /Lift/(/Type/)
+/val//lookup/ (_ , Γ) (p) = Γ(p)
+
+_/oplus//var/_/mapsto/_ : /TContext/ → /Var/ → /Type/ → /Lift/(/TContext/)
+(Γ /oplus//var/ x /mapsto/ T) = {!!}
+
+_/oplus//val/_/mapsto/_ : /TContext/ → /Word/ → /Type/ → /Lift/(/TContext/)
+(Γ /oplus//val/ p /mapsto/ T) = {!!}
+\end{code}
+\end{comment}
+
+\subsection{Types for patterns}
+
+\begin{comment}
+\begin{code}
+data _/vdash//pat/_/in/_/dashv/_ : /TContext/ → /Pat/ → /Type/ → /TContext/ → Set where
+\end{code}
+\end{comment}
+
+\begin{code}
+  %unit : ∀ /Gamma/ → 
+    (/Gamma/ /vdash//pat/ /unit/ /in/ /unit/ /dashv/ /Gamma/) \\
+\end{code}
+
+\begin{code}
+  %&unit : ∀ /Gamma/ /alpha/ /beta/ → 
+    (/Gamma/ /vdash//pat/ /addr/ /unit/ /in/ /reft/ /alpha/ /after/ /beta/ /of/ /unit/ /dashv/ /Gamma/) \\
+\end{code}
+
+\subsection{Types for expressions}
+
+\begin{comment}
+\begin{code}
+data _/vdash/_/in/_/dashv/_ : /TContext/ → /Exp/ → /Type/ → /TContext/ → Set where
+\end{code}
+\end{comment}
+
+\begin{code}
+  %var : ∀ /Gamma/ /Gamma//p/ x T → 
+    (/Gamma/ /vdash/ /var/ x /in/ T /dashv/ /Gamma//p/) /where/
+    (/lift/ /Gamma/ /equals/ (/Gamma//p/ /oplus//var/ x /mapsto/ T)) \\
+  %unit : ∀ /Gamma/ → 
+    (/Gamma/ /vdash/ /unit/ /in/ /unit/ /dashv/ /Gamma/) \\
+  %pair : ∀ /Gamma/ /Gamma//p/ /Gamma//pp/ M N T U →
+    (/Gamma/ /vdash/ (M , N) /in/ (T , U) /dashv/ /Gamma//pp/) /where/
+    (/Gamma/ /vdash/ M /in/ T /dashv/ /Gamma//p/) /andalso/
+    (/Gamma//p/ /vdash/ N /in/ U /dashv/ /Gamma//pp/) \\
+  %let : ∀ /Gamma/ /Gamma//p/ /Gamma//pp/ /Gamma//ppp/ X M N T U →
+    (/Gamma/ /vdash/ /lett/ X /equals/ M /semi/ N /in/ U /dashv/ /Gamma//ppp/) /where/
+    (/Gamma/ /vdash/ M /in/ T /dashv/ /Gamma//p/) /andalso/
+    (/Gamma//p/ /vdash//pat/ X /in/ T /dashv/ /Gamma//pp/) /andalso/
+    (/Gamma//pp/ /vdash/ N /in/ U /dashv/ /Gamma//ppp/)
+\end{code}
+    
+\begin{code}
+  %epsilon : ∀ /Gamma/ → 
+    (/Gamma/ /vdash/ /val/ /epsilon/ /in/ /unit/ /dashv/ /Gamma/) \\
+  %append : ∀ /Gamma/ /Gamma//p/ /Gamma//pp/ V W T U →
+    (/Gamma/ /vdash/ /val/ (V /append/ W) /in/ (T , U) /dashv/ /Gamma//pp/) /where/
+    (/Gamma/ /vdash/ /val/ V /in/ T /dashv/ /Gamma//p/) /andalso/
+    (/Gamma//p/ /vdash/ /val/ W /in/ U /dashv/ /Gamma//pp/) \\
+  %ref : ∀ /Gamma/ /Gamma//p/ /Delta/ p /alpha/ /beta/ /gamma/ T → 
+    (/Gamma/ /vdash/ /val/ /singleton/ p /in/ /reft/ /alpha/ /after/ /beta/ /of/ T /dashv/ /Gamma//p/) /where/
+    /lift/ /Gamma/ /equals/ /Delta/ /oplus//val/ p /mapsto/ (/reft/ /alpha/ /after/ /gamma/ /of/ T) /andalso/
+    /lift/ /Gamma//p/ /equals/ /Delta/ /oplus//val/ p /mapsto/ (/reft/ /beta/ /after/ /gamma/ /of/ T)
+\end{code}
+
+\section{Type safety}
+
+\begin{comment}
+\begin{code}
+_/subseteq/_ : /TContext/ → /TContext/ → Set
+(Γv , Γp) /subseteq/ (Δv , Δp) = (Γv /equals/ Δv) /andalso/ (∀ p v → (Γp p /equals/ /lift/ v) /implies/ (Δp p /equals/ /lift/ v))
+
+/subseteq/-refl : ∀ Γ → (Γ /subseteq/ Γ)
+/subseteq/-refl Γ = (refl , (λ p v Γp=v → Γp=v))
+\end{code}
+\end{comment}
+
+\begin{code}
+%lemma : ∀ {/Gamma/ /Gamma//p/ /Delta//p/ V T} →
+  (/Gamma/ /vdash/ /val/ V /in/ T /dashv/ /Gamma//p/) /andalso/
+  (/Gamma//p/ /subseteq/ /Delta//p/) /implies/
+  /exists/ /Delta/ /st/ (/Gamma/ /subseteq/ /Delta/ /andalso/ /Delta/ /vdash/ /val/ V /in/ T /dashv/ /Delta//p/)
+\end{code}
+
+\begin{comment}
+\begin{code}
+%lemma = {!!}
+\end{code}
+\end{comment}
+
+\begin{code}
+%safety : ∀ {/Gamma/ /Gamma//p/ M T /rho/ /rho//p/ M/p/} →
+  (/Gamma/ /vdash/ M /in/ T /dashv/ /Gamma//p/) /andalso/
+  (/rho/ , M) /step/ (/rho//p/ , M/p/) /implies/
+  /exists/ /Gamma//pp/ /st/ (/Gamma/ /subseteq/ /Gamma//pp/ /andalso/ /Gamma//pp/ /vdash/ M/p/ /in/ T /dashv/ /Gamma//p/)
+\end{code}
+
+\begin{comment}
+\begin{code}
+%safety (%var Γ Γ′ x T Γ=Γ′⊕x↦T , ())
+
+%safety (%epsilon Γ , ())
+%safety (%append Γ Γ′ Γ″ V W T U (V∈T , W∈U) , ())
+%safety (%unit Γ , %val-unit ρ) = (Γ , /subseteq/-refl Γ , %epsilon Γ)
+%safety (%pair Γ Γ′ Γ″ ._ ._ T U (M∈T , N∈U) , %val-pair ρ V W) = (Γ , /subseteq/-refl Γ , %append Γ Γ′ Γ″ V W T U (M∈T , N∈U))
+%safety (%pair Γ Γ′ Γ″ ._ ._ T U (M∈T , N∈U) , %pair-ctxt1 ρ ρ′ M M′ N M→M′) with %safety (M∈T , M→M′)
+%safety (%pair Γ Γ′ Γ″ ._ ._ T U (M∈T , N∈U) , %pair-ctxt1 ρ ρ′ M M′ N M→M′) | (Γ‴ , Γ⊆Γ‴ , M′∈T) = (Γ‴ , Γ⊆Γ‴ , %pair Γ‴ Γ′ Γ″ M′ N T U (M′∈T , N∈U))
+%safety (%pair Γ Γ′ Γ″ ._ ._ T U (V∈T , N∈U) , %pair-ctxt2 ρ ρ′ V N N′ N→N′) with %safety (N∈U , N→N′)
+%safety (%pair Γ Γ′ Γ″ ._ ._ T U (V∈T , N∈U) , %pair-ctxt2 ρ ρ′ V N N′ N→N′) | (Γ‴ , Γ′⊆Γ‴ , N′∈U) with %lemma (V∈T , Γ′⊆Γ‴)
+%safety (%pair Γ Γ′ Γ″ ._ ._ T U (V∈T , N∈U) , %pair-ctxt2 ρ ρ′ V N N′ N→N′) | (Γ‴ , Γ′⊆Γ‴ , N′∈U) | (Γ⁗ , Γ⊆Γ⁗ , V∈′T) = (Γ⁗ , Γ⊆Γ⁗ , %pair Γ⁗ Γ‴ Γ″ (/val/ V) N′ T U (V∈′T , N′∈U))
+
+%safety (%ref Γ Γ′ Δ p α β γ T (Γ=Δ⊕p↦&T , Γ′=Δ⊕p↦&T) , ())
+
+%safety (%let Γ Γ′ Γ″  Γ‴ X M N T U (M∈T , X∈T , N∈U) , %let-ctxt ρ .X .M .N ρ′ M′ M→M′) with %safety (M∈T , M→M′)
+%safety (%let Γ Γ′ Γ″  Γ‴ X M N T U (M∈T , X∈T , N∈U) , %let-ctxt ρ .X .M .N ρ′ M′ M→M′) | (Δ , Δ⊆Γ , M′∈T) = (Δ , Δ⊆Γ , %let Δ Γ′ Γ″  Γ‴ X M′ N T U (M′∈T , X∈T , N∈U ))
+
+%safety (%let Γ .Γ .Γ Γ‴ ./unit/ .(/val/ /epsilon/) N ./unit/ U (%epsilon .Γ , %unit .Γ , N∈U) , %let-unit ρ .N) = (Γ , /subseteq/-refl Γ , N∈U)
+
+%safety (%let Γ Γ′ Γ″ Γ‴ .(/var/ x /in/ T₁) .(/val/ V) N T U (M∈T , X∈T , N∈U) , %let-var /rho/ x T₁ V .N) = {!!}
+%safety (%let Γ Γ′ Γ″ Γ‴ .(X , Y) .(/val/ (V /append/ W)) N T U (M∈T , X∈T , N∈U) , %let-pair /rho/ X Y V W .N x) = {!!}
+%safety (%let Γ Γ′ Γ″ Γ‴ .(/tagged/ T₁ /with/ c X) .(/val/ (c /cons/ (V /append/ W))) N T U (M∈T , X∈T , N∈U) , %let-tagged /rho/ T₁ c X .N V W x) = {!!}
+%safety (%let Γ Γ′ Γ″ Γ‴ .(/varref/ x /in/ T₁) .(/val/ V) N T U (M∈T , X∈T , N∈U) , %let-varref /rho/ /rho//p/ x T₁ V .N p x₁) = {!!}
+%safety (%let Γ Γ′ Γ″ Γ‴ .(/addr/ /var/ x /in/ T₁) .(/val/ (p /cons/ /epsilon/)) N T U (M∈T , X∈T , N∈U) , %let*-var /rho/ /rhoP/ x T₁ p V .N x₁) = {!!}
+%safety (%let Γ Γ′ Γ″ Γ‴ .(/addr/ /varref/ x /in/ T₁) .(/val/ (p /cons/ /epsilon/)) N T U (M∈T , X∈T , N∈U) , %let*-varref /rho/ x T₁ p .N) = {!!}
+%safety (%let Γ Γ′ Γ″ Γ‴ .(/addr/ /unit/) .(/val/ (p /cons/ /epsilon/)) M/p/ T U (M∈T , X∈T , N∈U) , %let*-unit /rho/ p .M/p/) = {!!}
+%safety (%let Γ Γ′ Γ″ Γ‴ .(/addr/ (X , Y)) .(/val/ (p /cons/ /epsilon/)) N T U (M∈T , X∈T , N∈U) , %let*-pair /rho/ X Y p .N n x) = {!!}
+%safety (%let Γ Γ′ Γ″ Γ‴ .(/addr/ /tagged/ T₁ /with/ c X) .(/val/ (p /cons/ /epsilon/)) N T U (M∈T , X∈T , N∈U) , %let*-tagged /rho/ T₁ c X p .N x) = {!!}
+%safety (%let Γ Γ′ Γ″ Γ‴ .(/addr/ /addr/ X) .(/val/ (p /cons/ /epsilon/)) N T U (M∈T , X∈T , N∈U) , %let** /rho/ X p q .N x) = {!!}
+%safety (%let Γ Γ′ Γ″ Γ‴ .(/varref//mut/ x /in/ T₁) .(/val/ V) N T U (M∈T , X∈T , N∈U) , %let-varref-mut /rho/ /rho//p/ x T₁ V .N p x₁) = {!!}
+%safety (%let Γ Γ′ Γ″ Γ‴ .(/addr/ /varref//mut/ x /in/ T₁) .(/val/ (p /cons/ /epsilon/)) N T U (M∈T , X∈T , N∈U) , %let*-varref-mut /rho/ x T₁ p .N) = {!!}
+%safety (%let Γ Γ′ Γ″ Γ‴ .(/Box/ X) .(/val/ (p /cons/ /epsilon/)) N T U (M∈T , X∈T , N∈U) , %let-box /rho/ /rho//p/ X T₁ p V .N x) = {!!}
+%safety (%let Γ Γ′ Γ″ Γ‴ .(/addr/ /Box/ X) .(/val/ (p /cons/ /epsilon/)) N T U (M∈T , X∈T , N∈U) , %let*-box /rho/ X p q .N x) = {!!}
+
+\end{code}
+\end{comment}
 
 \endinput
 
