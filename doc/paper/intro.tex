@@ -141,6 +141,151 @@ Lifetimes avoid use-after-free by maintaining two invariants:
   and deallocation happens after the lifetime of all references.
 \end{quote}
 There is more to the Rust type system than described here
-(higher-order functions, traits, variance, \dots) but the important features
+(higher-order functions, traits, variance, concurrency, \dots) but the important features
 are \emph{affine types} and \emph{lifetimes} for ensuring memory safety,
 even in the presence of manual memory management.
+
+\subsection{Spidermonkey}
+
+Spidermonkey is Mozilla's JavaScript runtime, used in the Firefox browser,
+and the Servo~\cite{servo} next-generation web engine. This is a full-featured
+JS implementation, but the focus of this paper is its automatic memory management.
+
+Inside a web engine, there are often native implementations of HTML features,
+which are exposed to JavaScript using DOM interfaces. For example, an HTML image
+is exposed to JavaScript as a DOM object representing an \verb|<img>| element,
+but behind the scenes there is native code responsible for loading and rendering
+images.
+
+When a JavaScript object is garbage collected, a destructor is called to
+deallocate any attached native memory. In the case that the native code
+is implemented in Rust, this leads to a situation where Rust relies on affine
+types and lifetimes for memory safety, but JavaScript respects neither of these.
+As a result, the raw Spidermonkey interface to Rust is very unsafe,
+for example there are nearly 400 instances of unsafe code in the Servo
+DOM implementation:
+\begin{verbatim}
+$ grep "unsafe_code" components/script/dom/*.rs | wc
+    393     734   25514
+\end{verbatim}
+Since JavaScript does not respect Rust's affine types,
+Servo's DOM implementation makes use of Rust~\cite{interior-mut}
+\emph{interior mutability} which replaces the compile-time type
+checks with run-time dynamic checks. This carries run-time overhead,
+and the possibility of checks failing, and Servo panicking.
+
+Moreover, SpiderMonkey has its own invariants, and if an embedding
+application does not respect these invariants, then runtime errors can
+occur. One of these invariants is the division of JavaScript memory
+into \emph{compartments}, which can be garbage collected
+separately. The runtime has a notion of ``current compartment'',
+and the embedding application is asked to maintain two invariants:
+\begin{itemize}
+  \item whenever an object is used, the object is in the current compartment, and
+  \item there are no references between objects which cross compartments.
+\end{itemize}
+In order for native code to interact well with the SpiderMonkey garbage collector,
+it has to provide two functions:
+\begin{itemize}
+\item a \emph{trace} function, that given an object, iterates over all of the
+  JavaScript objects which are reachable from it, and
+\item a \emph{roots} function, which iterates over all of the JavaScript
+  objects that are live on the call stack.
+\end{itemize}
+From these two functions, the garbage collector can find all of the reachable
+JavaScript objects, including those reachable from JavaScript directly, and
+those reached via native code.
+
+Automatically generating the trace function is reasonably straightforward
+metaprogramming, but rooting safely turns out to be quite tricky.
+Servo provides an approximate analysis for safe rooting using an ad-hoc
+static analysis (the \emph{rooting lint}), but this is problematic because
+a) the lint is syntax-driven, so does not understand about Rust features
+such as generics, and b) even if it could be made sound it is disabled
+more than 200 times:
+\begin{verbatim}
+$ grep "unrooted_must_root" components/script/dom/*.rs | wc
+    213     456   15961
+\end{verbatim}
+
+\subsection{Josephine}
+
+Josephine~\cite{josephine} is intended to act as a safe bridge between
+SpiderMonkey and Rust. Its goals are:
+\begin{itemize}
+
+\item to use JavaScript to manage the lifetime of Rust data,
+  and to allow JavaScript to garbage collect unreachable data,
+
+\item to allow references to JavaScript-managed data to be freely copied and discarded,
+  relying on SpiderMonkey's garbage collector for safety,
+
+\item to maintain Rust memory safety via affine types and lifetimes,
+  without requiring additional static analysis such as the rooting lint,
+
+\item to allow mutable and immutable access to Rust data via JavaScript-managed references,
+  so avoiding interior mutability, and
+
+\item to provide a rooting API to ensure that JavaScript-managed data is not garbage collected
+  while it is being used.
+
+\end{itemize}
+Josephine is intended to be safe, in that any programs built using Josephine's API
+do not introduce undefined behaviour or runtime errors. In particular, Josephine
+tracks compartments using phantom types~\cite{phantoms}.
+
+Josephine achieves this by providing controlled access to
+SpiderMonkey's \emph{JavaScript context}, and maintaining invariants about it:
+\begin{itemize}
+
+\item immutable access to JavaScript-managed data requires immutable access
+  to the JavaScript context,
+
+\item mutable access to JavaScript-managed data requires mutable access
+  to the JavaScript context, and
+
+\item any action that can trigger garbage collection (for example allocating
+  new objects) requires mutable access to the JavaScript context.
+
+\end{itemize}
+As a result, since access to the JavaScript context does respect
+Rust's affine types, mutation or garbage collection cannot occur
+simultaneously with accessing JavaScript-managed data.
+
+In other words, Josephine treats the JavaScript context as an affine
+access token, or capability, which controls access to the JavaScript-mangaged
+data. The data accesses respect affine types, even though the JavaScript objects
+themselves do not.
+
+This use of an access token to safely access data in a substructural
+type system is \emph{not} new, it is the heart of Ahmed, Fluet and
+Morrisett's $L^3$ Linear Language with Locations~\cite{L3} and its
+application to linear regions~\cite{regions}.
+
+Moreover, type systems for mixed linear/non-linear programming have
+been known for a long time, for example Benton's 1994~\cite{mixed}.
+The aspects that are novel are:
+\begin{itemize}
+
+\item the linear language is Rust, and the non-linear language is
+  JavaScript, which are both industrial-strength languages,
+
+\item the treatment of garbage collection requires a
+  different treatment than regions in $L^3$, which have a stack
+  discipline, and
+
+\item the token contains more state in its type, carrying more than
+  just read/write access, but the current compartment, and the capability
+  to trigger garbage collection.
+
+\end{itemize}
+
+\subsection*{Acknowlegements}
+
+This work benefited greatly from conversations with
+Amal Ahmed,
+Nick Benton,
+Josh Bowman-Matthews,
+Manish Goregaokar,
+Bobby Holly, and
+Anthony Ramine.
