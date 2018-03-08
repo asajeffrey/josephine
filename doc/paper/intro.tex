@@ -8,8 +8,8 @@ some unpacking.
 \subsection{Rust}
 
 Rust is a systems programming language which uses fancy types to
-ensure memory safety even in the presence of mutable update, and the
-absence of a garbage collector. Rust has an affine type system, which
+ensure memory safety even in the presence of mutable update, and
+manual memory management. Rust has an affine type system, which
 allows data to be discarded but does not allow data to be arbitrarily
 copied. For example, the Rust program:
 \begin{verbatim}
@@ -24,15 +24,15 @@ is fine, but the program:
   println!("Oh look {} is {}", hello, copied);
 \end{verbatim}
 is not, since \verb|hello| and \verb|copied| are simultaneously live. Trying to compile
-this program produces an error:
+this program produces:
 \begin{verbatim}
-use of moved value: `hello`
- --> src/main.rs:4:32
-  |
-3 |   let copied = hello;
-  |       ------ value moved here
-4 |   println!("Oh look {} is {}", hello, copied);
-  |                                ^^^^^ value used here after move
+  use of moved value: `hello`
+   --> src/main.rs:4:32
+    |
+  3 |   let copied = hello;
+    |       ------ value moved here
+  4 |   println!("Oh look {} is {}", hello, copied);
+    |                                ^^^^^ value used here after move
 \end{verbatim}
 The use of affine types allows aliasing to be tracked. For example, a
 classic problem with aliasing is appending a string to itself. In
@@ -60,14 +60,14 @@ to itself in Rust:
 \end{verbatim}
 produces an error:
 \begin{verbatim}
-cannot borrow `*hello` as immutable because it is also borrowed as mutable
- --> src/main.rs:3:18
-  |
-3 |   hello.push_str(hello);
-  |   -----          ^^^^^- mutable borrow ends here
-  |   |              |
-  |   |              immutable borrow occurs here
-  |   mutable borrow occurs here
+  cannot borrow `*hello` as immutable because it is also borrowed as mutable
+   --> src/main.rs:3:18
+    |
+  3 |   hello.push_str(hello);
+    |   -----          ^^^^^- mutable borrow ends here
+    |   |              |
+    |   |              immutable borrow occurs here
+    |   mutable borrow occurs here
 \end{verbatim}
 In Rust, the crucial invariant maintained by affine types is:
 \begin{quote}\em
@@ -119,16 +119,16 @@ since \verb|**handle| is used after \verb|lo|
 (which \verb|handle| points to) is deallocated. Fortunately, this program
 does not pass Rust's borrow-checker:
 \begin{verbatim}
-`lo` does not live long enough
- --> src/main.rs:6:11
-  |
-6 |     *handle = &lo;
-  |                ^^ borrowed value does not live long enough
-7 |   } // lo is deallocated here
-  |   - `lo` dropped here while still borrowed
-8 |   println!("handle is {}", **handle);
-9 | }
-  | - borrowed value needs to live until here
+  `lo` does not live long enough
+   --> src/main.rs:6:11
+    |
+  6 |     *handle = &lo;
+    |                ^^ borrowed value does not live long enough
+  7 |   } // lo is deallocated here
+    |   - `lo` dropped here while still borrowed
+  8 |   println!("handle is {}", **handle);
+  9 | }
+    | - borrowed value needs to live until here
 \end{verbatim}
 This use-after-free error can be detected because (naming the outer lifetime to be
 $\alpha$ and the inner lifetime to be $\beta\subseteq\alpha$) \verb|handle| has type
@@ -165,8 +165,8 @@ As a result, the raw Spidermonkey interface to Rust is very unsafe,
 for example there are nearly 400 instances of unsafe code in the Servo
 DOM implementation:
 \begin{verbatim}
-$ grep "unsafe_code" components/script/dom/*.rs | wc
-    393     734   25514
+  $ grep "unsafe_code" components/script/dom/*.rs | wc
+      393     734   25514
 \end{verbatim}
 Since JavaScript does not respect Rust's affine types,
 Servo's DOM implementation makes use of Rust~\cite{interior-mut}
@@ -174,7 +174,7 @@ Servo's DOM implementation makes use of Rust~\cite{interior-mut}
 checks with run-time dynamic checks. This carries run-time overhead,
 and the possibility of checks failing, and Servo panicking.
 
-Moreover, SpiderMonkey has its own invariants, and if an embedding
+Moreover, Spidermonkey has its own invariants, and if an embedding
 application does not respect these invariants, then runtime errors can
 occur. One of these invariants is the division of JavaScript memory
 into \emph{compartments}, which can be garbage collected
@@ -184,7 +184,7 @@ and the embedding application is asked to maintain two invariants:
   \item whenever an object is used, the object is in the current compartment, and
   \item there are no references between objects which cross compartments.
 \end{itemize}
-In order for native code to interact well with the SpiderMonkey garbage collector,
+In order for native code to interact well with the Spidermonkey garbage collector,
 it has to provide two functions:
 \begin{itemize}
 \item a \emph{trace} function, that given an object, iterates over all of the
@@ -204,21 +204,21 @@ a) the lint is syntax-driven, so does not understand about Rust features
 such as generics, and b) even if it could be made sound it is disabled
 more than 200 times:
 \begin{verbatim}
-$ grep "unrooted_must_root" components/script/dom/*.rs | wc
-    213     456   15961
+  $ grep "unrooted_must_root" components/script/dom/*.rs | wc
+      213     456   15961
 \end{verbatim}
 
 \subsection{Josephine}
 
 Josephine~\cite{josephine} is intended to act as a safe bridge between
-SpiderMonkey and Rust. Its goals are:
+Spidermonkey and Rust. Its goals are:
 \begin{itemize}
 
 \item to use JavaScript to manage the lifetime of Rust data,
   and to allow JavaScript to garbage collect unreachable data,
 
 \item to allow references to JavaScript-managed data to be freely copied and discarded,
-  relying on SpiderMonkey's garbage collector for safety,
+  relying on Spidermonkey's garbage collector for safety,
 
 \item to maintain Rust memory safety via affine types and lifetimes,
   without requiring additional static analysis such as the rooting lint,
@@ -235,7 +235,7 @@ do not introduce undefined behaviour or runtime errors. In particular, Josephine
 tracks compartments using phantom types~\cite{phantoms}.
 
 Josephine achieves this by providing controlled access to
-SpiderMonkey's \emph{JavaScript context}, and maintaining invariants about it:
+Spidermonkey's \emph{JavaScript context}, and maintaining invariants about it:
 \begin{itemize}
 
 \item immutable access to JavaScript-managed data requires immutable access
@@ -253,7 +253,7 @@ Rust's affine types, mutation or garbage collection cannot occur
 simultaneously with accessing JavaScript-managed data.
 
 In other words, Josephine treats the JavaScript context as an affine
-access token, or capability, which controls access to the JavaScript-mangaged
+access token, or capability, which controls access to the JavaScript-managed
 data. The data accesses respect affine types, even though the JavaScript objects
 themselves do not.
 
@@ -280,7 +280,7 @@ The aspects that are novel are:
 
 \end{itemize}
 
-\subsection*{Acknowlegements}
+\subsection*{Acknowledgments}
 
 This work benefited greatly from conversations with
 Amal Ahmed,
