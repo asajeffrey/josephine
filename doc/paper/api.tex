@@ -22,6 +22,10 @@ data. We shall see later that this is safe for the same reason as
 $L^3$: we are using the JS context as a capability, and it is not
 copyable.
 
+In examples, we make use of Rust's \emph{lifetime elision}~\cite{???},
+and just write $\JSManaged{C,T}$ where the lifetime $\alpha$ can be
+inferred.
+
 In the simplest case, $T$ is a base type like $\STRING$, but in more complex
 cases, $T$ might itself contain JS-managed data, for example a type of
 cells in a doubly-linked list can be defined:
@@ -74,4 +78,68 @@ has type $\JSContext{S}$, where $S$ is the current state.
 For example, a program to allocate a new JS-managed reference is:
 \begin{verbatim}
   let x: JSManaged<C, String> = cx.manage(String::from("hello"));
+\end{verbatim}
+and a program to access a JS-managed reference is:
+\begin{verbatim}
+  let msg: &String = x.borrow(cx);
+\end{verbatim}
+These programs make use of the JS context \verb|cx|. In order for the
+first example to typecheck:
+\begin{itemize}
+
+\item \verb|cx| must have type $\REFMUT{}\JSContext{S}$, where
+\item $S$ (the state of the context) must have permission to allocate
+  references in $C$, and
+\item $C$ must be a compartment.
+
+\end{itemize}
+The second example is similar, except:
+\begin{itemize}
+
+\item we do not need mutable access to the context, and
+\item $S$ need the permission to access compartment $C$.
+
+\end{itemize}
+Fortunately, Rust has a \emph{trait} system (similar to Haskell's
+class system), which allows us to express these constraints.  In the
+same way that $C$ and $S$ are phantom types, these are \emph{marker}
+traits with no computational value. The typing for
+the first example is:
+\begin{verbatim}
+  (cx: &mut JSContext<S>) where
+    S: CanAlloc + InCompartment<C>,
+    C: Compartment,
+\end{verbatim}
+and for the second:
+\begin{verbatim}
+  (cx: &JSContext<S>) where
+    S: CanAccess,
+    C: Compartment,
+\end{verbatim}
+A program to mutably access a JS-managed reference is:
+\begin{verbatim}
+  let msg: &mut String = x.borrow_mut(cx);
+\end{verbatim}
+at which point the fact that the JS context is an affine capability
+becomes important. The typing required for this is:
+\begin{verbatim}
+  (cx: &mut JSContext<S>) where
+    S: CanAccess,
+    C: Compartment,
+\end{verbatim}
+That is \emph{unique access to JS-managed data requires unique access to th4e JS context},
+and so we cannot simultaneously have mutable access to two different JS-managed
+references. This is the same safety condition that region-based $L^3$ uses.
+
+For example, we can use this (together with Rust's built-in replace function
+which swaps the contents of a mutable reference) to replace the contents of a cell
+with a new value:
+\begin{verbatim}
+  fn replace<S>(self, cx: &'a mut JSContext<S>, new_data: String) -> String where
+    S: CanAccess,
+    C: Compartment,
+  {
+    let ref mut old_data = self.0.borrow_mut(cx).data;
+    replace(old_data, new_data)
+  }
 \end{verbatim}
