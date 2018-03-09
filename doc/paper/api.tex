@@ -1,0 +1,77 @@
+\section{The Josephine API}
+
+There are two important concepts in Josephine's API: \emph{JS-managed} data,
+and the JS \emph{context}. For readers familiar with the region-based
+variant~\cite{l3-with-regions} of $L^3$~\cite{l3}, JS-managed data
+corresponds to $L^3$ references, and JS contexts to $L^3$ capabilities.
+
+\subsection{JS-managed data}
+
+JS-managed data has the type $\JSManaged{\alpha, C, T}$, which represents
+a reference to data whose lifetime is managed by JS, which:
+\begin{itemize}
+
+\item is guaranteed to live at least as long as $\alpha$,
+\item is allocated in JS compartment $C$,
+\item points to native data of type $T$.
+  
+\end{itemize}
+This type is copyable, so not subject to the affine type discipline,
+even though it can be used to gain mutable access to the native
+data. We shall see later that this is safe for the same reason as
+$L^3$: we are using the JS context as a capability, and it is not
+copyable.
+
+In the simplest case, $T$ is a base type like $\STRING$, but in more complex
+cases, $T$ might itself contain JS-managed data, for example a type of
+cells in a doubly-linked list can be defined:
+\begin{verbatim}
+  type Cell<'a, C> = JSManaged<'a, C, NativeCell<'a, C>>;
+\end{verbatim}
+where:
+\begin{verbatim}
+  struct NativeCell<'a, C> {
+    data: String,
+    prev: Option<Cell<'a, C>>,
+    next: Option<Cell<'a, C>>,
+  }
+\end{verbatim}
+This pattern is a common idiom, in that there are two types:
+\begin{itemize}
+\item $\NativeCell{\alpha,C}$ containing the native representation
+of a cell, including the prev and next
+references, and
+\item $\Cell{\alpha,C}$ containing a reference to a native cell,
+whose lifetime is managed by JS.
+\end{itemize}
+These types are both parameterized by a lower bound $\alpha$ on the lifetime
+of the cell, and the compartment $C$ that the cell lives in.
+
+Doubly-linked lists are an interesting example of programming in Rust,
+and indeed there is an introductory text \emph{Learning Rust With
+  Entirely Too Many Linked Lists}~\cite{too-many-lists}, in which safe
+implementations of doubly-linked lists require interior mutability
+(and hence dynamic checks) and reference counting.
+
+\subsection{The JS context}
+
+By itself, JS-managed references are not much use: there has to be an
+API for creating and dereferencing them: this is the role of the
+JS \emph{context}, which acts as a capability for manipulating
+JS-managed data.
+
+There is only one JS context per thread (and JS contexts cannot be shared
+or sent between threads) so unique access to the JS context implies unique
+access to all JS-managed data. We can use this to give safe mutable access
+to JS-managed data, since the JS context is a unique capability.
+
+The JS context has a state, notably keeping track of the current
+compartment, but also permissions such as ``allowed to create new
+references'' or ``allowed to dereference''.  This state is tracked in
+the type system using phantom types~\cite{phantom}, so the JS context
+has type $\JSContext{S}$, where $S$ is the current state.
+
+For example, a program to allocate a new JS-managed reference is:
+\begin{verbatim}
+  let x: JSManaged<C, String> = cx.manage(String::from("hello"));
+\end{verbatim}
