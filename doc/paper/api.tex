@@ -143,3 +143,90 @@ with a new value:
     replace(old_data, new_data)
   }
 \end{verbatim}
+
+\subsection{Typing access}
+
+A first-cut type rule for accessing data in a typing context
+in which $S: \CanAccess$ and $C: \Compartment$ is:
+\begin{quote}
+  if~$cx: \REF{} \JSContext{S}$ and $p: \JSManaged{C,T}$
+  then $p.\borrow(cx): \REF{} T$
+\end{quote}
+(and similarly for mutable access)
+which is fine, but does not mention the lifetimes. Adding these in gives:
+\begin{quote}
+  if~$cx: \REF{\alpha} \JSContext{S}$ and $p: \JSManaged{\alpha,C,T}$
+  then $p.\borrow(cx): \REF\alpha T$
+\end{quote}
+which is correct, but assumes that the lifetime that the JS context
+has been borrowed for is exactly the same as the lifetime of the
+reference. Separating these gives (when $\alpha \subseteq \beta$):
+\begin{quote}
+  if~$cx: \REF{\alpha} \JSContext{S}$ and $p: \JSManaged{\beta,C,T}$
+  then $p.\borrow(cx): \REF\alpha T$
+\end{quote}
+This rule is still incorrect, but for a slightly subtle reason.
+It \emph{is} correct when $T$ is a base type, but fails in the case of
+a type which includes nested JS-managed references. If that were the
+rule, then we could write programs such as
+\begin{verbatim}
+   let cell: Cell<'a, C> = ...;
+   let next: Cell<'a, C> = cell.borrow(cx).next?; // cell is keeping next alive
+   cell.borrow_mut(cx).next = None;            // nothing is keeping next alive
+   cx.gc();                                       // something that triggers GC
+   next.borrow(cx);                                 // this is a use-after-free
+\end{verbatim}
+The problem in this example is that after setting cell's next pointer to \verb|None|,
+there is nothing in JS keeping \verb|next| alive, so it is reachable
+from Rust but not from JS. After a GC, the JS runtime can deallocate
+\verb|next|, so accessing it is a use-after-free error.
+
+In a language with built-in support for GC, there would be hidden
+GC root introduced by putting \verb|next| on the stack, but Rust does
+not have support for such hidden rooting.
+
+The problem in general is that when accessing $p:\JSManaged{\beta,C,T}$,
+using a JS context borrowed
+for lifetime $\alpha\subseteq\beta$, there may be nested JS-managed
+data, also with lifetime $\beta$. These are being kept alive by $p$,
+which is fine as long as $p$ is not mutated, but mutating $p$
+might cause them to become unreachable in JS, and thus candidates
+for garbage collection.
+
+The fix used by Josephine is to replace any nested uses of
+$\beta$ in $T$ by $\alpha$, that is the type rule is
+(when $\alpha \subseteq \beta$):
+\begin{quote}
+  if~$cx: \REF{\alpha} \JSContext{S}$ and $p: \JSManaged{\beta,C,T}$
+  then $p.\borrow(cx): \REF\alpha T[\alpha/\beta]$
+\end{quote}
+The conjecture that Josephine makes is that this is safe, because
+GC cannot happen during the lifetime $\alpha$. In order to ensure
+this, we maintain an invariant:
+\begin{quote}\em
+  Any operation that can trigger garbage collection
+  requires mutable access to the JS context.
+\end{quote}
+For example, this is why \verb|cx.manage(data)| requires
+\verb|cx| to have type $\REFMUT{}\JSContext{S}$, \emph{not} because
+we are mutating the JS context itself, but because allocating
+a new reference might trigger GC.
+
+In Rust, the substitution $T[\alpha/\beta]$ is expressed by
+$T$ implementing a trait $\JSLifetime{\alpha}$:
+\begin{verbatim}
+  pub unsafe trait JSLifetime<'a> {
+    type Aged;
+    unsafe fn change_lifetime(self) -> Self::Aged { ... }
+  }
+\end{verbatim}
+This is using an \emph{associated type} $T\cc\Aged$
+to represent $T[\alpha/\beta]$.
+In particular, $\JSManaged{\beta,C,T}$ implements
+$\JSLifetime{\alpha}$ as long as $T$ does,
+and $\JSManaged{\beta,C,T}[\alpha/\beta]$ is $\JSManaged{\alpha,C,T[\alpha/\beta]}$.
+
+The implementation of $\JSLifetime{\alpha}$ has a lot of boilerplate,
+but fortunately that boilerplate is amenable to Rust's metaprogramming
+system, so user-defined types can just mark their type as
+\verb|#[derive(JSLifetime)]|.
