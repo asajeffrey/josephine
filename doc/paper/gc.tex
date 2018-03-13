@@ -1,6 +1,144 @@
 \section{Interfacing to the garbage collector}
 
+Interfacing to the Spidermonkey GC has two parts:
+\begin{itemize}
+
+\item \emph{tracing}: from a JS-managed reference, find
+  the JS-managed references immediately reachable from it, and
+
+\item \emph{rooting}: find the JS-managed referenes which
+  are reachable from the stack.
+
+\end{itemize}
+From these two functions, it is possible to find all of the
+JS-managed references which are reachable from Rust. Together
+with Spidermonkey's regular GC, this allows the runtime to
+find all of the reachable JS objects, and then to reclaim the
+unreachable ones.
+
+These interfaces are important for safety, since
+under-approximation can result in use-after-free,
+and over-approximation can result in space leaks.
+
+In this section, we discuss how Josephine supports these interfaces.
+
 \subsection{Tracing}
+
+Interfacing to the Spidermonkey tracer via Josephine is achieved
+by implementing a trait:
+\begin{verbatim}
+  pub unsafe trait JSTraceable {
+    unsafe fn trace(&self, trc: *mut JSTracer);
+  }
+\end{verbatim}
+Josephine provides an implementation:
+\begin{verbatim}
+  unsafe impl<'a, C, T> JSTraceable for JSManaged<'a, C, T> where
+    T: JSTraceable { ... }
+\end{verbatim}
+User-defined types can then implement the interface by
+recursively visiting fields, for example:
+\begin{verbatim}
+  unsafe impl<'a, C, T> JSTraceable for NativeCell<'a, C> {
+    unsafe fn trace(&self, trc: *mut JSTracer) {
+      self.prev.trace(trc);
+      self.next.trace(trc);
+    }
+  }
+\end{verbatim}
+This is a lot of unsafe boilerplate, but fortunately can
+also be mechanized using meta-programming by marking a type
+as \verb|#[derive(JSTraceable)]|.
+
+One subtlety is that during tracing data of type $T$, the JS runtime
+has a reference of type $\REF{}{T}$ given by the \verb|self| parameter
+to \verb|trace|. For this to be safe, we have to ensure that there is
+no mutable reference to that data. This is maintained by the
+previously mentioned invariant:
+\begin{quote}\em
+  Any operation that can trigger garbage collection
+  requires mutable access to the JS context.
+\end{quote}
+Tracing is triggered by garbage collection, and so had unique access
+to the JS context, so there cannot be any other live mutable access
+to any JS-managed data.
 
 \subsection{Rooting}
 
+In languages with native support for GC, rooting is
+supported by the compiler, which can provide metadata for
+each stack frame allowing it to be traced. In languages like
+Rust that do not have a native GC, this metadata is not
+present, and instead rooting has to be performed explicitly.
+
+This explicit rooting is needed whenever an object is
+needed to outlive the borrow of the JS context that produced
+it. For example, a function to insert a new cell after
+an existing one is:
+\begin{verbatim}
+  pub fn insert<C, S>(cell: Cell<C>, data: String, cx: &mut JSContext<S>) where
+    S: CanAccess + CanAlloc + InCompartment<C>,
+    C: Compartment,
+  {
+    let old_next = cell.borrow(cx).next;
+    let new_next = cx.manage(NativeCell {
+      data: data,
+      prev: Some(cell),
+      next: old_next,
+    });
+    cell.borrow_mut(cx).next = Some(new_next);
+    if let Some(old_next) = old_next {
+      old_next.borrow_mut(cx).prev = Some(new_next);
+    }
+  }
+\end{verbatim}
+This code is the ``code you would first think of'' for inserting an
+element into a doubly-linked list, but is in fact not safe because
+the local variables \verb|old_next| and \verb|new_next| have not been
+rooted. If GC were triggered just after \verb|new_next| was created,
+then it could be reclaimed, causing a later use-after-free.
+
+Fortunately, Josephine will catch these safety problems, and report
+errors such as:
+\begin{verbatim}
+  error[E0502]: cannot borrow `*cx` as mutable because
+    it is also borrowed as immutable
+    |
+    |         let old_next = self.borrow(cx).next;
+    |                                    -- immutable borrow occurs here
+    |         let new_next = cx.manage(NativeCell {
+    |                        ^^ mutable borrow occurs here
+...
+    |     }
+    |     - immutable borrow ends here
+\end{verbatim}
+The fix is to explictly root the local variables. In Josephine this is:
+\begin{verbatim}
+   let ref mut root1 = cx.new_root();
+   let ref mut root2 = cx.new_root();
+   let old_next = (... as before ...).in_root(root1);
+   let new_next = (... as before ...).in_root(root2);
+\end{verbatim}
+The declaration of a \verb|root| allocates space on the stack
+for a new root, and \verb|managed.in_root(root)| roots \verb|managed|.
+Note that it is just the reference that is copied to the stack,
+the JS-managed data itself doesn't move.
+Roots have type $\JSRoot{\beta,T}$ where $\beta$ is the lifetime
+of the root, and $T$ is the type being rooted.
+
+Once the local variables are rooted, the code typecheck,
+because rooting changes the lifetime of the JS-managed
+data, for example:
+\begin{quote}
+  if~$p: \JSManaged{\alpha,C,T}$ \\
+  and~$r: \REFMUT{\beta}{\JSRoot{\beta,\JSManaged{\beta,C,T[\beta/\alpha]}}}$ \\
+  then~$p.\inRoot(r): \JSManaged{\beta,C,T[\beta/\alpha]}$.
+\end{quote}
+Before rooting, the JS-managed data had lifetime $\alpha$,
+which is usually the lifetime of the borrow of the JS context
+that created or accessed it.
+After rooting, the JS-managed data has lifetime $\beta$,
+which is the lifetime of the root itself. Since roots are
+considered reachable by GC, the contents of a root
+are guaranteed not to be GC'd during its lifetime,
+so this rule is sound.
