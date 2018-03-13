@@ -97,7 +97,7 @@ The second example is similar, except:
 \begin{itemize}
 
 \item we do not need mutable access to the context, and
-\item $S$ need the permission to access compartment $C$.
+\item $S$ must have permission to access compartment $C$.
 
 \end{itemize}
 Fortunately, Rust has a \emph{trait} system (similar to Haskell's
@@ -207,7 +207,7 @@ this, we maintain an invariant:
   Any operation that can trigger garbage collection
   requires mutable access to the JS context.
 \end{quote}
-For example, this is why \verb|cx.manage(data)| requires
+This is why \verb|cx.manage(data)| requires
 \verb|cx| to have type $\REFMUT{}\JSContext{S}$, \emph{not} because
 we are mutating the JS context itself, but because allocating
 a new reference might trigger GC.
