@@ -281,22 +281,35 @@ This use of an access token to safely access data in a substructural
 type system is \emph{not} new, it is the heart of Ahmed, Fluet and
 Morrisett's $L^3$ Linear Language with Locations~\cite{l3} and its
 application to linear regions~\cite{regions}.
-
 Moreover, type systems for mixed linear/non-linear programming have
 been known for more than 20 years~\cite{mixed}.
-The aspects that are novel are:
+
+Other integrations of GC with linear types include Linear Lisp~\cite{linear-lisp},
+Alms~\cite{alms},
+Linear Haskell~\cite{linear-haskell}, and
+linear OCaml~\cite{linear-ocaml}, but these do not integrate with Rust's
+lifetime model.
+
+Garbage collection for Rust has previously been investigated,
+e.g.~in Servo~\cite{servo-gc} or the rust-gc library~\cite{rust-gc},
+but these approaches take a different approach: in Servo, the
+API by itself is unsafe and depends on interior mutability and
+a separate ``rooting lint'' for safety. The rust-gc library uses
+reference counting and interior mutability. Neither of them interact
+with lifetimes in the way Josephine does.
+
+The aspects of Josephine that are novel are:
 \begin{itemize}
 
 \item the linear language is Rust, and the non-linear language is
   JavaScript, which are both industrial-strength languages,
 
-\item the treatment of garbage collection requires a
-  different treatment than regions in $L^3$, which have a stack
+\item the treatment of garbage collection requires
+  different typing rules than regions in $L^3$, which have a stack
   discipline, and
 
-\item the token contains more state in its type, carrying more than
-  just read/write access, but the current compartment, and the capability
-  to trigger garbage collection.
+\item the types for JS-managed references respect the Rust
+  lifetime system.
 
 \end{itemize}
 
