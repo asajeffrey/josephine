@@ -1,9 +1,31 @@
 \section{Introduction}
 
-This paper discusses the Josephine API~\cite{josephine} for using
-the Spidermonkey~\cite{spidermonkey} JavaScript runtime to safely
-manage the lifetime of Rust~\cite{rust} data. That sentence needs
-some unpacking.
+This paper is about the interface between languages
+which use a garbage collector and those which use fancy
+types for safe manual memory management.
+
+Garbage collection is the most common memory management technique for
+functional programming languages, dating back to LISP~\cite{LISP}.
+Having a garbage collector guarantees memory safety, but at the
+cost of having a required runtime system.
+
+Imperative languages often require the programmer to perform
+manual memory management, such as the \verb|malloc| and \verb|free|
+functions provided by C~\cite{K+R}. The safety of a program
+(in particular the absence of \emph{use-after-free} errors)
+is considered the programmer's problem.
+More recently, laguages such as Cyclone~\cite{cyclone}
+and Rust~\cite{rust} have used fancy type systems
+such as substructural types~\cite{girard,Go4,walker}
+and region analysis~\cite{regions} to guarantee memory
+safety without garbage collection.
+
+This paper discusses the Josephine API~\cite{josephine} for using the
+garbage collector provided by the Spidermonkey~\cite{spidermonkey}
+JavaScript runtime to safely manage the lifetime of Rust~\cite{rust}
+data. It uses techniques from $L^3$~\cite{l3} and its application
+to regions~\cite{l3-with-regions}, but the application to languages
+with a tracing garbage collector is new.
 
 \subsection{Rust}
 
@@ -50,7 +72,7 @@ The appended string \verb|world| is passed by reference,
 
 A problem with mutably appending strings is ensuring that the string
 is not appended to itself, for example the documentation for
-C \verb|strcat|~\cite{strcat} states ``Source and destination may not
+C \verb|strcat| states ``Source and destination may not
 overlap'', but C does not check aliasing and relies on the programmer
 to ensure correctness. In contrast, attempting to append a string
 to itself in Rust:
@@ -169,7 +191,7 @@ DOM implementation:
       393     734   25514
 \end{verbatim}
 Since JavaScript does not respect Rust's affine types,
-Servo's DOM implementation makes use of Rust~\cite{interior-mut}
+Servo's DOM implementation makes use of Rust~\cite[\S3.11]{rust}
 \emph{interior mutability} which replaces the compile-time type
 checks with run-time dynamic checks. This carries run-time overhead,
 and the possibility of checks failing, and Servo panicking.
@@ -231,9 +253,7 @@ Spidermonkey and Rust. Its goals are:
 
 \end{itemize}
 Josephine is intended to be safe, in that any programs built using Josephine's API
-do not introduce undefined behaviour or runtime errors. In particular, Josephine
-tracks compartments using phantom types~\cite{phantoms}.
-
+do not introduce undefined behaviour or runtime errors.
 Josephine achieves this by providing controlled access to
 Spidermonkey's \emph{JavaScript context}, and maintaining invariants about it:
 \begin{itemize}
@@ -259,7 +279,7 @@ themselves do not.
 
 This use of an access token to safely access data in a substructural
 type system is \emph{not} new, it is the heart of Ahmed, Fluet and
-Morrisett's $L^3$ Linear Language with Locations~\cite{L3} and its
+Morrisett's $L^3$ Linear Language with Locations~\cite{l3} and its
 application to linear regions~\cite{regions}.
 
 Moreover, type systems for mixed linear/non-linear programming have

@@ -22,7 +22,7 @@ data. We shall see later that this is safe for the same reason as
 $L^3$: we are using the JS context as a capability, and it is not
 copyable.
 
-In examples, we make use of Rust's \emph{lifetime elision}~\cite{???},
+In examples, we make use of Rust's \emph{lifetime elision}~\cite[\S3.4]{rustinomicon},
 and just write $\JSManaged{C,T}$ where the lifetime $\alpha$ can be
 inferred.
 
@@ -72,7 +72,7 @@ to JS-managed data, since the JS context is a unique capability.
 The JS context has a state, notably keeping track of the current
 compartment, but also permissions such as ``allowed to create new
 references'' or ``allowed to dereference''.  This state is tracked in
-the type system using phantom types~\cite{phantom}, so the JS context
+the type system using phantom types, so the JS context
 has type $\JSContext{S}$, where $S$ is the current state.
 
 For example, a program to allocate a new JS-managed reference is:
@@ -127,7 +127,7 @@ becomes important. The typing required for this is:
     S: CanAccess,
     C: Compartment,
 \end{verbatim}
-That is \emph{unique access to JS-managed data requires unique access to th4e JS context},
+That is \emph{unique access to JS-managed data requires unique access to the JS context},
 and so we cannot simultaneously have mutable access to two different JS-managed
 references. This is the same safety condition that region-based $L^3$ uses.
 
