@@ -14,18 +14,19 @@ manual memory management, such as the \verb|malloc| and \verb|free|
 functions provided by C~\cite{K+R}. The safety of a program
 (in particular the absence of \emph{use-after-free} errors)
 is considered the programmer's problem.
-More recently, laguages such as Cyclone~\cite{cyclone}
+More recently, languages such as Cyclone~\cite{cyclone}
 and Rust~\cite{rust} have used fancy type systems
 such as substructural types~\cite{girard,Go4,walker}
 and region analysis~\cite{regions} to guarantee memory
 safety without garbage collection.
 
 This paper discusses the Josephine API~\cite{josephine} for using the
-garbage collector provided by the Spidermonkey~\cite{spidermonkey}
+garbage collector provided by the SpiderMonkey~\cite{spidermonkey}
 JavaScript runtime to safely manage the lifetime of Rust~\cite{rust}
 data. It uses techniques from $L^3$~\cite{l3} and its application
 to regions~\cite{l3-with-regions}, but the application to languages
-with a tracing garbage collector is new.
+with a tracing garbage collector, and to languages with explicit
+lifetimes is new.
 
 \subsection{Rust}
 
@@ -167,9 +168,9 @@ There is more to the Rust type system than described here
 are \emph{affine types} and \emph{lifetimes} for ensuring memory safety,
 even in the presence of manual memory management.
 
-\subsection{Spidermonkey}
+\subsection{SpiderMonkey}
 
-Spidermonkey is Mozilla's JavaScript runtime, used in the Firefox browser,
+SpiderMonkey is Mozilla's JavaScript runtime, used in the Firefox browser,
 and the Servo~\cite{servo} next-generation web engine. This is a full-featured
 JS implementation, but the focus of this paper is its automatic memory management.
 
@@ -183,7 +184,7 @@ When a JavaScript object is garbage collected, a destructor is called to
 deallocate any attached native memory. In the case that the native code
 is implemented in Rust, this leads to a situation where Rust relies on affine
 types and lifetimes for memory safety, but JavaScript respects neither of these.
-As a result, the raw Spidermonkey interface to Rust is very unsafe,
+As a result, the raw SpiderMonkey interface to Rust is very unsafe,
 for example there are nearly 400 instances of unsafe code in the Servo
 DOM implementation:
 \begin{verbatim}
@@ -196,17 +197,17 @@ Servo's DOM implementation makes use of Rust~\cite[\S3.11]{rust}
 checks with run-time dynamic checks. This carries run-time overhead,
 and the possibility of checks failing, and Servo panicking.
 
-Moreover, Spidermonkey has its own invariants, and if an embedding
+Moreover, SpiderMonkey has its own invariants, and if an embedding
 application does not respect these invariants, then runtime errors can
 occur. One of these invariants is the division of JavaScript memory
-into \emph{compartments}, which can be garbage collected
+into \emph{compartments}~\cite{compartments}, which can be garbage collected
 separately. The runtime has a notion of ``current compartment'',
 and the embedding application is asked to maintain two invariants:
 \begin{itemize}
   \item whenever an object is used, the object is in the current compartment, and
   \item there are no references between objects which cross compartments.
 \end{itemize}
-In order for native code to interact well with the Spidermonkey garbage collector,
+In order for native code to interact well with the SpiderMonkey garbage collector,
 it has to provide two functions:
 \begin{itemize}
 \item a \emph{trace} function, that given an object, iterates over all of the
@@ -233,14 +234,14 @@ more than 200 times:
 \subsection{Josephine}
 
 Josephine~\cite{josephine} is intended to act as a safe bridge between
-Spidermonkey and Rust. Its goals are:
+SpiderMonkey and Rust. Its goals are:
 \begin{itemize}
 
 \item to use JavaScript to manage the lifetime of Rust data,
   and to allow JavaScript to garbage collect unreachable data,
 
 \item to allow references to JavaScript-managed data to be freely copied and discarded,
-  relying on Spidermonkey's garbage collector for safety,
+  relying on SpiderMonkey's garbage collector for safety,
 
 \item to maintain Rust memory safety via affine types and lifetimes,
   without requiring additional static analysis such as the rooting lint,
@@ -255,7 +256,7 @@ Spidermonkey and Rust. Its goals are:
 Josephine is intended to be safe, in that any programs built using Josephine's API
 do not introduce undefined behaviour or runtime errors.
 Josephine achieves this by providing controlled access to
-Spidermonkey's \emph{JavaScript context}, and maintaining invariants about it:
+SpiderMonkey's \emph{JavaScript context}, and maintaining invariants about it:
 \begin{itemize}
 
 \item immutable access to JavaScript-managed data requires immutable access

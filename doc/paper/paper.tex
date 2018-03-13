@@ -18,7 +18,7 @@
 
 \begin{document}
 
-\title[Josephine]{Experience Report: Josephine}
+\title{Experience Report: Josephine}
 \subtitle{Using JavaScript to safely manage the lifetimes of Rust data}
 
 \author{Alan Jeffrey}
@@ -36,7 +36,8 @@ types for safe manual memory management.
 It uses existing techniques for using linear capabilities
 to provide safe access to copyable references,
 but the application to languages
-with a tracing garbage collector is new.
+with a tracing garbage collector,
+and to data with explicit lifetimes is new.
 This work is in the area of mixed linear/non-linear
 languages, but the linear language is Rust, and the
 non-linear language is JavaScript.

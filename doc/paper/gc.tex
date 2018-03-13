@@ -1,18 +1,18 @@
 \section{Interfacing to the garbage collector}
 
-Interfacing to the Spidermonkey GC has two parts:
+Interfacing to the SpiderMonkey GC has two parts:
 \begin{itemize}
 
 \item \emph{tracing}: from a JS-managed reference, find
   the JS-managed references immediately reachable from it, and
 
-\item \emph{rooting}: find the JS-managed referenes which
+\item \emph{rooting}: find the JS-managed references which
   are reachable from the stack.
 
 \end{itemize}
 From these two functions, it is possible to find all of the
 JS-managed references which are reachable from Rust. Together
-with Spidermonkey's regular GC, this allows the runtime to
+with SpiderMonkey's regular GC, this allows the runtime to
 find all of the reachable JS objects, and then to reclaim the
 unreachable ones.
 
@@ -24,7 +24,7 @@ In this section, we discuss how Josephine supports these interfaces.
 
 \subsection{Tracing}
 
-Interfacing to the Spidermonkey tracer via Josephine is achieved
+Interfacing to the SpiderMonkey tracer via Josephine is achieved
 by implementing a trait:
 \begin{verbatim}
   pub unsafe trait JSTraceable {
@@ -112,7 +112,7 @@ errors such as:
     |     }
     |     - immutable borrow ends here
 \end{verbatim}
-The fix is to explictly root the local variables. In Josephine this is:
+The fix is to explicitly root the local variables. In Josephine this is:
 \begin{verbatim}
    let ref mut root1 = cx.new_root();
    let ref mut root2 = cx.new_root();

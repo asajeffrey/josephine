@@ -15,13 +15,32 @@ The contributions of this work are:
   rooting can change the lifetimes of objects.
   
 \end{itemize}
+The main item left for future work is formalizing the approach
+described here: memory safety is conjectured, but not proved
+formally.
 
-Formalization.
+There are some aspects of the API which need more investigation:
+\begin{itemize}
 
-Rooting scopes.
+\item Other JavaScript engines take a different approach to
+  rooting, notably V8 \emph{handle scopes}~\cite{v8-embedding},
+  which have different trade-offs. In terms of this paper, the
+  roots are attached to the JS context, rather than stored
+  on the stack. It would be interesting to compare these approaches.
 
-Cross-compartment wrappers.
+\item Josephine uses phantom types to track which compartment
+  memory is allocated in, but does not support features such
+  as \emph{cross-compartment wrappers}~\cite{compartments},
+  which allow references between compartments.
 
-FFI.
-
-Scale up.
+\item In this paper, we have just used the SpiderMonkey runtime
+  engine for it's garbage collector, but it is a full-featured
+  JavaScript engine, and it would be good to provide safe
+  access to executing JS code. This would be simpler to achieve
+  if there were a JS type system to generate bindings from,
+  such as TypeScript~\cite{typescript}.
+  
+\end{itemize}
+The distribution includes some simple examples such as doubly-linked lists
+and a stripped-down DOM, but more examples are needed to see if the API
+is usable for practical code.
