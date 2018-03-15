@@ -1,0 +1,67 @@
+\section{Compartments}
+
+Spidermonkey uses \emph{compartments} to organize memory,
+so that garbage collection does not have to sweep the
+entire memory, just one compartment\footnote{%
+  For purposes of this paper, we are ignoring the distinction between zones and
+  compartments.
+}
+To achieve this, SpiderMonkey maintains the invariant:
+\begin{quote}\em
+  There are no direct references between compartments.
+\end{quote}
+This invariant is expected to be maintained by
+any native data: tracing a JS-managed object
+should never result in tracing an object from a different
+compartment.
+
+In Josephine, the compartment that
+native data has been placed in is part of its
+type. Data of type $\JSManaged{C,T}$ is attached
+to a JS object in compartment $C$.
+
+\subsection{Maintaining the invariant}
+
+It would be possible for user-defined types to break
+the compartment invariant, for example:
+\begin{verbatim}
+  type BadCell<'a, C, D> = JSManaged<'a, C, NativeBadCell<'a, C, D>>;
+\end{verbatim}
+where:
+\begin{verbatim}
+  struct NativeBadCell<'a, C, D> {
+    data: String,
+    prev: Option<BadCell<'a, C, C>>,
+    next: Option<BadCell<'a, D, D>>,
+  }
+\end{verbatim}
+This type vioated the compartment invariant, because
+a cell of type \verb|BadCell<'a, C, D>| is in compartment
+\verb|C| but its next pointer is in compartment \verb|D|.
+
+The maintain the compartment invariant, we introduce
+a trait similar to \verb|JSLifetime|, but for compartments:
+\begin{verbatim}
+  pub unsafe trait JSCompartmental<C, D> {
+    type ChangeCompartment;
+    fn is_in_compartment<S>(&self, _cx: &JSContext<S>) -> bool where
+        S: InCompartment<D>;
+  }
+\end{verbatim}
+In the same way that $\JSLifetime{\alpha}$ is used to implement
+lifetime substitution $T[\alpha/\beta]$, the trait $\JSCompartmental{C,D}$
+is used to implement compartment substitution $T[D/C]$. A type $T$ implementing
+$\JSCompartmental{C,D}$ is asked to ensure that:
+\begin{itemize}
+\item $T$ is in compartment $C$,
+\item $T$ only contains references to other types implementing $\JSCompartmental{C,D}$, and
+\item $T\cc\ChangeCompartment$ is $T[D/C]$.
+\end{itemize}
+
+
+\subsection{Creating compartments}
+
+\subsection{Entering a compartment}
+
+\subsection{Wilcard compartments}
+
