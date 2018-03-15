@@ -7,7 +7,7 @@ types for safe manual memory management.
 Garbage collection is the most common memory management technique for
 functional programming languages, dating back to LISP~\cite{LISP}.
 Having a garbage collector guarantees memory safety, but at the
-cost of having a required runtime system.
+cost of requiring a runtime system.
 
 Imperative languages often require the programmer to perform
 manual memory management, such as the \verb|malloc| and \verb|free|
@@ -74,7 +74,7 @@ The appended string \verb|world| is passed by reference,
 A problem with mutably appending strings is ensuring that the string
 is not appended to itself, for example the documentation for
 C \verb|strcat| states ``Source and destination may not
-overlap'', but C does not check aliasing and relies on the programmer
+overlap,'' but C does not check aliasing and relies on the programmer
 to ensure correctness. In contrast, attempting to append a string
 to itself in Rust:
 \begin{verbatim}
@@ -153,8 +153,8 @@ does not pass Rust's borrow-checker:
   9 | }
     | - borrowed value needs to live until here
 \end{verbatim}
-This use-after-free error can be detected because (naming the outer lifetime to be
-$\alpha$ and the inner lifetime to be $\beta\subseteq\alpha$) \verb|handle| has type
+This use-after-free error can be detected because (naming the outer lifetime as
+$\alpha$ and the inner lifetime as $\beta\subseteq\alpha$) \verb|handle| has type
 $\REFMUT\alpha\REF\alpha\STRING$, but \verb|&lo| only has type $\REF\beta\STRING$, no
 $\REF\alpha\STRING$ as required by the assignment.
 
@@ -170,7 +170,7 @@ even in the presence of manual memory management.
 
 \subsection{SpiderMonkey}
 
-SpiderMonkey is Mozilla's JavaScript runtime, used in the Firefox browser,
+SpiderMonkey~\cite{spidermonkey} is Mozilla's JavaScript runtime, used in the Firefox browser,
 and the Servo~\cite{servo} next-generation web engine. This is a full-featured
 JS implementation, but the focus of this paper is its automatic memory management.
 
@@ -217,7 +217,9 @@ it has to provide two functions:
 \end{itemize}
 From these two functions, the garbage collector can find all of the reachable
 JavaScript objects, including those reachable from JavaScript directly, and
-those reached via native code.
+those reached via native code. The Josephine interface to tracing
+is discussed in \S\ref{sec:tracing}, and the interface to rooting
+is discussed in \S\ref{sec:rooting}.
 
 Automatically generating the trace function is reasonably straightforward
 metaprogramming, but rooting safely turns out to be quite tricky.
@@ -295,19 +297,18 @@ Garbage collection for Rust has previously been investigated,
 e.g.~in Servo~\cite{servo-gc} or the rust-gc library~\cite{rust-gc},
 but these approaches take a different approach: in Servo, the
 API by itself is unsafe and depends on interior mutability and
-a separate ``rooting lint'' for safety. The rust-gc library uses
+a separate rooting lint for safety. The rust-gc library uses
 reference counting and interior mutability. Neither of them interact
 with lifetimes in the way Josephine does.
 
 The aspects of Josephine that are novel are:
 \begin{itemize}
 
-\item the linear language is Rust, and the non-linear language is
-  JavaScript, which are both industrial-strength languages,
+\item the languages being mixed are Rust and 
+  JavaScript, which are both industrial-strength,
 
 \item the treatment of garbage collection requires
-  different typing rules than regions in $L^3$, which have a stack
-  discipline, and
+  different typing rules than regions in $L^3$, and
 
 \item the types for JS-managed references respect the Rust
   lifetime system.

@@ -3,15 +3,14 @@
 The contributions of this work are:
 \begin{itemize}
 
-\item An implementation of the ideas in $L^3$~\cite{l3} to mixed
+\item an implementation of the ideas in $L^3$~\cite{l3} to mixed
   linear/non-linear programming~\cite{mixed}, where the
-  linear language is Rust and the non-linear language is
-  JavaScript.
+  languages being mixed are Rust and JavaScript,
 
-\item A treatment of garbage collection (rather than region-based
-  memory management) for such a system.
+\item a treatment of garbage collection (rather than region-based
+  memory management) for such a system, and
 
-\item A treatment of how operations such as accessing, mutating, and
+\item a treatment of how operations such as accessing, mutating, and
   rooting can change the lifetimes of objects.
   
 \end{itemize}
@@ -34,7 +33,7 @@ There are some aspects of the API which need more investigation:
   which allow references between compartments.
 
 \item In this paper, we have just used the SpiderMonkey runtime
-  engine for it's garbage collector, but it is a full-featured
+  engine for its garbage collector, but it is a full-featured
   JavaScript engine, and it would be good to provide safe
   access to executing JS code. This would be simpler to achieve
   if there were a JS type system to generate bindings from,

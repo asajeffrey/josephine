@@ -12,7 +12,7 @@ a reference to data whose lifetime is managed by JS, which:
 \begin{itemize}
 
 \item is guaranteed to live at least as long as $\alpha$,
-\item is allocated in JS compartment $C$,
+\item is allocated in JS compartment $C$, and
 \item points to native data of type $T$.
   
 \end{itemize}
@@ -62,7 +62,8 @@ implementations of doubly-linked lists require interior mutability
 By itself, JS-managed references are not much use: there has to be an
 API for creating and dereferencing them: this is the role of the
 JS \emph{context}, which acts as a capability for manipulating
-JS-managed data.
+JS-managed data. The JS context is part of the SpiderMonkey API,
+where it is used to store state that is global to the runtime sytem.
 
 There is only one JS context per thread (and JS contexts cannot be shared
 or sent between threads) so unique access to the JS context implies unique
@@ -71,8 +72,8 @@ to JS-managed data, since the JS context is a unique capability.
 
 The JS context has a state, notably keeping track of the current
 compartment, but also permissions such as ``allowed to create new
-references'' or ``allowed to dereference''.  This state is tracked in
-the type system using phantom types, so the JS context
+references'' or ``allowed to dereference''.  This state is tracked
+using phantom types, so the JS context
 has type $\JSContext{S}$, where $S$ is the current state.
 
 For example, a program to allocate a new JS-managed reference is:
@@ -145,6 +146,7 @@ with a new value:
 \end{verbatim}
 
 \subsection{Typing access}
+\label{sec:typing-access}
 
 A first-cut type rule for accessing data in a typing context
 in which $S: \CanAccess$ and $C: \Compartment$ is:
@@ -153,7 +155,8 @@ in which $S: \CanAccess$ and $C: \Compartment$ is:
   then $p.\borrow(cx): \REF{} T$
 \end{quote}
 (and similarly for mutable access)
-which is fine, but does not mention the lifetimes. Adding these in gives:
+which is fine, but does not mention the lifetimes. Adding these in gives
+the type rule:
 \begin{quote}
   if~$cx: \REF{\alpha} \JSContext{S}$ and $p: \JSManaged{\alpha,C,T}$
   then $p.\borrow(cx): \REF\alpha T$
@@ -181,7 +184,7 @@ there is nothing in JS keeping \verb|next| alive, so it is reachable
 from Rust but not from JS. After a GC, the JS runtime can deallocate
 \verb|next|, so accessing it is a use-after-free error.
 
-In a language with built-in support for GC, there would be hidden
+In a language with built-in support for GC, there would be a hidden
 GC root introduced by putting \verb|next| on the stack, but Rust does
 not have support for such hidden rooting.
 

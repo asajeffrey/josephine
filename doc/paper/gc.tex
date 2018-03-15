@@ -16,15 +16,17 @@ with SpiderMonkey's regular GC, this allows the runtime to
 find all of the reachable JS objects, and then to reclaim the
 unreachable ones.
 
-These interfaces are important for safety, since
+These interfaces are important for program correctness, since
 under-approximation can result in use-after-free,
 and over-approximation can result in space leaks.
 
 In this section, we discuss how Josephine supports these interfaces.
 
 \subsection{Tracing}
+\label{sec:tracing}
 
 Interfacing to the SpiderMonkey tracer via Josephine is achieved
+in the same way as Servo~\cite{servo},
 by implementing a trait:
 \begin{verbatim}
   pub unsafe trait JSTraceable {
@@ -64,6 +66,7 @@ to the JS context, so there cannot be any other live mutable access
 to any JS-managed data.
 
 \subsection{Rooting}
+\label{sec:rooting}
 
 In languages with native support for GC, rooting is
 supported by the compiler, which can provide metadata for
@@ -92,7 +95,7 @@ an existing one is:
     }
   }
 \end{verbatim}
-This code is the ``code you would first think of'' for inserting an
+This is the ``code you would first think of'' for inserting an
 element into a doubly-linked list, but is in fact not safe because
 the local variables \verb|old_next| and \verb|new_next| have not been
 rooted. If GC were triggered just after \verb|new_next| was created,
@@ -128,7 +131,7 @@ of the root, and $T$ is the type being rooted.
 
 Once the local variables are rooted, the code typecheck,
 because rooting changes the lifetime of the JS-managed
-data, for example:
+data, for example (when $\alpha \subseteq \beta$):
 \begin{quote}
   if~$p: \JSManaged{\alpha,C,T}$ \\
   and~$r: \REFMUT{\beta}{\JSRoot{\beta,\JSManaged{\beta,C,T[\beta/\alpha]}}}$ \\
@@ -142,3 +145,11 @@ which is the lifetime of the root itself. Since roots are
 considered reachable by GC, the contents of a root
 are guaranteed not to be GC'd during its lifetime,
 so this rule is sound.
+
+Note that this use of substitution $T[\beta/\alpha]$
+is being used to extend the lifetime of the
+JS-managed data, since $\alpha\subseteq\beta$. This
+is in comparison to the use of substitution $T[\alpha/\beta]$
+in \S\ref{sec:typing-access}, which was used to contract the
+lifetime.
+
