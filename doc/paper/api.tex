@@ -63,7 +63,7 @@ By itself, JS-managed references are not much use: there has to be an
 API for creating and dereferencing them: this is the role of the
 JS \emph{context}, which acts as a capability for manipulating
 JS-managed data. The JS context is part of the SpiderMonkey API,
-where it is used to store state that is global to the runtime sytem.
+where it is used to store state that is global to the runtime system.
 
 There is only one JS context per thread (and JS contexts cannot be shared
 or sent between threads) so unique access to the JS context implies unique
