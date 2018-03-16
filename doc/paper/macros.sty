@@ -1,9 +1,13 @@
 \newcommand{\REF}[1]{\&#1\,}
 \newcommand{\REFMUT}[1]{\&#1\,\mathsf{mut}\,}
 \newcommand{\STRING}{\mathsf{String}}
+\newcommand{\Option}[1]{\mathsf{Option}\langle#1\rangle}
+\newcommand{\SOMEWHERE}{\textbf{?}}
+\newcommand{\CanAlloc}{\mathsf{CanAlloc}}
 \newcommand{\CanAccess}{\mathsf{CanAccess}}
 \newcommand{\Compartment}{\mathsf{Compartment}}
 \newcommand{\InCompartment}[1]{\mathsf{InCompartment}\langle #1\rangle}
+\newcommand{\IsInitializing}[1]{\mathsf{IsInitializing}\langle #1\rangle}
 \newcommand{\JSContext}[1]{\mathsf{JSContext}\langle #1\rangle}
 \newcommand{\JSManaged}[1]{\mathsf{JSManaged}\langle #1\rangle}
 \newcommand{\JSLifetime}[1]{\mathsf{JSLifetime}\langle #1\rangle}
@@ -15,6 +19,13 @@
 \newcommand{\NativeCell}[1]{\mathsf{NativeCell}\langle #1\rangle}
 \newcommand{\borrow}{\mathsf{borrow}}
 \newcommand{\inRoot}{\mathsf{in\_root}}
+\newcommand{\createCompartment}{\mathsf{create\_compartment}}
+\newcommand{\globalManage}{\mathsf{global\_manage}}
+\newcommand{\enterKnownCompartment}{\mathsf{enter\_known\_compartment}}
+\newcommand{\enterUnknownCompartment}{\mathsf{enter\_unknown\_compartment}}
+\newcommand{\forgetCompartment}{\mathsf{forget\_compartment}}
+\newcommand{\inCompartment}{\mathsf{in\_compartment}}
+\newcommand{\entered}{\mathsf{entered}}
 
 \newcommand{\cc}{{::}}
 

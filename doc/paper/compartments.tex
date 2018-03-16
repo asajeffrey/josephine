@@ -1,6 +1,6 @@
 \section{Compartments}
 
-Spidermonkey uses \emph{compartments} to organize memory,
+SpiderMonkey uses \emph{compartments} to organize memory,
 so that garbage collection does not have to sweep the
 entire memory, just one compartment\footnote{%
   For purposes of this paper, we are ignoring the distinction between zones and
@@ -35,17 +35,15 @@ where:
     next: Option<BadCell<'a, D, D>>,
   }
 \end{verbatim}
-This type vioated the compartment invariant, because
+This type violates the compartment invariant, because
 a cell of type \verb|BadCell<'a, C, D>| is in compartment
 \verb|C| but its next pointer is in compartment \verb|D|.
 
-The maintain the compartment invariant, we introduce
+To maintain the compartment invariant, we introduce
 a trait similar to \verb|JSLifetime|, but for compartments:
 \begin{verbatim}
   pub unsafe trait JSCompartmental<C, D> {
     type ChangeCompartment;
-    fn is_in_compartment<S>(&self, _cx: &JSContext<S>) -> bool where
-        S: InCompartment<D>;
   }
 \end{verbatim}
 In the same way that $\JSLifetime{\alpha}$ is used to implement
@@ -53,15 +51,155 @@ lifetime substitution $T[\alpha/\beta]$, the trait $\JSCompartmental{C,D}$
 is used to implement compartment substitution $T[D/C]$. A type $T$ implementing
 $\JSCompartmental{C,D}$ is asked to ensure that:
 \begin{itemize}
+
 \item $T$ is in compartment $C$,
 \item $T$ only contains references to other types implementing $\JSCompartmental{C,D}$, and
 \item $T\cc\ChangeCompartment$ is $T[D/C]$.
-\end{itemize}
 
+\end{itemize}
+If the implementation of this type is incorrect, there may be safety issues,
+which is why the trait is marked as \verb|unsafe|. Fortunately, deriving an
+implementation of this trait is straightforward meta-programming.
+Josephine provides a \verb|#[derive(JSCompartmental)|
+which is guaranteed to maintain
+the compartment invariant.
 
 \subsection{Creating compartments}
 
+In SpiderMonkey, a new compartment is created each time a
+\emph{global object}~\cite[\S18]{ecmascript} is created.
+
+In Josephine, there are two functions: one to create a new compartment,
+and another to attach native data to the global. The global object can
+be accessed with \verb|cx.global()|. For example:
+\begin{verbatim}
+  let cx = cx.create_compartment();
+  let name = String::from("Alice");
+  let cx = cx.global_manage(name);
+\end{verbatim}
+In some cases, the global (in freshly created compartment $C$)
+contains some JS-managed data (also in compartment $C$), which is why
+the initialization is split into two steps. First, create compartment
+compartment $C$, then initialize the native data, which may make
+use of $C$. For example:
+\begin{verbatim}
+   let cx = cx.create_compartment();
+   let ref mut root = cx.new_root();
+   let name = cx.manage(String::from("Alice")).in_root(root);
+   let cx = cx.global_manage(NativeMyGlobal { name: name });
+\end{verbatim}
+where:
+\begin{verbatim}
+  struct NativeMyGlobal<'a, C> { name: JSManaged<'a, C, String> }
+  type MyGlobal<'a, C> = JSManaged<'a, C, NativeMyGlobal<'a, C>>;
+\end{verbatim}
+The type rule for creating a compartment is:
+\begin{quote}
+  if $cx:\REFMUT{\alpha}{\JSContext{S}}$
+  and $S: \CanAlloc + \CanAccess$ \\
+  then $cx.\createCompartment() : \JSContext{S'}$ \\\mbox{}\quad
+  where $S': \alpha + \CanAlloc + \InCompartment{C} + \IsInitializing{\alpha,C,T}$ \\\mbox{}\qquad
+  for fresh $C: \Compartment$.
+\end{quote}
+Note:
+\begin{itemize}
+
+\item this is the first type rule which has changed the state of
+  the JS context from $S$ to $S'$,
+
+\item although $S$ can access data, $S'$ cannot: this is necessary for
+  safety, since the global does not yet have any data attached to it,
+  so accessing it would be undefined behaviour,
+
+\item $S'$ only has lifetime $\alpha$, so we do not have two JS contexts
+  live simultaneously,
+
+\item $S'$ has entered the compartment $C$, and has the permission to create
+  new objects in $C$,
+  
+\item $S'$ has the permission $\IsInitializing{C,T}$, which allows the global
+  to be initialized with native data of type $T$.
+  
+\end{itemize}
+The type rule for initializing a compartment is:
+\begin{quote}
+  if $cx: \JSContext{S}$
+  and $x: T$
+  and $S: \IsInitializing{\alpha,C,T}$ \\
+  then $cx.\globalManage(x) : \JSContext{S'}$ \\\mbox{}\quad
+  where $S': \alpha + \CanAccess + \CanAlloc + \InCompartment{C}$
+\end{quote}
+
 \subsection{Entering a compartment}
+\label{sec:compartment-entering}
 
-\subsection{Wilcard compartments}
+Given a JS-managed reference \verb|x|, we can enter its compartment with \verb|cx.enter_known_compartment(x)|.
+This returns a JS context whose current compartment is that of \verb|x|.
+For example, given a JS-managed reference \verb|x|,
+we can create a new JS-managed reference in the same compartment with:
+\begin{verbatim}
+  let ref mut cx = cx.enter_known_compartment(x);
+  let y = cx.manage(String::from("hello"));
+\end{verbatim}
+This has type rule:
+\begin{quote}
+  if $cx: \REFMUT{\alpha}{\JSContext{S}}$
+  and $x: \JSManaged{C,T}$ \\
+  and $S: \CanAccess + \CanAlloc$
+  and $C: \Compartment$ \\
+  then $cx.\enterKnownCompartment(x) : \JSContext{S'}$ \\\mbox{}\quad
+  where $S': \alpha + \CanAccess + \CanAlloc + \InCompartment{C}$
+\end{quote}
 
+\subsection{Wildcard compartments}
+\label{sec:compartment-wildcard}
+
+Working with named compartments is fine when there is a fixed number of
+them, but not when the number of compartments is unbounded. For
+example, the type \verb|Vec<JSManaged<C, T>>| contains a vector of managed
+objects, all in the same compartment, but sometimes you need a vector
+of objects in different compartments. This is the same problem that
+existential polymorphism~\cite{expoly}, and in particular
+Java wildcards~\cite[\S8.1.2]{jls} is designed to solve, and we adopt
+a similar approach.
+
+The wildcard is called \verb|SOMEWHERE|, which we will
+often abbreviate as $\SOMEWHERE$.
+$\JSManaged{\SOMEWHERE, T}$ refers to JS-managed data whose
+compartment is unknown. For example \verb|Vec<JSManaged<?, T>>|
+contains a vector of managed objects, which may all be in different
+compartments.
+
+To create a wildcard, we use $x.\forgetCompartment()$, with type
+rule:
+\begin{quote}
+  if $x: \JSManaged{C,T}$ 
+  then $x.\forgetCompartment(): \JSManaged{\SOMEWHERE,T[\SOMEWHERE/C]}$
+\end{quote}
+Entering a wildcard compartment is the same as for a known compartment,
+but renames the compartment to a fresh name:
+\begin{quote}
+  if $cx: \REFMUT{\alpha}{\JSContext{S}}$
+  and $x: \JSManaged{\SOMEWHERE,T}$ \\
+  and $S: \CanAccess + \CanAlloc$ \\
+  then $cx.\enterUnknownCompartment(x) : \JSContext{S'}$ \\\mbox{}\quad
+  where $S': \alpha + \CanAccess + \CanAlloc + \InCompartment{D}$ \\\mbox{}\qquad
+  for fresh $D: \Compartment$.
+\end{quote}
+We also have a function $cx.\entered()$ of type $\JSManaged{D,T[D/\SOMEWHERE]}$,
+which gives access to $x$ in its newly named compartment.
+Note that access to data in a wildcard compartment is not allowed
+(in the type system this is enforced since we do not have $\SOMEWHERE:\Compartment$),
+for example:
+\begin{verbatim}
+  fn example<S>(cx: &mut JSContext<S>, x: JSManaged<SOMEWHERE, String>) where
+    S: CanAccess,
+  {
+    // We can't access x without first entering its compartment.
+    // Commenting out the next two lines gives an error
+    // the trait `Compartment` is not implemented for `SOMEWHERE`.
+    let ref mut cx = cx.enter_unknown_compartment(x);
+    let x = cx.entered();
+    println!("Hello, {}.", x.borrow(cx));
+  }
+\end{verbatim}
