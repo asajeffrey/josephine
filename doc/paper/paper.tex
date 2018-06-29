@@ -1,6 +1,5 @@
-% \documentclass[acmsmall,review,anonymous]{acmart}
 \documentclass[acmsmall]{acmart}
-\settopmatter{printfolios=true,printacmref=false}
+\settopmatter{printfolios=false,printacmref=false}
 
 \usepackage{macros}
 
@@ -13,12 +12,12 @@
 %% \acmDOI{} % \acmDOI{10.1145/nnnnnnn.nnnnnnn}
 %% \startPage{1}
 
-%\setcopyright{none}
-\setcopyright{rightsretained}
+\setcopyright{none}
+\pagestyle{plain}
 
 \begin{document}
 
-\title{Experience Report: Josephine}
+\title{Josephine}
 \subtitle{Using JavaScript to safely manage the lifetimes of Rust data}
 
 \author{Alan Jeffrey}
@@ -65,7 +64,9 @@ programming, but the languages being mixed are Rust and JavaScript.
 
 \keywords{JavaScript, Rust, interoperability, memory management, affine types}
 
+\renewcommand\footnotetextcopyrightpermission[1]{}
 \maketitle
+\thispagestyle{empty}
 
 \input{intro}
 \input{api}
