@@ -129,7 +129,7 @@ the JS-managed data itself doesn't move.
 Roots have type $\JSRoot{\beta,T}$ where $\beta$ is the lifetime
 of the root, and $T$ is the type being rooted.
 
-Once the local variables are rooted, the code typecheck,
+Once the local variables are rooted, the code typechecks,
 because rooting changes the lifetime of the JS-managed
 data, for example (when $\alpha \subseteq \beta$):
 \begin{quote}
