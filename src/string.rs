@@ -2,20 +2,19 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-use super::CanAlloc;
-use super::InCompartment;
-use super::JSTraceable;
-use super::JSContext;
-use super::JSLifetime;
 use super::ffi::JSEvaluateErr;
 use super::ffi::UNSAFE;
+use super::CanAlloc;
+use super::InCompartment;
+use super::JSContext;
+use super::JSLifetime;
+use super::JSTraceable;
 
 use js::glue::CallStringTracer;
 
 use js::jsapi;
-use js::jsapi::JS::GCTraceKindToAscii;
-use js::jsapi::JS::HandleValue;
-use js::heap::Heap;
+use js::jsapi::Heap;
+use js::jsapi::JSTracer;
 use js::jsapi::JS_FlattenString;
 use js::jsapi::JS_GetLatin1FlatStringChars;
 use js::jsapi::JS_GetStringLength;
@@ -23,7 +22,8 @@ use js::jsapi::JS_GetTwoByteFlatStringChars;
 use js::jsapi::JS_NewStringCopyN;
 use js::jsapi::JS_NewUCStringCopyN;
 use js::jsapi::JS_StringHasLatin1Chars;
-use js::jsapi::JSTracer;
+use js::jsapi::JS::GCTraceKindToAscii;
+use js::jsapi::JS::HandleValue;
 use js::jsapi::JS::TraceKind;
 
 use js::jsapi::JS::Value;
@@ -45,7 +45,7 @@ use std::str;
 pub struct JSString<'a, C> {
     // This string is always flattened, but we're not allowed to build a `Heap<*mut JSFlatString>`.
     js_string: *mut Heap<*mut jsapi::JSString>,
-    marker: PhantomData<(&'a(), C)>,
+    marker: PhantomData<(&'a (), C)>,
 }
 
 impl<'a, C> Clone for JSString<'a, C> {
@@ -110,13 +110,22 @@ impl<'a, C> JSString<'a, C> {
         }
     }
 
-    pub unsafe fn from_latin1_unchecked<S>(cx: &'a mut JSContext<S>, string: &str) -> JSString<'a, C> where
+    pub unsafe fn from_latin1_unchecked<S>(
+        cx: &'a mut JSContext<S>,
+        string: &str,
+    ) -> JSString<'a, C>
+    where
         S: CanAlloc + InCompartment<C>,
     {
-        JSString::from_jsstring(JS_NewStringCopyN(cx.cx(), string as *const str as *const i8, string.len()))
+        JSString::from_jsstring(JS_NewStringCopyN(
+            cx.cx(),
+            string as *const str as *const i8,
+            string.len(),
+        ))
     }
 
-    pub fn from_latin1<S>(cx: &'a mut JSContext<S>, string: &str) -> Option<JSString<'a, C>> where
+    pub fn from_latin1<S>(cx: &'a mut JSContext<S>, string: &str) -> Option<JSString<'a, C>>
+    where
         S: CanAlloc + InCompartment<C>,
     {
         if string.bytes().all(|byte| byte < 128) {
@@ -126,13 +135,21 @@ impl<'a, C> JSString<'a, C> {
         }
     }
 
-    pub fn from_twobyte<S>(cx: &'a mut JSContext<S>, slice: &[u16]) -> JSString<'a, C> where
+    pub fn from_twobyte<S>(cx: &'a mut JSContext<S>, slice: &[u16]) -> JSString<'a, C>
+    where
         S: CanAlloc + InCompartment<C>,
     {
-        unsafe { JSString::from_jsstring(JS_NewUCStringCopyN(cx.cx(), &slice[0] as *const u16, slice.len())) }
+        unsafe {
+            JSString::from_jsstring(JS_NewUCStringCopyN(
+                cx.cx(),
+                &slice[0] as *const u16,
+                slice.len(),
+            ))
+        }
     }
 
-    pub fn from_str<S>(cx: &'a mut JSContext<S>, string: &str) -> JSString<'a, C> where
+    pub fn from_str<S>(cx: &'a mut JSContext<S>, string: &str) -> JSString<'a, C>
+    where
         S: CanAlloc + InCompartment<C>,
     {
         if string.bytes().all(|byte| byte < 128) {
@@ -143,11 +160,14 @@ impl<'a, C> JSString<'a, C> {
         }
     }
 
-    pub fn clone_in<S, D>(self, cx: &'a mut JSContext<S>) -> JSString<'a, D> where
+    pub fn clone_in<S, D>(self, cx: &'a mut JSContext<S>) -> JSString<'a, D>
+    where
         S: CanAlloc + InCompartment<D>,
     {
         match self.contents() {
-            JSStringContents::Latin1(string) => unsafe { JSString::from_latin1_unchecked(cx, string) },
+            JSStringContents::Latin1(string) => unsafe {
+                JSString::from_latin1_unchecked(cx, string)
+            },
             JSStringContents::TwoByte(slice) => JSString::from_twobyte(cx, slice),
         }
     }
@@ -172,7 +192,7 @@ unsafe impl<'a, 'b, C> JSLifetime<'a> for JSString<'b, C> {
 
 pub enum JSStringContents<'a> {
     Latin1(&'a str),
-    TwoByte(&'a[u16]),
+    TwoByte(&'a [u16]),
 }
 
 impl<'a> Display for JSStringContents<'a> {
@@ -183,12 +203,15 @@ impl<'a> Display for JSStringContents<'a> {
                 .map(|ch| ch.unwrap_or(char::REPLACEMENT_CHARACTER))
                 .map(|ch| f.write_char(ch))
                 .find(Result::is_err)
-                .unwrap_or(Ok(()))
+                .unwrap_or(Ok(())),
         }
     }
 }
 
-pub unsafe fn jsstring_called_from_js<'a>(cx: *mut jsapi::JSContext, value: HandleValue) -> Result<JSString<'a, UNSAFE>, JSEvaluateErr> {
+pub unsafe fn jsstring_called_from_js<'a>(
+    cx: *mut jsapi::JSContext,
+    value: HandleValue,
+) -> Result<JSString<'a, UNSAFE>, JSEvaluateErr> {
     if !value.is_string() {
         return Err(JSEvaluateErr::NotAString);
     }

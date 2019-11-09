@@ -3,15 +3,16 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 #![feature(const_fn)]
-#![feature(const_ptr_null)]
 #![allow(dead_code)]
 #![deny(unsafe_code)]
 
 extern crate env_logger;
-extern crate mozjs as js;
 extern crate libc;
-#[macro_use] extern crate josephine;
-#[macro_use] extern crate log;
+extern crate mozjs as js;
+#[macro_use]
+extern crate josephine;
+#[macro_use]
+extern crate log;
 
 mod fake_codegen;
 mod minidom;

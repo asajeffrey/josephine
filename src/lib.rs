@@ -190,7 +190,7 @@
 //! }
 //! ```
 //!
-//! The example typechecks because the 
+//! The example typechecks because the
 //! constraints are that `'b` overlaps with `'c` and `'d`, and that
 //! `'c` and `'d` don't overlap. These constraints are satisfiable, so the
 //! example typechecks.
@@ -565,18 +565,14 @@
 //! ```
 
 #![feature(associated_type_defaults)]
-#![feature(const_fn)]
-#![feature(const_ptr_null)]
-#![feature(generic_param_attrs)]
 #![feature(dropck_eyepatch)]
-#![feature(refcell_replace_swap)]
-
+#[macro_use]
 extern crate mozjs;
 extern crate libc;
-#[macro_use] extern crate log;
+#[macro_use]
+extern crate log;
 
 pub mod context;
-pub use context::JSContext;
 pub use context::CanAccess;
 pub use context::CanAlloc;
 pub use context::InCompartment;
@@ -584,42 +580,39 @@ pub use context::Initialized;
 pub use context::IsInitialized;
 pub use context::IsInitializing;
 pub use context::IsSnapshot;
+pub use context::JSContext;
 
 pub mod compartment;
-pub use compartment::SOMEWHERE;
 pub use compartment::Compartment;
 pub use compartment::JSCompartmental;
+pub use compartment::SOMEWHERE;
 
 pub mod ffi;
 pub use ffi::JSInitializable;
 
-pub mod js {
+/* pub mod js {
     pub use mozjs::glue;
     pub use mozjs::jsval;
     pub use mozjs::rust;
-
-    #[cfg(feature = "smup")]
-    pub use mozjs::heap;
-    #[cfg(not(feature = "smup"))]
     pub use mozjs::jsapi as heap;
 
-    #[cfg(feature = "smup")]
     pub use mozjs::jsapi;
-    #[cfg(not(feature = "smup"))]
     pub mod jsapi {
         pub use mozjs::*;
         pub use mozjs::jsapi::*;
         pub use mozjs::jsapi as JS;
         pub use mozjs::jsapi as js;
     }
-}
+} */
+
+use mozjs as js;
 
 pub mod managed;
 pub use managed::JSManaged;
 
 pub mod root;
-pub use root::JSRoot;
 pub use root::JSLifetime;
+pub use root::JSRoot;
 
 pub mod string;
 pub use string::JSString;
@@ -628,6 +621,8 @@ pub mod trace;
 pub use trace::JSTraceable;
 
 // Re-export the derive macros
-#[allow(unused_imports)] #[macro_use] extern crate josephine_derive;
+#[allow(unused_imports)]
+#[macro_use]
+extern crate josephine_derive;
 #[doc(hidden)]
 pub use josephine_derive::*;

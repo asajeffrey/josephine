@@ -2,6 +2,11 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
+use js::jsapi::JSJitInfo;
+use js::jsapi::JSPropertySpec__bindgen_ty_1__bindgen_ty_1__bindgen_ty_2;
+use js::jsapi::JSPropertySpec__bindgen_ty_1__bindgen_ty_1__bindgen_ty_1;
+use js::jsapi::JSPropertySpec__bindgen_ty_1__bindgen_ty_1;
+use js::jsapi::JSPropertySpec__bindgen_ty_1;
 use js::jsapi;
 use js::jsapi::CallArgs;
 use js::jsapi::JSClass;
@@ -11,7 +16,7 @@ use js::jsapi::JSNativeWrapper;
 use js::jsapi::JSPropertySpec;
 use js::jsapi::JS_GlobalObjectTraceHook;
 use js::jsapi::JSPROP_ENUMERATE;
-use js::jsapi::JSPROP_SHARED;
+//use js::jsapi::JSPROP_SHARED;
 
 use js::jsval::JSVal;
 use js::jsval::UndefinedValue;
@@ -21,13 +26,6 @@ use js::panic::wrap_panic;
 use libc::c_char;
 use libc::c_uint;
 
-use josephine::CanAccess;
-use josephine::CanAlloc;
-use josephine::Compartment;
-use josephine::JSContext;
-use josephine::JSString;
-use josephine::ffi::JSEvaluateErr;
-use josephine::ffi::JSInitializer;
 use josephine::ffi::finalize_jsobject_with_native_data;
 use josephine::ffi::jsclass_global_flags_with_slots;
 use josephine::ffi::jsclass_has_reserved_slots;
@@ -38,6 +36,13 @@ use josephine::ffi::null_function;
 use josephine::ffi::null_property;
 use josephine::ffi::null_wrapper;
 use josephine::ffi::trace_jsobject_with_native_data;
+use josephine::ffi::JSEvaluateErr;
+use josephine::ffi::JSInitializer;
+use josephine::CanAccess;
+use josephine::CanAlloc;
+use josephine::Compartment;
+use josephine::JSContext;
+use josephine::JSString;
 
 use minidom::Console;
 use minidom::Document;
@@ -54,9 +59,18 @@ use std::ptr;
 
 #[allow(non_snake_case)]
 pub trait WindowMethods<'a, C> {
-    fn Console<S>(self, cx: &'a JSContext<S>) -> Console<'a, C> where S: CanAccess + CanAlloc, C: Compartment;
-    fn Document<S>(self, cx: &'a JSContext<S>) -> Document<'a, C> where S: CanAccess + CanAlloc, C: Compartment;
-    fn Window<S>(self, cx: &'a JSContext<S>) -> Window<'a, C> where S: CanAccess + CanAlloc, C: Compartment;
+    fn Console<S>(self, cx: &'a JSContext<S>) -> Console<'a, C>
+    where
+        S: CanAccess + CanAlloc,
+        C: Compartment;
+    fn Document<S>(self, cx: &'a JSContext<S>) -> Document<'a, C>
+    where
+        S: CanAccess + CanAlloc,
+        C: Compartment;
+    fn Window<S>(self, cx: &'a JSContext<S>) -> Window<'a, C>
+    where
+        S: CanAccess + CanAlloc,
+        C: Compartment;
 }
 
 static WINDOW_CLASS: JSClass = JSClass {
@@ -64,16 +78,15 @@ static WINDOW_CLASS: JSClass = JSClass {
     flags: jsclass_global_flags_with_slots(2),
     cOps: &JSClassOps {
         addProperty: None,
-        call: None,
-        construct: None,
         delProperty: None,
         enumerate: None,
-        finalize: Some(finalize_jsobject_with_native_data),
-        getProperty: None,
-        hasInstance: None,
-        mayResolve: None,
+        newEnumerate: None,
         resolve: None,
-        setProperty: None,
+        mayResolve: None,
+        finalize: Some(finalize_jsobject_with_native_data),
+        call: None,
+        hasInstance: None,
+        construct: None,
         trace: Some(JS_GlobalObjectTraceHook),
     },
     reserved: [0 as *mut _; 3],
@@ -82,47 +95,75 @@ static WINDOW_CLASS: JSClass = JSClass {
 const WINDOW_PROPERTIES: &[JSPropertySpec] = &[
     JSPropertySpec {
         name: b"window\0" as *const u8 as *const c_char,
-        flags: (JSPROP_ENUMERATE | JSPROP_SHARED) as u8,
-        getter: JSNativeWrapper {
-            op: Some(window_window_getter_op),
-            info: ptr::null(),
-        },
-        setter: null_wrapper(),
+        flags: (JSPROP_ENUMERATE) as u8,
+        __bindgen_anon_1: JSPropertySpec__bindgen_ty_1 {
+            accessors: JSPropertySpec__bindgen_ty_1__bindgen_ty_1 {
+                getter: JSPropertySpec__bindgen_ty_1__bindgen_ty_1__bindgen_ty_1 {
+                    native: JSNativeWrapper { op: Some(window_window_getter_op), info: ptr::null() },
+                },
+                setter: JSPropertySpec__bindgen_ty_1__bindgen_ty_1__bindgen_ty_2 {
+                    native: JSNativeWrapper { op: None, info: 0 as *const JSJitInfo },
+                }
+            }
+        }
     },
     JSPropertySpec {
         name: b"console\0" as *const u8 as *const c_char,
-        flags: (JSPROP_ENUMERATE | JSPROP_SHARED) as u8,
-        getter: JSNativeWrapper {
-            op: Some(window_console_getter_op),
-            info: ptr::null(),
-        },
-        setter: null_wrapper(),
+        flags: (JSPROP_ENUMERATE) as u8,
+        __bindgen_anon_1: JSPropertySpec__bindgen_ty_1 {
+            accessors: JSPropertySpec__bindgen_ty_1__bindgen_ty_1 {
+                getter: JSPropertySpec__bindgen_ty_1__bindgen_ty_1__bindgen_ty_1 {
+                    native: JSNativeWrapper { op: Some(window_console_getter_op), info: ptr::null() },
+                },
+                setter: JSPropertySpec__bindgen_ty_1__bindgen_ty_1__bindgen_ty_2 {
+                    native: JSNativeWrapper { op: None, info: 0 as *const JSJitInfo },
+                }
+            }
+        }
     },
     JSPropertySpec {
         name: b"document\0" as *const u8 as *const c_char,
-        flags: (JSPROP_ENUMERATE | JSPROP_SHARED) as u8,
-        getter: JSNativeWrapper {
-            op: Some(window_document_getter_op),
-            info: ptr::null(),
-        },
-        setter: null_wrapper(),
+        flags: (JSPROP_ENUMERATE) as u8,
+        __bindgen_anon_1: JSPropertySpec__bindgen_ty_1 {
+            accessors: JSPropertySpec__bindgen_ty_1__bindgen_ty_1 {
+                getter: JSPropertySpec__bindgen_ty_1__bindgen_ty_1__bindgen_ty_1 {
+                    native: JSNativeWrapper { op: Some(window_document_getter_op), info: ptr::null() },
+                },
+                setter: JSPropertySpec__bindgen_ty_1__bindgen_ty_1__bindgen_ty_2 {
+                    native: JSNativeWrapper { op: None, info: 0 as *const JSJitInfo },
+                }
+            }
+        }
     },
     null_property(),
 ];
 
 #[allow(unsafe_code)]
-unsafe extern "C" fn window_window_getter_op(cx: *mut jsapi::JSContext, argc: c_uint, vp: *mut JSVal) -> bool {
-    wrap_panic(panic::AssertUnwindSafe(|| {
-        let args = CallArgs::from_vp(vp, argc);
-        match window_window_getter(cx, args) {
-            Ok(result) => { args.rval().set(result); true },
-            Err(_err) => { false } // TODO: set the exception
-        }
-    }), false)
+unsafe extern "C" fn window_window_getter_op(
+    cx: *mut jsapi::JSContext,
+    argc: c_uint,
+    vp: *mut JSVal,
+) -> bool {
+    wrap_panic(
+        panic::AssertUnwindSafe(|| {
+            let args = CallArgs::from_vp(vp, argc);
+            match window_window_getter(cx, args) {
+                Ok(result) => {
+                    args.rval().set(result);
+                    true
+                }
+                Err(_err) => false, // TODO: set the exception
+            }
+        }),
+        false,
+    )
 }
 
 #[allow(unsafe_code)]
-unsafe fn window_window_getter(cx: *mut jsapi::JSContext, args: CallArgs) -> Result<JSVal, JSEvaluateErr> {
+unsafe fn window_window_getter(
+    cx: *mut jsapi::JSContext,
+    args: CallArgs,
+) -> Result<JSVal, JSEvaluateErr> {
     debug!("Getting window.");
     let this = Window(jsmanaged_called_from_js(args.thisv())?);
     let ref mut cx = jscontext_called_from_js(cx);
@@ -131,18 +172,31 @@ unsafe fn window_window_getter(cx: *mut jsapi::JSContext, args: CallArgs) -> Res
 }
 
 #[allow(unsafe_code)]
-unsafe extern "C" fn window_console_getter_op(cx: *mut jsapi::JSContext, argc: c_uint, vp: *mut JSVal) -> bool {
-    wrap_panic(panic::AssertUnwindSafe(|| {
-        let args = CallArgs::from_vp(vp, argc);
-        match window_console_getter(cx, args) {
-            Ok(result) => { args.rval().set(result); true },
-            Err(_err) => { false } // TODO: set the exception
-        }
-    }), false)
+unsafe extern "C" fn window_console_getter_op(
+    cx: *mut jsapi::JSContext,
+    argc: c_uint,
+    vp: *mut JSVal,
+) -> bool {
+    wrap_panic(
+        panic::AssertUnwindSafe(|| {
+            let args = CallArgs::from_vp(vp, argc);
+            match window_console_getter(cx, args) {
+                Ok(result) => {
+                    args.rval().set(result);
+                    true
+                }
+                Err(_err) => false, // TODO: set the exception
+            }
+        }),
+        false,
+    )
 }
 
 #[allow(unsafe_code)]
-unsafe fn window_console_getter(cx: *mut jsapi::JSContext, args: CallArgs) -> Result<JSVal, JSEvaluateErr> {
+unsafe fn window_console_getter(
+    cx: *mut jsapi::JSContext,
+    args: CallArgs,
+) -> Result<JSVal, JSEvaluateErr> {
     debug!("Getting console.");
     let this = Window(jsmanaged_called_from_js(args.thisv())?);
     let ref mut cx = jscontext_called_from_js(cx);
@@ -151,18 +205,31 @@ unsafe fn window_console_getter(cx: *mut jsapi::JSContext, args: CallArgs) -> Re
 }
 
 #[allow(unsafe_code)]
-unsafe extern "C" fn window_document_getter_op(cx: *mut jsapi::JSContext, argc: c_uint, vp: *mut JSVal) -> bool {
-    wrap_panic(panic::AssertUnwindSafe(|| {
-        let args = CallArgs::from_vp(vp, argc);
-        match window_document_getter(cx, args) {
-            Ok(result) => { args.rval().set(result); true },
-            Err(_err) => { false } // TODO: set the exception
-        }
-    }), false)
+unsafe extern "C" fn window_document_getter_op(
+    cx: *mut jsapi::JSContext,
+    argc: c_uint,
+    vp: *mut JSVal,
+) -> bool {
+    wrap_panic(
+        panic::AssertUnwindSafe(|| {
+            let args = CallArgs::from_vp(vp, argc);
+            match window_document_getter(cx, args) {
+                Ok(result) => {
+                    args.rval().set(result);
+                    true
+                }
+                Err(_err) => false, // TODO: set the exception
+            }
+        }),
+        false,
+    )
 }
 
 #[allow(unsafe_code)]
-unsafe fn window_document_getter(cx: *mut jsapi::JSContext, args: CallArgs) -> Result<JSVal, JSEvaluateErr> {
+unsafe fn window_document_getter(
+    cx: *mut jsapi::JSContext,
+    args: CallArgs,
+) -> Result<JSVal, JSEvaluateErr> {
     debug!("Getting document.");
     let this = Window(jsmanaged_called_from_js(args.thisv())?);
     let ref mut cx = jscontext_called_from_js(cx);
@@ -188,7 +255,10 @@ impl JSInitializer for WindowInitializer {
 
 #[allow(non_snake_case)]
 pub trait ConsoleMethods<'a, C> {
-    fn Log<S>(self, cx: &'a mut JSContext<S>, arg: JSString<'a, C>) where S: CanAccess + CanAlloc, C: Compartment;
+    fn Log<S>(self, cx: &'a mut JSContext<S>, arg: JSString<'a, C>)
+    where
+        S: CanAccess + CanAlloc,
+        C: Compartment;
 }
 
 static CONSOLE_CLASS: JSClass = JSClass {
@@ -196,16 +266,15 @@ static CONSOLE_CLASS: JSClass = JSClass {
     flags: jsclass_has_reserved_slots(2),
     cOps: &JSClassOps {
         addProperty: None,
-        call: None,
-        construct: None,
         delProperty: None,
         enumerate: None,
-        finalize: Some(finalize_jsobject_with_native_data),
-        getProperty: None,
-        hasInstance: None,
-        mayResolve: None,
+        newEnumerate: None,
         resolve: None,
-        setProperty: None,
+        mayResolve: None,
+        finalize: Some(finalize_jsobject_with_native_data),
+        call: None,
+        hasInstance: None,
+        construct: None,
         trace: Some(trace_jsobject_with_native_data),
     },
     reserved: [0 as *mut _; 3],
@@ -240,14 +309,24 @@ impl JSInitializer for ConsoleInitializer {
 }
 
 #[allow(unsafe_code)]
-unsafe extern "C" fn console_log_op(cx: *mut jsapi::JSContext, argc: c_uint, vp: *mut JSVal) -> bool {
-    wrap_panic(panic::AssertUnwindSafe(|| {
-        let args = CallArgs::from_vp(vp, argc);
-        match console_log(cx, args) {
-            Ok(result) => { args.rval().set(result); true },
-            Err(_err) => { false } // TODO: set the exception
-        }
-    }), false)
+unsafe extern "C" fn console_log_op(
+    cx: *mut jsapi::JSContext,
+    argc: c_uint,
+    vp: *mut JSVal,
+) -> bool {
+    wrap_panic(
+        panic::AssertUnwindSafe(|| {
+            let args = CallArgs::from_vp(vp, argc);
+            match console_log(cx, args) {
+                Ok(result) => {
+                    args.rval().set(result);
+                    true
+                }
+                Err(_err) => false, // TODO: set the exception
+            }
+        }),
+        false,
+    )
 }
 
 #[allow(unsafe_code)]
@@ -264,7 +343,10 @@ unsafe fn console_log(cx: *mut jsapi::JSContext, args: CallArgs) -> Result<JSVal
 
 #[allow(non_snake_case)]
 pub trait DocumentMethods<'a, C> {
-    fn Body<S>(self, cx: &'a mut JSContext<S>) -> Element<'a, C> where S: CanAccess + CanAlloc, C: Compartment;
+    fn Body<S>(self, cx: &'a mut JSContext<S>) -> Element<'a, C>
+    where
+        S: CanAccess + CanAlloc,
+        C: Compartment;
 }
 
 static DOCUMENT_CLASS: JSClass = JSClass {
@@ -272,16 +354,15 @@ static DOCUMENT_CLASS: JSClass = JSClass {
     flags: jsclass_has_reserved_slots(2),
     cOps: &JSClassOps {
         addProperty: None,
-        call: None,
-        construct: None,
         delProperty: None,
         enumerate: None,
-        finalize: Some(finalize_jsobject_with_native_data),
-        getProperty: None,
-        hasInstance: None,
-        mayResolve: None,
+        newEnumerate: None,
         resolve: None,
-        setProperty: None,
+        mayResolve: None,
+        finalize: Some(finalize_jsobject_with_native_data),
+        call: None,
+        hasInstance: None,
+        construct: None,
         trace: Some(trace_jsobject_with_native_data),
     },
     reserved: [0 as *mut _; 3],
@@ -290,12 +371,17 @@ static DOCUMENT_CLASS: JSClass = JSClass {
 const DOCUMENT_PROPERTIES: &[JSPropertySpec] = &[
     JSPropertySpec {
         name: b"body\0" as *const u8 as *const c_char,
-        flags: (JSPROP_ENUMERATE | JSPROP_SHARED) as u8,
-        getter: JSNativeWrapper {
-            op: Some(document_body_getter_op),
-            info: ptr::null(),
-        },
-        setter: null_wrapper(),
+        flags: (JSPROP_ENUMERATE) as u8,
+        __bindgen_anon_1: JSPropertySpec__bindgen_ty_1 {
+            accessors: JSPropertySpec__bindgen_ty_1__bindgen_ty_1 {
+                getter: JSPropertySpec__bindgen_ty_1__bindgen_ty_1__bindgen_ty_1 {
+                    native: JSNativeWrapper { op: Some(document_body_getter_op), info: ptr::null() },
+                },
+                setter: JSPropertySpec__bindgen_ty_1__bindgen_ty_1__bindgen_ty_2 {
+                    native: JSNativeWrapper { op: None, info: 0 as *const JSJitInfo },
+                }
+            }
+        }
     },
     null_property(),
 ];
@@ -315,18 +401,31 @@ impl JSInitializer for DocumentInitializer {
 }
 
 #[allow(unsafe_code)]
-unsafe extern "C" fn document_body_getter_op(cx: *mut jsapi::JSContext, argc: c_uint, vp: *mut JSVal) -> bool {
-    wrap_panic(panic::AssertUnwindSafe(|| {
-        let args = CallArgs::from_vp(vp, argc);
-        match document_body_getter(cx, args) {
-            Ok(result) => { args.rval().set(result); true },
-            Err(_err) => { false } // TODO: set the exception
-        }
-    }), false)
+unsafe extern "C" fn document_body_getter_op(
+    cx: *mut jsapi::JSContext,
+    argc: c_uint,
+    vp: *mut JSVal,
+) -> bool {
+    wrap_panic(
+        panic::AssertUnwindSafe(|| {
+            let args = CallArgs::from_vp(vp, argc);
+            match document_body_getter(cx, args) {
+                Ok(result) => {
+                    args.rval().set(result);
+                    true
+                }
+                Err(_err) => false, // TODO: set the exception
+            }
+        }),
+        false,
+    )
 }
 
 #[allow(unsafe_code)]
-unsafe fn document_body_getter(cx: *mut jsapi::JSContext, args: CallArgs) -> Result<JSVal, JSEvaluateErr> {
+unsafe fn document_body_getter(
+    cx: *mut jsapi::JSContext,
+    args: CallArgs,
+) -> Result<JSVal, JSEvaluateErr> {
     debug!("Getting body.");
     let this = Document(jsmanaged_called_from_js(args.thisv())?);
     let ref mut cx = jscontext_called_from_js(cx);
@@ -338,9 +437,19 @@ unsafe fn document_body_getter(cx: *mut jsapi::JSContext, args: CallArgs) -> Res
 
 #[allow(non_snake_case)]
 pub trait ElementMethods<'a, C> {
-    fn Parent<S>(self, cx: &'a mut JSContext<S>) -> Option<Element<'a, C>> where S: CanAccess + CanAlloc, C: Compartment;
-    fn TagName<S>(self, cx: &'a mut JSContext<S>) -> JSString<'a, C> where S: CanAccess + CanAlloc, C: Compartment;
-    fn Append<S, D>(self, cx: &'a mut JSContext<S>, child: Element<'a, D>) where S: CanAccess + CanAlloc, C: Compartment, D: Compartment;
+    fn Parent<S>(self, cx: &'a mut JSContext<S>) -> Option<Element<'a, C>>
+    where
+        S: CanAccess + CanAlloc,
+        C: Compartment;
+    fn TagName<S>(self, cx: &'a mut JSContext<S>) -> JSString<'a, C>
+    where
+        S: CanAccess + CanAlloc,
+        C: Compartment;
+    fn Append<S, D>(self, cx: &'a mut JSContext<S>, child: Element<'a, D>)
+    where
+        S: CanAccess + CanAlloc,
+        C: Compartment,
+        D: Compartment;
 }
 
 static ELEMENT_CLASS: JSClass = JSClass {
@@ -348,16 +457,15 @@ static ELEMENT_CLASS: JSClass = JSClass {
     flags: jsclass_has_reserved_slots(2),
     cOps: &JSClassOps {
         addProperty: None,
-        call: None,
-        construct: None,
         delProperty: None,
         enumerate: None,
-        finalize: Some(finalize_jsobject_with_native_data),
-        getProperty: None,
-        hasInstance: None,
-        mayResolve: None,
+        newEnumerate: None,
         resolve: None,
-        setProperty: None,
+        mayResolve: None,
+        finalize: Some(finalize_jsobject_with_native_data),
+        call: None,
+        hasInstance: None,
+        construct: None,
         trace: Some(trace_jsobject_with_native_data),
     },
     reserved: [0 as *mut _; 3],
@@ -366,21 +474,31 @@ static ELEMENT_CLASS: JSClass = JSClass {
 const ELEMENT_PROPERTIES: &[JSPropertySpec] = &[
     JSPropertySpec {
         name: b"parent\0" as *const u8 as *const c_char,
-        flags: (JSPROP_ENUMERATE | JSPROP_SHARED) as u8,
-        getter: JSNativeWrapper {
-            op: Some(element_parent_getter_op),
-            info: ptr::null(),
-        },
-        setter: null_wrapper(),
+        flags: (JSPROP_ENUMERATE) as u8,
+        __bindgen_anon_1: JSPropertySpec__bindgen_ty_1 {
+            accessors: JSPropertySpec__bindgen_ty_1__bindgen_ty_1 {
+                getter: JSPropertySpec__bindgen_ty_1__bindgen_ty_1__bindgen_ty_1 {
+                    native: JSNativeWrapper { op: Some(element_parent_getter_op), info: ptr::null() },
+                },
+                setter: JSPropertySpec__bindgen_ty_1__bindgen_ty_1__bindgen_ty_2 {
+                    native: JSNativeWrapper { op: None, info: 0 as *const JSJitInfo },
+                }
+            }
+        }
     },
     JSPropertySpec {
         name: b"tagName\0" as *const u8 as *const c_char,
-        flags: (JSPROP_ENUMERATE | JSPROP_SHARED) as u8,
-        getter: JSNativeWrapper {
-            op: Some(element_tagName_getter_op),
-            info: ptr::null(),
-        },
-        setter: null_wrapper(),
+        flags: (JSPROP_ENUMERATE) as u8,
+        __bindgen_anon_1: JSPropertySpec__bindgen_ty_1 {
+            accessors: JSPropertySpec__bindgen_ty_1__bindgen_ty_1 {
+                getter: JSPropertySpec__bindgen_ty_1__bindgen_ty_1__bindgen_ty_1 {
+                    native: JSNativeWrapper { op: Some(element_tagName_getter_op), info: ptr::null() },
+                },
+                setter: JSPropertySpec__bindgen_ty_1__bindgen_ty_1__bindgen_ty_2 {
+                    native: JSNativeWrapper { op: None, info: 0 as *const JSJitInfo },
+                }
+            }
+        }
     },
     null_property(),
 ];
@@ -400,42 +518,69 @@ impl JSInitializer for ElementInitializer {
 }
 
 #[allow(unsafe_code)]
-unsafe extern "C" fn element_parent_getter_op(cx: *mut jsapi::JSContext, argc: c_uint, vp: *mut JSVal) -> bool {
-    wrap_panic(panic::AssertUnwindSafe(|| {
-        let args = CallArgs::from_vp(vp, argc);
-        match element_parent_getter(cx, args) {
-            Ok(result) => { args.rval().set(result); true },
-            Err(_err) => { false } // TODO: set the exception
-        }
-    }), false)
+unsafe extern "C" fn element_parent_getter_op(
+    cx: *mut jsapi::JSContext,
+    argc: c_uint,
+    vp: *mut JSVal,
+) -> bool {
+    wrap_panic(
+        panic::AssertUnwindSafe(|| {
+            let args = CallArgs::from_vp(vp, argc);
+            match element_parent_getter(cx, args) {
+                Ok(result) => {
+                    args.rval().set(result);
+                    true
+                }
+                Err(_err) => false, // TODO: set the exception
+            }
+        }),
+        false,
+    )
 }
 
 #[allow(unsafe_code)]
-unsafe fn element_parent_getter(cx: *mut jsapi::JSContext, args: CallArgs) -> Result<JSVal, JSEvaluateErr> {
+unsafe fn element_parent_getter(
+    cx: *mut jsapi::JSContext,
+    args: CallArgs,
+) -> Result<JSVal, JSEvaluateErr> {
     debug!("Getting parent.");
     let this = Element(jsmanaged_called_from_js(args.thisv())?);
     let ref mut cx = jscontext_called_from_js(cx);
     let result = this.Parent(cx);
-    Ok(result.map(|result| result.0.to_jsval()).unwrap_or(UndefinedValue()))
+    Ok(result
+        .map(|result| result.0.to_jsval())
+        .unwrap_or(UndefinedValue()))
 }
 
-#[allow(unsafe_code,non_snake_case)]
-unsafe extern "C" fn element_tagName_getter_op(cx: *mut jsapi::JSContext, argc: c_uint, vp: *mut JSVal) -> bool {
-    wrap_panic(panic::AssertUnwindSafe(|| {
-        let args = CallArgs::from_vp(vp, argc);
-        match element_tagName_getter(cx, args) {
-            Ok(result) => { args.rval().set(result); true },
-            Err(_err) => { false } // TODO: set the exception
-        }
-    }), false)
+#[allow(unsafe_code, non_snake_case)]
+unsafe extern "C" fn element_tagName_getter_op(
+    cx: *mut jsapi::JSContext,
+    argc: c_uint,
+    vp: *mut JSVal,
+) -> bool {
+    wrap_panic(
+        panic::AssertUnwindSafe(|| {
+            let args = CallArgs::from_vp(vp, argc);
+            match element_tagName_getter(cx, args) {
+                Ok(result) => {
+                    args.rval().set(result);
+                    true
+                }
+                Err(_err) => false, // TODO: set the exception
+            }
+        }),
+        false,
+    )
 }
 
-#[allow(unsafe_code,non_snake_case)]
-unsafe fn element_tagName_getter(cx: *mut jsapi::JSContext, args: CallArgs) -> Result<JSVal, JSEvaluateErr> {
+#[allow(unsafe_code, non_snake_case)]
+unsafe fn element_tagName_getter(
+    cx: *mut jsapi::JSContext,
+    args: CallArgs,
+) -> Result<JSVal, JSEvaluateErr> {
     debug!("Getting tagName.");
     let this = Element(jsmanaged_called_from_js(args.thisv())?);
     let ref mut cx = jscontext_called_from_js(cx);
     let result = this.TagName(cx);
     Ok(result.to_jsval())
 }
-

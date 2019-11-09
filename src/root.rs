@@ -25,7 +25,7 @@ pub struct JSRoot<'a, T: 'a> {
 
 const DUMMY: *mut JSTraceable = &() as *const JSTraceable as *mut JSTraceable;
 
-impl<'a, T:'a> JSRoot<'a, T> {
+impl<'a, T: 'a> JSRoot<'a, T> {
     pub fn new<S>(_cx: &mut JSContext<S>) -> JSRoot<'a, T> {
         JSRoot {
             value: None,
@@ -40,7 +40,7 @@ impl<'a, T:'a> JSRoot<'a, T> {
 }
 
 /// A stack allocated root that has been pinned, so the backing store can't move.
-pub struct JSPinnedRoot<'a, T: 'a> (&'a mut JSRoot<'a, T>);
+pub struct JSPinnedRoot<'a, T: 'a>(&'a mut JSRoot<'a, T>);
 
 /// A doubly linked list with all the pinned roots.
 #[derive(Eq, PartialEq)]
@@ -106,7 +106,9 @@ struct JSUntypedPinnedRoot {
 
 impl Drop for JSUntypedPinnedRoot {
     fn drop(&mut self) {
-        unsafe { (&mut *thread_local_roots()).remove(self); }
+        unsafe {
+            (&mut *thread_local_roots()).remove(self);
+        }
     }
 }
 
@@ -115,17 +117,24 @@ impl Drop for JSUntypedPinnedRoot {
 pub unsafe trait JSLifetime<'a> {
     type Aged;
 
-    unsafe fn change_lifetime(self) -> Self::Aged where Self: Sized {
+    unsafe fn change_lifetime(self) -> Self::Aged
+    where
+        Self: Sized,
+    {
         let result = mem::transmute_copy(&self);
         mem::forget(self);
         result
     }
 
-    fn contract_lifetime(self) -> Self::Aged where Self: 'a + Sized {
+    fn contract_lifetime(self) -> Self::Aged
+    where
+        Self: 'a + Sized,
+    {
         unsafe { self.change_lifetime() }
     }
 
-    fn in_root(self, root: &'a mut JSRoot<'a, Self::Aged>) -> Self::Aged where
+    fn in_root(self, root: &'a mut JSRoot<'a, Self::Aged>) -> Self::Aged
+    where
         Self: Sized,
         Self::Aged: Copy + JSTraceable,
     {
@@ -133,12 +142,27 @@ pub unsafe trait JSLifetime<'a> {
     }
 }
 
-unsafe impl<'a> JSLifetime<'a> for String { type Aged = String; }
-unsafe impl<'a> JSLifetime<'a> for usize { type Aged = usize; }
-unsafe impl<'a, T> JSLifetime<'a> for Option<T> where T: JSLifetime<'a> { type Aged = Option<T::Aged>; }
-unsafe impl<'a, T> JSLifetime<'a> for Vec<T> where T: JSLifetime<'a> { type Aged = Vec<T::Aged>; }
+unsafe impl<'a> JSLifetime<'a> for String {
+    type Aged = String;
+}
+unsafe impl<'a> JSLifetime<'a> for usize {
+    type Aged = usize;
+}
+unsafe impl<'a, T> JSLifetime<'a> for Option<T>
+where
+    T: JSLifetime<'a>,
+{
+    type Aged = Option<T::Aged>;
+}
+unsafe impl<'a, T> JSLifetime<'a> for Vec<T>
+where
+    T: JSLifetime<'a>,
+{
+    type Aged = Vec<T::Aged>;
+}
 
-unsafe impl<'a, 'b, C, T> JSLifetime<'a> for JSManaged<'b, C, T> where
+unsafe impl<'a, 'b, C, T> JSLifetime<'a> for JSManaged<'b, C, T>
+where
     T: JSLifetime<'a>,
 {
     type Aged = JSManaged<'a, C, T::Aged>;
@@ -148,9 +172,10 @@ impl<'a, T> JSRoot<'a, T> {
     // This uses Sgeo's trick to stop the JSRoot being forgotten by `mem::forget`.
     // The pin takes a `&'a mut JSRoot<'a, T>`, so borrows the root for the
     // duration of `'a`, so the type is no longer valid after the pin is dropped.
-    pub fn pin<U>(&'a mut self, value: U) -> &'a T where
+    pub fn pin<U>(&'a mut self, value: U) -> &'a T
+    where
         T: JSTraceable,
-        U: JSLifetime<'a, Aged=T>,
+        U: JSLifetime<'a, Aged = T>,
     {
         let roots = unsafe { &mut *thread_local_roots() };
         self.value = Some(unsafe { value.change_lifetime() });
@@ -159,9 +184,10 @@ impl<'a, T> JSRoot<'a, T> {
         self.value.as_ref().unwrap()
     }
 
-    pub fn set<U>(&'a mut self, value: U) -> T where
+    pub fn set<U>(&'a mut self, value: U) -> T
+    where
         T: Copy + JSTraceable,
-        U: JSLifetime<'a, Aged=T>,
+        U: JSLifetime<'a, Aged = T>,
     {
         *self.pin(value)
     }

@@ -2,24 +2,24 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
+use super::ffi::JSEvaluateErr;
+use super::ffi::JSInitializer;
+use super::ffi::UNSAFE;
 use super::CanAccess;
 use super::CanAlloc;
 use super::Compartment;
 use super::InCompartment;
 use super::IsSnapshot;
+use super::JSCompartmental;
 use super::JSContext;
 use super::JSInitializable;
 use super::JSLifetime;
 use super::JSTraceable;
-use super::JSCompartmental;
 use super::SOMEWHERE;
-use super::ffi::JSEvaluateErr;
-use super::ffi::JSInitializer;
-use super::ffi::UNSAFE;
 
 use js::glue::CallObjectTracer;
 
-use js::heap::Heap;
+use js::jsapi::Heap;
 
 use js::jsapi::JS::CurrentGlobalOrNull;
 use js::jsapi::JS::GCTraceKindToAscii;
@@ -27,7 +27,7 @@ use js::jsapi::JS::HandleValue;
 use js::jsapi::JS::TraceKind;
 use js::jsapi::JS::Value;
 
-use js::jsapi::js::GetGlobalForObjectCrossCompartment;
+//use js::jsapi::js::GetGlobalForObjectCrossCompartment;
 
 use js::jsapi::JSObject;
 use js::jsapi::JSTracer;
@@ -44,8 +44,8 @@ use libc;
 use std::any::TypeId;
 use std::fmt;
 use std::fmt::Debug;
-use std::mem;
 use std::marker::PhantomData;
+use std::mem;
 
 /// The type of JS-managed data in a JS compartment `C`, with lifetime `'a` and type `T`.
 ///
@@ -54,7 +54,7 @@ use std::marker::PhantomData;
 pub struct JSManaged<'a, C, T> {
     js_object: *mut Heap<*mut JSObject>,
     raw: *mut (),
-    marker: PhantomData<(&'a(), C, T)>
+    marker: PhantomData<(&'a (), C, T)>,
 }
 
 impl<'a, C, T> Clone for JSManaged<'a, C, T> {
@@ -67,8 +67,7 @@ impl<'a, C, T> Clone for JSManaged<'a, C, T> {
     }
 }
 
-impl<'a, C, T> Copy for JSManaged<'a, C, T> {
-}
+impl<'a, C, T> Copy for JSManaged<'a, C, T> {}
 
 impl<'a, C, T> Debug for JSManaged<'a, C, T> {
     fn fmt(&self, fmt: &mut fmt::Formatter) -> Result<(), fmt::Error> {
@@ -85,10 +84,10 @@ impl<'a, C, T> PartialEq for JSManaged<'a, C, T> {
     }
 }
 
-impl<'a, C, T> Eq for JSManaged<'a, C, T> {
-}
+impl<'a, C, T> Eq for JSManaged<'a, C, T> {}
 
-unsafe impl<'a, C, T> JSTraceable for JSManaged<'a, C, T> where
+unsafe impl<'a, C, T> JSTraceable for JSManaged<'a, C, T>
+where
     T: JSTraceable,
 {
     unsafe fn trace(&self, trc: *mut JSTracer) {
@@ -98,7 +97,8 @@ unsafe impl<'a, C, T> JSTraceable for JSManaged<'a, C, T> where
 }
 
 impl<'a, C, T> JSManaged<'a, C, T> {
-    pub fn new<S>(cx: &'a mut JSContext<S>, value: T) -> JSManaged<'a, C, T::Aged> where
+    pub fn new<S>(cx: &'a mut JSContext<S>, value: T) -> JSManaged<'a, C, T::Aged>
+    where
         S: CanAlloc + InCompartment<C>,
         C: Compartment,
         T: JSTraceable + JSInitializable + JSLifetime<'a>,
@@ -109,7 +109,8 @@ impl<'a, C, T> JSManaged<'a, C, T> {
 
         let boxed_jsobject = Box::new(Heap::default());
         debug!("Boxed object {:p}", boxed_jsobject);
-        let unboxed_jsobject = unsafe { JS_NewObjectWithGivenProto(jsapi_context, T::Init::classp(), prototype) };
+        let unboxed_jsobject =
+            unsafe { JS_NewObjectWithGivenProto(jsapi_context, T::Init::classp(), prototype) };
         debug!("Unboxed object {:p}", unboxed_jsobject);
         assert!(!unboxed_jsobject.is_null());
         boxed_jsobject.set(unboxed_jsobject);
@@ -117,15 +118,10 @@ impl<'a, C, T> JSManaged<'a, C, T> {
         // Save a pointer to the native value in a private slot
         let boxed_value: Box<JSManageable> = Box::new(Some(value));
         let fat_value: [*const libc::c_void; 2] = unsafe { mem::transmute(boxed_value) };
-        #[cfg(feature = "smup")]
+
         unsafe {
             JS_SetReservedSlot(boxed_jsobject.get(), 0, &PrivateValue(fat_value[0]));
             JS_SetReservedSlot(boxed_jsobject.get(), 1, &PrivateValue(fat_value[1]));
-        }
-        #[cfg(not(feature = "smup"))]
-        unsafe {
-            JS_SetReservedSlot(boxed_jsobject.get(), 0, PrivateValue(fat_value[0]));
-            JS_SetReservedSlot(boxed_jsobject.get(), 1, PrivateValue(fat_value[1]));
         }
 
         // TODO: can we be sure that this won't trigger GC? Or do we need to root the boxed object?
@@ -140,16 +136,20 @@ impl<'a, C, T> JSManaged<'a, C, T> {
         }
     }
 
-    pub unsafe fn from_raw(js_object: *mut Heap<*mut JSObject>, raw: *mut ()) -> JSManaged<'a, C, T> {
+    pub unsafe fn from_raw(
+        js_object: *mut Heap<*mut JSObject>,
+        raw: *mut (),
+    ) -> JSManaged<'a, C, T> {
         JSManaged {
             js_object: js_object,
             raw: raw,
             marker: PhantomData,
-        }        
+        }
     }
 
     /// Read-only access to JS-managed data.
-    pub fn get<'b, S>(self, _: &'b JSContext<S>) -> T::Aged where
+    pub fn get<'b, S>(self, _: &'b JSContext<S>) -> T::Aged
+    where
         S: CanAccess,
         C: Compartment,
         T: JSLifetime<'b>,
@@ -160,7 +160,8 @@ impl<'a, C, T> JSManaged<'a, C, T> {
         result.unwrap()
     }
 
-    pub fn borrow<'b, S>(self, _: &'b JSContext<S>) -> &'b T::Aged where
+    pub fn borrow<'b, S>(self, _: &'b JSContext<S>) -> &'b T::Aged
+    where
         S: CanAccess,
         C: Compartment,
         T: JSLifetime<'b>,
@@ -171,7 +172,8 @@ impl<'a, C, T> JSManaged<'a, C, T> {
     }
 
     /// Read-write access to JS-managed data.
-    pub fn borrow_mut<'b, S>(self, _: &'b mut JSContext<S>) -> &'b mut T::Aged where
+    pub fn borrow_mut<'b, S>(self, _: &'b mut JSContext<S>) -> &'b mut T::Aged
+    where
         S: CanAccess,
         C: Compartment,
         T: JSLifetime<'b>,
@@ -182,7 +184,8 @@ impl<'a, C, T> JSManaged<'a, C, T> {
     }
 
     /// Change the compartment of JS-managed data.
-    pub unsafe fn change_compartment<D>(self) -> JSManaged<'a, D, T::ChangeCompartment> where
+    pub unsafe fn change_compartment<D>(self) -> JSManaged<'a, D, T::ChangeCompartment>
+    where
         T: JSCompartmental<C, D>,
     {
         JSManaged {
@@ -193,7 +196,8 @@ impl<'a, C, T> JSManaged<'a, C, T> {
     }
 
     /// Change the lifetime of JS-managed data.
-    pub unsafe fn change_lifetime<'b>(self) -> JSManaged<'b, C, T::Aged> where
+    pub unsafe fn change_lifetime<'b>(self) -> JSManaged<'b, C, T::Aged>
+    where
         T: JSLifetime<'b>,
     {
         JSManaged {
@@ -204,7 +208,8 @@ impl<'a, C, T> JSManaged<'a, C, T> {
     }
 
     /// It's safe to extend the lifetime of JS-managed data if it has been snapshotted.
-    pub fn extend_lifetime<'b, 'c, S>(self, _: &'c JSContext<S>) -> JSManaged<'b, C, T::Aged> where
+    pub fn extend_lifetime<'b, 'c, S>(self, _: &'c JSContext<S>) -> JSManaged<'b, C, T::Aged>
+    where
         S: IsSnapshot<'b>,
         T: JSLifetime<'b>,
     {
@@ -214,25 +219,33 @@ impl<'a, C, T> JSManaged<'a, C, T> {
     /// Forget about which compartment the managed data is in.
     /// This is safe because when we mutate data in compartment `C` we require
     /// `C: Compartment`, which means it is never `SOMEWHERE`.
-    pub fn forget_compartment(self) -> JSManaged<'a, SOMEWHERE, T::ChangeCompartment> where
+    pub fn forget_compartment(self) -> JSManaged<'a, SOMEWHERE, T::ChangeCompartment>
+    where
         T: JSCompartmental<C, SOMEWHERE>,
     {
         unsafe { self.change_compartment() }
     }
 
     /// Check to see if the current object is in the same compartment as another.
-    pub fn in_compartment<S, D>(self, cx: &JSContext<S>) -> Option<JSManaged<'a, D, T::ChangeCompartment>> where
+    pub fn in_compartment<S, D>(
+        self,
+        cx: &JSContext<S>,
+    ) -> Option<JSManaged<'a, D, T::ChangeCompartment>>
+    where
         T: JSCompartmental<C, D>,
         S: InCompartment<D>,
     {
         // The jsapi rust bindings don't expose cx.compartment()
         // so we compare globals rather than compartments.
-        let self_global = unsafe { GetGlobalForObjectCrossCompartment(self.to_jsobject()) };
-        let cx_global = unsafe { CurrentGlobalOrNull(cx.cx()) };
-        if self_global == cx_global {
-            Some(unsafe { self.change_compartment() })
-        } else {
-            None
+        //let self_global = unsafe { GetGlobalForObjectCrossCompartment(self.to_jsobject()) };
+        //let cx_global = unsafe { CurrentGlobalOrNull(cx.cx()) };
+        //if self_global == cx_global {
+        unsafe {
+            if mozjs::jsapi::IsObjectInContextCompartment(self.to_jsobject(), cx.cx()) {
+                Some(self.change_compartment())
+            } else {
+                None
+            }
         }
     }
 
@@ -261,15 +274,19 @@ pub trait JSManageable: JSTraceable {
     unsafe fn class_id(&self) -> TypeId;
 }
 
-impl<T> JSManageable for Option<T> where
-    T: JSTraceable + JSInitializable
+impl<T> JSManageable for Option<T>
+where
+    T: JSTraceable + JSInitializable,
 {
     unsafe fn class_id(&self) -> TypeId {
         TypeId::of::<T::Init>()
     }
 }
 
-pub unsafe fn jsmanaged_called_from_js<'a, T>(js_value: HandleValue) -> Result<JSManaged<'a, UNSAFE, T>, JSEvaluateErr> where
+pub unsafe fn jsmanaged_called_from_js<'a, T>(
+    js_value: HandleValue,
+) -> Result<JSManaged<'a, UNSAFE, T>, JSEvaluateErr>
+where
     T: JSInitializable,
 {
     if !js_value.is_object() {
@@ -289,7 +306,7 @@ pub unsafe fn jsmanaged_called_from_js<'a, T>(js_value: HandleValue) -> Result<J
     }
     // This unsafe if there are raw uses of jsapi that are doing
     // other things with the reserved slots.
-    let native: &mut JSManageable = mem::transmute([ slot0.to_private(), slot1.to_private() ]);
+    let native: &mut JSManageable = mem::transmute([slot0.to_private(), slot1.to_private()]);
 
     // TODO: inheritance
     if TypeId::of::<T::Init>() != native.class_id() {
