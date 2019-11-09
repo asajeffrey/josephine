@@ -29,7 +29,7 @@ env:
     - CARGO_FLAGS="--features debugmozjs --release"
 script:
   - cat Cargo.toml
-  - cargo build $CARGO_FLAGS -vv
+  - cargo build $CARGO_FLAGS -v
   - cargo test --doc $CARGO_FLAGS
   - cargo run $CARGO_FLAGS --example minidom
   - cargo run $CARGO_FLAGS --example dbllist
