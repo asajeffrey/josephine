@@ -1,6 +1,6 @@
 language: rust
 sudo: 9000
-dist: trusty
+dist: xenial
 rust:
   - nightly
 
@@ -14,35 +14,23 @@ before_install:
 addons:
   apt:
     sources:
-      # Provides newer gcc.
       - ubuntu-toolchain-r-test
     packages:
       - autoconf2.13
-      - gcc-5
-      - g++-5
-
+      - clang
 env:
   global:
-    - CC="gcc-5"
-    - CXX="g++-5" 
-    # Where to fetch the smup version of mozjs from
-    - SMUP_GIT="https://github.com/fitzgen/mozjs"
-    - SMUP_BRANCH="smup-smup-smup"
+    - CC="clang"
+    - CXX="clang++" 
   matrix:
     - CARGO_FLAGS=""
     - CARGO_FLAGS="--release"
     - CARGO_FLAGS="--features debugmozjs"
     - CARGO_FLAGS="--features debugmozjs --release"
-    - CARGO_FLAGS="--features smup" SMUP=true
-    - CARGO_FLAGS="--features smup --release" SMUP=true
-
 script:
-  # If we're doing a smup, patch in the smup repo
-  - if [ $SMUP ]; then echo -e "\n[patch.crates-io]\nmozjs = { git = \"$SMUP_GIT\", branch = \"$SMUP_BRANCH\" }" >> Cargo.toml; fi
   - cat Cargo.toml
   - cargo build $CARGO_FLAGS -vv
   - cargo test --doc $CARGO_FLAGS
-  # The minidom example currently doesn't work with the smup
-  - if [ ! $SMUP ]; then cargo run $CARGO_FLAGS --example minidom; fi
+  - cargo run $CARGO_FLAGS --example minidom
   - cargo run $CARGO_FLAGS --example dbllist
   - if [ -z "$CARGO_FLAGS" ]; then rustdoc -L target/debug/deps/ --test README.md; fi
