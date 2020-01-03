@@ -18,7 +18,7 @@ log = "0.3"
 mozjs = { git = "https://github.com/servo/rust-mozjs", rev="c2896b9c9f8681070890bc9582378472d0139b13"} # 67
 
 [dev-dependencies]
-env_logger = "0.4"
+env_logger = "0.7"
 
 [[example]]
 name = "minidom"
