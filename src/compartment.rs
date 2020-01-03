@@ -28,14 +28,16 @@ impl<'a> Compartment for BOUND<'a> {}
 /// Data which can be transplanted from compartment C into compartment D.
 pub unsafe trait JSCompartmental<C, D> {
     type ChangeCompartment;
-    fn is_in_compartment<S>(&self, _cx: &JSContext<S>) -> bool where
+    fn is_in_compartment<S>(&self, _cx: &JSContext<S>) -> bool
+    where
         S: InCompartment<D>;
 }
 
 unsafe impl<C, D> JSCompartmental<C, D> for String {
     type ChangeCompartment = String;
-    fn is_in_compartment<S>(&self, _cx: &JSContext<S>) -> bool where
-        S: InCompartment<D>
+    fn is_in_compartment<S>(&self, _cx: &JSContext<S>) -> bool
+    where
+        S: InCompartment<D>,
     {
         true
     }
@@ -43,8 +45,9 @@ unsafe impl<C, D> JSCompartmental<C, D> for String {
 
 unsafe impl<C, D> JSCompartmental<C, D> for usize {
     type ChangeCompartment = usize;
-    fn is_in_compartment<S>(&self, _cx: &JSContext<S>) -> bool where
-        S: InCompartment<D>
+    fn is_in_compartment<S>(&self, _cx: &JSContext<S>) -> bool
+    where
+        S: InCompartment<D>,
     {
         true
     }
@@ -52,55 +55,61 @@ unsafe impl<C, D> JSCompartmental<C, D> for usize {
 
 unsafe impl<C, D> JSCompartmental<C, D> for () {
     type ChangeCompartment = ();
-    fn is_in_compartment<S>(&self, _cx: &JSContext<S>) -> bool where
-        S: InCompartment<D>
+    fn is_in_compartment<S>(&self, _cx: &JSContext<S>) -> bool
+    where
+        S: InCompartment<D>,
     {
         true
     }
 }
 
-unsafe impl<C, D, T> JSCompartmental<C, D> for Option<T> where
-    T: JSCompartmental<C, D>
+unsafe impl<C, D, T> JSCompartmental<C, D> for Option<T>
+where
+    T: JSCompartmental<C, D>,
 {
     type ChangeCompartment = Option<T::ChangeCompartment>;
-    fn is_in_compartment<S>(&self, cx: &JSContext<S>) -> bool where
-        S: InCompartment<D>
+    fn is_in_compartment<S>(&self, cx: &JSContext<S>) -> bool
+    where
+        S: InCompartment<D>,
     {
         self.iter().all(|this| this.is_in_compartment(cx))
     }
 }
 
-unsafe impl<C, D, T> JSCompartmental<C, D> for Vec<T> where
-    T: JSCompartmental<C, D>
+unsafe impl<C, D, T> JSCompartmental<C, D> for Vec<T>
+where
+    T: JSCompartmental<C, D>,
 {
     type ChangeCompartment = Vec<T::ChangeCompartment>;
-    fn is_in_compartment<S>(&self, cx: &JSContext<S>) -> bool where
-        S: InCompartment<D>
+    fn is_in_compartment<S>(&self, cx: &JSContext<S>) -> bool
+    where
+        S: InCompartment<D>,
     {
         self.iter().all(|this| this.is_in_compartment(cx))
     }
 }
 
-unsafe impl<'a, C, D, T> JSCompartmental<C, D> for JSManaged<'a, C, T> where
-    T: JSCompartmental<C, D>
+unsafe impl<'a, C, D, T> JSCompartmental<C, D> for JSManaged<'a, C, T>
+where
+    T: JSCompartmental<C, D>,
 {
     type ChangeCompartment = JSManaged<'a, D, T::ChangeCompartment>;
-    fn is_in_compartment<S>(&self, cx: &JSContext<S>) -> bool where
-        S: InCompartment<D>
+    fn is_in_compartment<S>(&self, cx: &JSContext<S>) -> bool
+    where
+        S: InCompartment<D>,
     {
         self.in_compartment(cx).is_some()
     }
 }
 
-
 unsafe impl<'a, C, D> JSCompartmental<C, D> for JSString<'a, C> {
     type ChangeCompartment = JSString<'a, D>;
-    fn is_in_compartment<S>(&self, _cx: &JSContext<S>) -> bool where
-        S: InCompartment<D>
+    fn is_in_compartment<S>(&self, _cx: &JSContext<S>) -> bool
+    where
+        S: InCompartment<D>,
     {
         // Rather annoyingly the Rust jsapi bindings don't export
         // GetStringZone which we'd need in order to implement this properly
         false
     }
 }
-

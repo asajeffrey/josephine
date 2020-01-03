@@ -8,8 +8,8 @@ use josephine::Compartment;
 use josephine::InCompartment;
 use josephine::JSContext;
 use josephine::JSInitializable;
-use josephine::JSManaged;
 use josephine::JSLifetime;
+use josephine::JSManaged;
 use josephine::JSString;
 use josephine::SOMEWHERE;
 
@@ -27,7 +27,7 @@ use fake_codegen::WindowMethods;
 // TODO: the contents are pub so that codegen can get at it, this should be fixed!
 // https://github.com/asajeffrey/josephine/issues/27
 #[derive(Copy, Clone, Debug, Eq, PartialEq, JSTraceable, JSLifetime, JSCompartmental)]
-pub struct Window<'a, C> (pub JSManaged<'a, C, NativeWindow<'a, C>>);
+pub struct Window<'a, C>(pub JSManaged<'a, C, NativeWindow<'a, C>>);
 
 #[derive(JSTraceable, JSLifetime, JSCompartmental)]
 pub struct NativeWindow<'a, C> {
@@ -40,7 +40,8 @@ impl<'a, C> JSInitializable for NativeWindow<'a, C> {
 }
 
 impl<'a> Window<'a, SOMEWHERE> {
-    pub fn new<S>(cx: &'a mut JSContext<S>) -> Window<'a, SOMEWHERE> where
+    pub fn new<S>(cx: &'a mut JSContext<S>) -> Window<'a, SOMEWHERE>
+    where
         S: CanAccess + CanAlloc,
     {
         let mut cx = cx.create_compartment();
@@ -56,15 +57,20 @@ impl<'a> Window<'a, SOMEWHERE> {
     }
 }
 
-impl<'a, C> WindowMethods<'a, C> for Window<'a, C> where C: 'a {
-    fn Console<S>(self, cx: &'a JSContext<S>) -> Console<'a, C> where
+impl<'a, C> WindowMethods<'a, C> for Window<'a, C>
+where
+    C: 'a,
+{
+    fn Console<S>(self, cx: &'a JSContext<S>) -> Console<'a, C>
+    where
         S: CanAccess,
         C: Compartment,
     {
         self.0.borrow(cx).console
     }
 
-    fn Document<S>(self, cx: &'a JSContext<S>) -> Document<'a, C> where
+    fn Document<S>(self, cx: &'a JSContext<S>) -> Document<'a, C>
+    where
         S: CanAccess,
         C: Compartment,
     {
@@ -79,7 +85,7 @@ impl<'a, C> WindowMethods<'a, C> for Window<'a, C> where C: 'a {
 // -------------------------------------------------------------------
 
 #[derive(Copy, Clone, JSTraceable, JSLifetime, JSCompartmental)]
-pub struct Console<'a, C> (pub JSManaged<'a, C, NativeConsole>);
+pub struct Console<'a, C>(pub JSManaged<'a, C, NativeConsole>);
 
 #[derive(JSTraceable, JSLifetime, JSCompartmental)]
 pub struct NativeConsole(());
@@ -89,7 +95,8 @@ impl JSInitializable for NativeConsole {
 }
 
 impl<'a, C> Console<'a, C> {
-    fn new<S>(cx: &'a mut JSContext<S>) -> Console<'a, C> where
+    fn new<S>(cx: &'a mut JSContext<S>) -> Console<'a, C>
+    where
         S: CanAlloc + InCompartment<C>,
         C: Compartment,
     {
@@ -107,7 +114,7 @@ impl<'a, C> ConsoleMethods<'a, C> for Console<'a, C> {
 // -------------------------------------------------------------------
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq, JSTraceable, JSLifetime, JSCompartmental)]
-pub struct Document<'a, C> (pub JSManaged<'a, C, NativeDocument<'a, C>>);
+pub struct Document<'a, C>(pub JSManaged<'a, C, NativeDocument<'a, C>>);
 
 #[derive(JSTraceable, JSLifetime, JSCompartmental)]
 pub struct NativeDocument<'a, C> {
@@ -118,8 +125,9 @@ impl<'a, C> JSInitializable for NativeDocument<'a, C> {
     type Init = DocumentInitializer;
 }
 
-impl<'a, C:'a> Document<'a, C> {
-    pub fn new<S>(cx: &'a mut JSContext<S>) -> Document<'a, C> where
+impl<'a, C: 'a> Document<'a, C> {
+    pub fn new<S>(cx: &'a mut JSContext<S>) -> Document<'a, C>
+    where
         S: CanAlloc + InCompartment<C>,
         C: Compartment,
     {
@@ -127,14 +135,16 @@ impl<'a, C:'a> Document<'a, C> {
         let ref mut root2 = cx.new_root();
         let name = JSString::from_str(cx, "body").in_root(root1);
         let body = Element::new(cx, name).in_root(root2);
-        Document(cx.manage(NativeDocument {
-            body: body,
-        }))
+        Document(cx.manage(NativeDocument { body: body }))
     }
 }
 
-impl<'a, C> DocumentMethods<'a, C> for Document<'a, C> where C: 'a {
-    fn Body<S>(self, cx: &'a mut JSContext<S>) -> Element<'a, C> where
+impl<'a, C> DocumentMethods<'a, C> for Document<'a, C>
+where
+    C: 'a,
+{
+    fn Body<S>(self, cx: &'a mut JSContext<S>) -> Element<'a, C>
+    where
         S: CanAccess,
         C: Compartment,
     {
@@ -145,7 +155,7 @@ impl<'a, C> DocumentMethods<'a, C> for Document<'a, C> where C: 'a {
 // -------------------------------------------------------------------
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq, JSTraceable, JSLifetime, JSCompartmental)]
-pub struct Element<'a, C> (pub JSManaged<'a, C, NativeElement<'a, C>>);
+pub struct Element<'a, C>(pub JSManaged<'a, C, NativeElement<'a, C>>);
 
 #[derive(JSTraceable, JSLifetime, JSCompartmental)]
 pub struct NativeElement<'a, C> {
@@ -158,8 +168,9 @@ impl<'a, C> JSInitializable for NativeElement<'a, C> {
     type Init = ElementInitializer;
 }
 
-impl<'a, C:'a> Element<'a, C> {
-    pub fn new<S>(cx: &'a mut JSContext<S>, name: JSString<C>) -> Element<'a, C> where
+impl<'a, C: 'a> Element<'a, C> {
+    pub fn new<S>(cx: &'a mut JSContext<S>, name: JSString<C>) -> Element<'a, C>
+    where
         S: CanAlloc + InCompartment<C>,
         C: Compartment,
     {
@@ -170,18 +181,26 @@ impl<'a, C:'a> Element<'a, C> {
         }))
     }
 
-    fn shallow_clone<S, D:'a>(self, cx: &'a mut JSContext<S>) -> Element<'a, D> where
+    fn shallow_clone<S, D: 'a>(self, cx: &'a mut JSContext<S>) -> Element<'a, D>
+    where
         S: CanAccess + CanAlloc + InCompartment<D>,
         C: Compartment,
         D: Compartment,
     {
         let ref mut root1 = cx.new_root();
         let ref mut root2 = cx.new_root();
-        let name = self.0.borrow(cx).name.in_root(root1).clone_in(cx).in_root(root2);
+        let name = self
+            .0
+            .borrow(cx)
+            .name
+            .in_root(root1)
+            .clone_in(cx)
+            .in_root(root2);
         Element::new(cx, name)
     }
 
-    fn clone_children_from<S, D:'a>(self, cx: &mut JSContext<S>, element: Element<D>) where
+    fn clone_children_from<S, D: 'a>(self, cx: &mut JSContext<S>, element: Element<D>)
+    where
         S: CanAccess + CanAlloc + InCompartment<C>,
         C: Compartment,
         D: Compartment,
@@ -194,11 +213,12 @@ impl<'a, C:'a> Element<'a, C> {
                 Some(child) => child,
             };
             self.append_clone(cx, child);
-            i = i+1;
+            i = i + 1;
         }
     }
 
-    fn append_clone<S, D:'a>(self, cx: &mut JSContext<S>, child: Element<D>) where
+    fn append_clone<S, D: 'a>(self, cx: &mut JSContext<S>, child: Element<D>)
+    where
         S: CanAccess + CanAlloc + InCompartment<C>,
         C: Compartment,
         D: Compartment,
@@ -209,7 +229,8 @@ impl<'a, C:'a> Element<'a, C> {
         self.append_child(cx, clone);
     }
 
-    fn append_child<S>(self, cx: &'a mut JSContext<S>, child: Element<'a, C>) where
+    fn append_child<S>(self, cx: &'a mut JSContext<S>, child: Element<'a, C>)
+    where
         S: CanAccess + CanAlloc + InCompartment<C>,
         C: Compartment,
     {
@@ -217,15 +238,20 @@ impl<'a, C:'a> Element<'a, C> {
         child.0.borrow_mut(cx).parent = Some(self);
     }
 
-    fn in_compartment<S, D>(self, cx: &JSContext<S>) -> Option<Element<'a, D>> where
+    fn in_compartment<S, D>(self, cx: &JSContext<S>) -> Option<Element<'a, D>>
+    where
         S: InCompartment<D>,
     {
         self.0.in_compartment(cx).map(Element)
     }
 }
 
-impl<'a, C> ElementMethods<'a, C> for Element<'a, C> where C: 'a {
-    fn Append<S, D>(self, cx: &'a mut JSContext<S>, child: Element<'a, D>) where
+impl<'a, C> ElementMethods<'a, C> for Element<'a, C>
+where
+    C: 'a,
+{
+    fn Append<S, D>(self, cx: &'a mut JSContext<S>, child: Element<'a, D>)
+    where
         S: CanAccess + CanAlloc,
         C: Compartment,
         D: Compartment,
@@ -238,14 +264,16 @@ impl<'a, C> ElementMethods<'a, C> for Element<'a, C> where C: 'a {
         }
     }
 
-    fn Parent<S>(self, cx: &'a mut JSContext<S>) -> Option<Element<'a, C>> where
+    fn Parent<S>(self, cx: &'a mut JSContext<S>) -> Option<Element<'a, C>>
+    where
         S: CanAccess,
         C: Compartment,
     {
         self.0.borrow(cx).parent
     }
 
-    fn TagName<S>(self, cx: &'a mut JSContext<S>) -> JSString<'a, C> where
+    fn TagName<S>(self, cx: &'a mut JSContext<S>) -> JSString<'a, C>
+    where
         S: CanAccess,
         C: Compartment,
     {

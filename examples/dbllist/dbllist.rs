@@ -12,8 +12,8 @@ use josephine::Initialized;
 use josephine::IsInitialized;
 use josephine::IsInitializing;
 use josephine::JSContext;
-use josephine::JSManaged;
 use josephine::JSLifetime;
+use josephine::JSManaged;
 
 #[derive(Copy, Clone, JSTraceable, JSLifetime, JSCompartmental)]
 pub struct DoublyLinkedList<'a, C>(JSManaged<'a, C, NativeDoublyLinkedList<'a, C>>);
@@ -34,36 +34,44 @@ pub struct NativeCell<'a, C> {
     next: Option<Cell<'a, C>>,
 }
 
-impl<'a, C:'a> DoublyLinkedList<'a, C> {
-    pub fn init<S>(cx: JSContext<S>) -> JSContext<Initialized<'a, C, NativeDoublyLinkedList<'a, C>>> where
+impl<'a, C: 'a> DoublyLinkedList<'a, C> {
+    pub fn init<S>(cx: JSContext<S>) -> JSContext<Initialized<'a, C, NativeDoublyLinkedList<'a, C>>>
+    where
         S: IsInitializing<'a, C, NativeDoublyLinkedList<'a, C>>,
     {
-        cx.global_manage(NativeDoublyLinkedList { first: None, last: None })
+        cx.global_manage(NativeDoublyLinkedList {
+            first: None,
+            last: None,
+        })
     }
 
-    pub fn global<S>(cx: &JSContext<S>) -> DoublyLinkedList<'a, C> where
+    pub fn global<S>(cx: &JSContext<S>) -> DoublyLinkedList<'a, C>
+    where
         S: IsInitialized<'a, C, NativeDoublyLinkedList<'a, C>>,
     {
         DoublyLinkedList(cx.global())
     }
 }
 
-impl<'a, C:'a> DoublyLinkedList<'a, C> {
-    pub fn first<S>(self, cx: &'a JSContext<S>) -> Option<Cell<'a, C>> where
+impl<'a, C: 'a> DoublyLinkedList<'a, C> {
+    pub fn first<S>(self, cx: &'a JSContext<S>) -> Option<Cell<'a, C>>
+    where
         S: CanAccess,
         C: Compartment,
     {
         self.0.borrow(cx).first
     }
 
-    pub fn last<S>(self, cx: &'a JSContext<S>) -> Option<Cell<'a, C>> where
+    pub fn last<S>(self, cx: &'a JSContext<S>) -> Option<Cell<'a, C>>
+    where
         S: CanAccess,
         C: Compartment,
     {
         self.0.borrow(cx).last
     }
 
-    pub fn push<S>(self, cx: &mut JSContext<S>, data: String) where
+    pub fn push<S>(self, cx: &mut JSContext<S>, data: String)
+    where
         S: CanAccess + CanAlloc + InCompartment<C>,
         C: Compartment,
     {
@@ -80,8 +88,14 @@ impl<'a, C:'a> DoublyLinkedList<'a, C> {
     }
 }
 
-impl<'a, C:'a> Cell<'a, C> {
-    fn new<S>(cx: &'a mut JSContext<S>, data: String, prev: Option<Cell<'a, C>>, next: Option<Cell<'a, C>>) -> Cell<'a, C> where
+impl<'a, C: 'a> Cell<'a, C> {
+    fn new<S>(
+        cx: &'a mut JSContext<S>,
+        data: String,
+        prev: Option<Cell<'a, C>>,
+        next: Option<Cell<'a, C>>,
+    ) -> Cell<'a, C>
+    where
         S: CanAlloc + InCompartment<C>,
         C: Compartment,
     {
@@ -92,21 +106,24 @@ impl<'a, C:'a> Cell<'a, C> {
         }))
     }
 
-    pub fn data<S>(self, cx: &'a JSContext<S>) -> &'a str where
+    pub fn data<S>(self, cx: &'a JSContext<S>) -> &'a str
+    where
         S: CanAccess,
         C: Compartment,
     {
         &*self.0.borrow(cx).data
     }
 
-    pub fn prev<S>(self, cx: &'a JSContext<S>) -> Option<Cell<'a, C>> where
+    pub fn prev<S>(self, cx: &'a JSContext<S>) -> Option<Cell<'a, C>>
+    where
         S: CanAccess,
         C: Compartment,
     {
         self.0.borrow(cx).prev
     }
 
-    pub fn next<S>(self, cx: &'a JSContext<S>) -> Option<Cell<'a, C>> where
+    pub fn next<S>(self, cx: &'a JSContext<S>) -> Option<Cell<'a, C>>
+    where
         S: CanAccess,
         C: Compartment,
     {
